@@ -1,0 +1,12 @@
+# Ambientes virtuais
+venv/
+.env/
+env/
+__pycache__/
+
+# Arquivos sensiveis
+.env
+
+# Outros
+*.pyc
+.vscode/
