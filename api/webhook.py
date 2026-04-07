@@ -32,7 +32,14 @@ async def verify_webhook(request: Request):
 @router.post("/webhook")
 async def receive_message(request: Request, db: Session = Depends(get_db)):
     body = await request.json()
+    print("================== WEBHOOK RECEBIDO ==================")
+    import json
+    print(json.dumps(body, indent=2))
+    
     telefone, texto_cliente = extrair_informacoes_mensagem(body)
+    print(f"-> Telefone Extraído: {telefone}")
+    print(f"-> Texto Extraído: {texto_cliente}")
+    print("======================================================")
     
     # 1. Validação inicial e Bloqueio de mídia
     if not telefone or not texto_cliente:
@@ -50,29 +57,26 @@ async def receive_message(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
+    # Comando de Reset
+    if str(texto_cliente).strip().lower() == "!reiniciar":
+        user.bot_ativo = True
+        db.commit()
+        whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot manual reiniciado! Meu cérebro foi limpo pelo Administrador. Como posso ajudar?")
+        return {"status": "ok"}
+
     # 3. Trava Humana (Transbordo)
     if not user.bot_ativo:
-        # Comando secreto para destrancar o bot nos testes
-        if str(texto_cliente).strip().lower() == "!reiniciar":
-            user.bot_ativo = True
-            db.commit()
-            whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot manual destravado! Meu cérebro foi religado pelo Administrador. Como posso ajudar?")
-            return {"status": "ok"}
-        
         # Se a IA desligou, significa que o atendente já puxou a conversa
+        print(f"🔒 [MSG IGNORADA] Usuário {telefone} está com Trava Humana ativa.")
         return {"status": "ok", "detail": "Bot está inativo para este usuário. Interação manual assumida."}
 
-    # 4. Interação direta por Botões (Bypass da IA)
-    if texto_cliente == "btn_agendar":
-        whatsapp.enviar_mensagem_texto(telefone, "Perfeito! Para agendar o seu horário online agora mesmo, acesse o nosso aplicativo: [LINK_DO_APPBARBER]")
-        return {"status": "ok"}
-        
-    if texto_cliente == "btn_humano":
+    # Se houver gatilho de transbordo explícito na string do botão (opcional hook rapido):
+    if texto_cliente == "Falar com Humano" or texto_cliente == "Falar c/ Recepção":
         user.bot_ativo = False
         db.commit()
-        whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Aguarde só um diazinho que já chegam até você!")
+        whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um humano vai assumir!")
         return {"status": "ok"}
-
+    
     # 5. Processamento de NLP (Inteligência Artificial)
     # Puxar o histórico
     historico = db.query(HistoricoConversa).filter(
@@ -104,7 +108,7 @@ async def receive_message(request: Request, db: Session = Depends(get_db)):
     db.commit()
 
     # 7. Roteamento de Resposta Baseado no JSON da API
-    if intencao == "falar_com_humano" or intencao == "transbordo_falha":
+    if intencao == "chamar_recepcao" or intencao == "transbordo_falha":
         user.bot_ativo = False
         db.commit()
         whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
@@ -115,11 +119,24 @@ async def receive_message(request: Request, db: Session = Depends(get_db)):
         whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
         return {"status": "ok"}
         
-    # Default: "tirar_duvida", "saudacao", encampar com botões de Call To Action
-    botoes_apelo_acao = [
-        {"type": "reply", "reply": {"id": "btn_agendar", "title": "Agendar Horário"}},
-        {"type": "reply", "reply": {"id": "btn_humano", "title": "Falar c/ Recepção"}}
-    ]
-    whatsapp.enviar_mensagem_botoes(telefone, f"{resposta_texto}\n\nComo deseja prosseguir?", botoes_apelo_acao)
+    # Converte os botoes gerados pela IA no formato do Whatsapp
+    botoes_apelo_acao = []
+    lista_botoes = resultado_ia.get("botoes", [])
+    
+    if lista_botoes and isinstance(lista_botoes, list):
+        for btn_titulo in lista_botoes[:3]: # Meta Cloud API aceita MÁXIMO de 3 botões
+            titulo_limpo = str(btn_titulo)[:20] # Tamanho máximo 20 chars
+            botoes_apelo_acao.append({
+                "type": "reply",
+                "reply": {
+                    "id": titulo_limpo, # Passamos o próprio título pro ID! Assim quando o user clica, o bot lê o texto como natural
+                    "title": titulo_limpo
+                }
+            })
+    
+    if botoes_apelo_acao:
+        whatsapp.enviar_mensagem_botoes(telefone, resposta_texto, botoes_apelo_acao)
+    else:
+        whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
     
     return {"status": "ok"}
