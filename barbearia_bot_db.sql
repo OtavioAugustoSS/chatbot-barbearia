@@ -79,7 +79,7 @@ insert into barbeiros (nome, dias_trabalho) values
 insert into barbeiros_servicos (barbeiro_id, servico_id) values
 -- Serviços Fred
 (1, 1),(1, 2), (1, 4), (1, 5), (1, 6), (1, 8),
--- Serviços Isabella(serviços dela unicos dela)
+-- Serviços Isabella
 (2, 3), (2, 9), (2, 10), (2, 11), (2, 12), (2, 13), (2, 15), (2, 17), (2, 18), (2, 23),
 -- Serviços Fernando
 (3, 1),(3, 2), (3, 4), (3, 5), (3, 6), (3, 19), (3, 24),
