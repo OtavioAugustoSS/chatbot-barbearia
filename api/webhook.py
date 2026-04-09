@@ -1,9 +1,10 @@
 import os
-from fastapi import APIRouter, Request, Depends, HTTPException
+import json
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
-from db.database import get_db
+from db.database import get_db, SessionLocal
 from db.models import Usuario, HistoricoConversa
 from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
 from services.ai_service import AIService
@@ -12,7 +13,6 @@ router = APIRouter()
 whatsapp = WhatsAppSender()
 ai_service = AIService()
 
-# Puxe do .env ou mantenha um genérico por padrão de validação do Facebook
 VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "barbearia_bot_123")
 
 @router.get("/webhook")
@@ -24,32 +24,76 @@ async def verify_webhook(request: Request):
 
     if mode and token:
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            # O FB requere que você retorne exatamente a string em texto-plano, não em JSON
             return PlainTextResponse(challenge)
             
     raise HTTPException(status_code=403, detail="Token inválido")
 
+def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
+    """ Essa função roda solta no fundo, dando todo tempo do mundo para a IA pensar sem travar o Facebook """
+    db = SessionLocal()
+    try:
+        # Puxamos o usuario no DB dessa sessão avulsa
+        user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+        if not user:
+            return
+
+        # Puxar o histórico
+        historico = db.query(HistoricoConversa).filter(
+            HistoricoConversa.telefone_usuario == telefone
+        ).order_by(HistoricoConversa.criado_em.desc()).limit(5).all()
+        
+        historico.reverse()
+        
+        contexto_mensagens = []
+        for h in historico:
+            if h.mensagem_cliente:
+                contexto_mensagens.append({"role": "user", "content": h.mensagem_cliente})
+            if h.resposta_bot:
+                contexto_mensagens.append({"role": "model", "content": h.resposta_bot})
+
+        # Processar IA Pesada
+        resultado_ia = ai_service.processar_intencao(db, contexto_mensagens, texto_cliente)
+        intencao = resultado_ia.get("intencao")
+        
+        resposta_bruta = resultado_ia.get("resposta_sugerida", "Tivemos um problema processando sua solicitação.")
+        resposta_texto = resposta_bruta.replace("<br>", "\n")
+
+        # Salvar interações no Banco
+        novo_historico = HistoricoConversa(
+            telefone_usuario=telefone,
+            mensagem_cliente=texto_cliente,
+            resposta_bot=resposta_texto
+        )
+        db.add(novo_historico)
+        db.commit()
+
+        # 8. Roteamento baseado na Intenção
+        if intencao == "chamar_recepcao" or intencao == "transbordo_falha":
+            user.bot_ativo = False
+            db.commit()
+            whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
+            return
+
+        # Caminho 1: 100% Conversacional. Enviamos direto o texto limpo da IA.
+        whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
+
+    finally:
+        db.close()
+
+
 @router.post("/webhook")
-async def receive_message(request: Request, db: Session = Depends(get_db)):
+async def receive_message(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     body = await request.json()
-    print("================== WEBHOOK RECEBIDO ==================")
-    import json
-    print(json.dumps(body, indent=2))
-    
     telefone, texto_cliente = extrair_informacoes_mensagem(body)
-    print(f"-> Telefone Extraído: {telefone}")
-    print(f"-> Texto Extraído: {texto_cliente}")
-    print("======================================================")
     
-    # 1. Validação inicial e Bloqueio de mídia
     if not telefone or not texto_cliente:
-        return {"status": "ok"} # Reconhecer mensagens mudas e evitar loops
+        return {"status": "ok"} 
 
     if str(texto_cliente).startswith("MÍDIA_"):
         whatsapp.enviar_mensagem_texto(telefone, "🤖 Desculpe, mas eu ainda sou um bot aprendendo e não consigo ouvir áudios nem ler fotos. Em que posso te ajudar escrevendo?")
         return {"status": "ok"}
 
-    # 2. Busca ou Criação de Usuário
+    # Busca ou Criação de Usuário
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
         user = Usuario(telefone=telefone, bot_ativo=True)
@@ -57,86 +101,30 @@ async def receive_message(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-    # Comando de Reset
+    # 1. Comandos Diretos de Bypass (Resolvemos na hora)
     if str(texto_cliente).strip().lower() == "!reiniciar":
         user.bot_ativo = True
+        # Limpar o histórico da IA para o bot esquecer conversas velhas e formatos velhos
+        db.query(HistoricoConversa).filter(HistoricoConversa.telefone_usuario == telefone).delete()
         db.commit()
-        whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot manual reiniciado! Meu cérebro foi limpo pelo Administrador. Como posso ajudar?")
+        whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot manual reiniciado! A memória do meu cérebro foi totalmente limpa. Como posso ajudar?")
         return {"status": "ok"}
 
-    # 3. Trava Humana (Transbordo)
+    # Trava Humana (Transbordo)
     if not user.bot_ativo:
-        # Se a IA desligou, significa que o atendente já puxou a conversa
         print(f"🔒 [MSG IGNORADA] Usuário {telefone} está com Trava Humana ativa.")
-        return {"status": "ok", "detail": "Bot está inativo para este usuário. Interação manual assumida."}
+        return {"status": "ok"}
 
-    # Se houver gatilho de transbordo explícito na string do botão (opcional hook rapido):
-    if texto_cliente == "Falar com Humano" or texto_cliente == "Falar c/ Recepção":
+    # Transbordo pelo Botão
+    if texto_cliente == "🙋 Falar c/ Recepção":
         user.bot_ativo = False
         db.commit()
-        whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um humano vai assumir!")
+        whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um atendente vai assumir!")
         return {"status": "ok"}
     
-    # 5. Processamento de NLP (Inteligência Artificial)
-    # Puxar o histórico
-    historico = db.query(HistoricoConversa).filter(
-        HistoricoConversa.telefone_usuario == telefone
-    ).order_by(HistoricoConversa.criado_em.desc()).limit(5).all()
-    
-    # Inverte do mais antigo pro mais novo para enviar pro ChatGPT/Gemini
-    historico.reverse()
-    
-    contexto_mensagens = []
-    for h in historico:
-        if h.mensagem_cliente:
-            contexto_mensagens.append({"role": "user", "content": h.mensagem_cliente})
-        if h.resposta_bot:
-            contexto_mensagens.append({"role": "model", "content": h.resposta_bot})
-
-    # Analisar com Gemini
-    resultado_ia = ai_service.processar_intencao(db, contexto_mensagens, texto_cliente)
-    intencao = resultado_ia.get("intencao")
-    resposta_texto = resultado_ia.get("resposta_sugerida", "Erro ao gerar resposta.")
-
-    # 6. Salvar interações no Banco
-    novo_historico = HistoricoConversa(
-        telefone_usuario=telefone,
-        mensagem_cliente=texto_cliente,
-        resposta_bot=resposta_texto
-    )
-    db.add(novo_historico)
-    db.commit()
-
-    # 7. Roteamento de Resposta Baseado no JSON da API
-    if intencao == "chamar_recepcao" or intencao == "transbordo_falha":
-        user.bot_ativo = False
-        db.commit()
-        whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
-        return {"status": "ok"}
-
-    if intencao == "agendar_horario":
-        # A própria IA já gerou a resposta de agendamento usando o System Prompt!
-        whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
-        return {"status": "ok"}
-        
-    # Converte os botoes gerados pela IA no formato do Whatsapp
-    botoes_apelo_acao = []
-    lista_botoes = resultado_ia.get("botoes", [])
-    
-    if lista_botoes and isinstance(lista_botoes, list):
-        for btn_titulo in lista_botoes[:3]: # Meta Cloud API aceita MÁXIMO de 3 botões
-            titulo_limpo = str(btn_titulo)[:20] # Tamanho máximo 20 chars
-            botoes_apelo_acao.append({
-                "type": "reply",
-                "reply": {
-                    "id": titulo_limpo, # Passamos o próprio título pro ID! Assim quando o user clica, o bot lê o texto como natural
-                    "title": titulo_limpo
-                }
-            })
-    
-    if botoes_apelo_acao:
-        whatsapp.enviar_mensagem_botoes(telefone, resposta_texto, botoes_apelo_acao)
-    else:
-        whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
+    # IMPORTANTE: Enviamos a IA para rodar "em segundo plano" 
+    # e devolvemos OK imediato para o Facebook parar de duplicar
+    print(f"-> Enviando para IA em 2º plano. Mensagem: {telefone} diz '{texto_cliente}'")
+    background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
     
     return {"status": "ok"}
