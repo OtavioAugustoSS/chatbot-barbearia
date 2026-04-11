@@ -77,6 +77,17 @@ class AIService:
             
             # 6. Parse e Retorno
             response_text = completion.choices[0].message.content
+            
+            # Filtro de Blindagem: Limpa lixos de formatação Markdown que a IA possa vazar
+            response_text = response_text.strip()
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            elif response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
             dados = json.loads(response_text)
             
             return {
