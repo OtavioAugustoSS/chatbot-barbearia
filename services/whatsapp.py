@@ -60,23 +60,29 @@ def extrair_informacoes_mensagem(body: dict):
         messages = value.get('messages', [])
         
         if not messages:
-            return None, None
+            return None, None, None
             
         message = messages[0]
         numero_cliente = message.get('from')
         tipo = message.get('type')
         
+        # Extração de Nome do Perfil
+        nome_cliente = ""
+        contacts = value.get('contacts', [])
+        if contacts:
+            nome_cliente = contacts[0].get('profile', {}).get('name', '')
+
         if tipo == 'text':
             texto = message.get('text', {}).get('body')
-            return numero_cliente, texto
+            return numero_cliente, texto, nome_cliente
         elif tipo == 'interactive':
             interativo = message.get('interactive', {})
             tipo_interativo = interativo.get('type')
             if tipo_interativo == 'button_reply':
                 payload = interativo.get('button_reply', {}).get('id')
-                return numero_cliente, payload
+                return numero_cliente, payload, nome_cliente
         else:
-            return numero_cliente, f"MÍDIA_{tipo}"
+            return numero_cliente, f"MÍDIA_{tipo}", nome_cliente
 
     except Exception:
-        return None, None
+        return None, None, None

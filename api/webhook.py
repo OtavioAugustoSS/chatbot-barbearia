@@ -52,7 +52,8 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
                 contexto_mensagens.append({"role": "model", "content": h.resposta_bot})
 
         # Processar IA Pesada
-        resultado_ia = ai_service.processar_intencao(db, contexto_mensagens, texto_cliente)
+        mensagem_com_nome = f"[Aviso do Sistema: O nome do WhatsApp do cliente é '{user.nome_cliente}'. Use para ser educado se precisar.] A mensagem é: {texto_cliente}" if user.nome_cliente else texto_cliente
+        resultado_ia = ai_service.processar_intencao(db, contexto_mensagens, mensagem_com_nome)
         intencao = resultado_ia.get("intencao")
         
         resposta_bruta = resultado_ia.get("resposta_sugerida", "Tivemos um problema processando sua solicitação.")
@@ -84,7 +85,7 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
 @router.post("/webhook")
 async def receive_message(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     body = await request.json()
-    telefone, texto_cliente = extrair_informacoes_mensagem(body)
+    telefone, texto_cliente, nome_cliente = extrair_informacoes_mensagem(body)
     
     if not telefone or not texto_cliente:
         return {"status": "ok"} 
@@ -93,13 +94,16 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         whatsapp.enviar_mensagem_texto(telefone, "🤖 Desculpe, mas eu ainda sou um bot aprendendo e não consigo ouvir áudios nem ler fotos. Em que posso te ajudar escrevendo?")
         return {"status": "ok"}
 
-    # Busca ou Criação de Usuário
+    # Busca ou Criação de Usuário e Salva o Nome se fornecido
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
-        user = Usuario(telefone=telefone, bot_ativo=True)
+        user = Usuario(telefone=telefone, nome_cliente=nome_cliente, bot_ativo=True)
         db.add(user)
         db.commit()
         db.refresh(user)
+    elif nome_cliente and user.nome_cliente != nome_cliente:
+        user.nome_cliente = nome_cliente
+        db.commit()
 
     # 1. Comandos Diretos de Bypass (Resolvemos na hora)
     if str(texto_cliente).strip().lower() == "!reiniciar":
