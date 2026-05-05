@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Float, ForeignKey, Text, Table
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, ForeignKey, Text, Table
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from db.database import Base
 
 # Tabela associativa entre barbeiros e serviços (Muitos-para-Muitos)
@@ -15,9 +15,8 @@ class Usuario(Base):
 
     telefone = Column(String(20), primary_key=True, index=True)
     nome_cliente = Column(String(100), nullable=True)
-    estado_atual = Column(String(50), default="BOAS_VINDAS")
     bot_ativo = Column(Boolean, default=True)
-    data_ultima_interacao = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relacionamento UM-PARA-MUITOS (Usuário tem vários Históricos)
     historico = relationship("HistoricoConversa", back_populates="usuario", cascade="all, delete-orphan")
@@ -30,7 +29,7 @@ class HistoricoConversa(Base):
     telefone_usuario = Column(String(20), ForeignKey('usuarios.telefone', ondelete='CASCADE'))
     mensagem_cliente = Column(Text, nullable=True)
     resposta_bot = Column(Text, nullable=True)
-    criado_em = Column(DateTime, default=datetime.utcnow)
+    criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relacionamento Múltiplos-para-Um (Vários históricos pertencem a um Usuário)
     usuario = relationship("Usuario", back_populates="historico")
@@ -42,8 +41,9 @@ class Servico(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome_servico = Column(String(100), nullable=False)
     descricao = Column(Text, nullable=True)
-    preco = Column(Float, nullable=False)
+    preco = Column(Numeric(10, 2), nullable=False)
     tempo_estimado_minutos = Column(Integer, nullable=False)
+    categoria = Column(String(20), nullable=False, default="barbearia")
 
     # Relacionamento MUITOS-PARA-MUITOS bidirecional
     barbeiros = relationship(

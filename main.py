@@ -8,7 +8,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Barbearia Bot API",
-    description="Motor de conversação de Whatsapp usando Gemini AI e FastAPI"
+    description="Motor de conversação de Whatsapp usando NVIDIA NIM (Llama 3.1 70B) e FastAPI"
 )
 
 # Inclui as rotas do webhook no caminho raiz

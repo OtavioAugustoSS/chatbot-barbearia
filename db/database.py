@@ -16,7 +16,7 @@ DB_NAME = os.getenv("DB_NAME", "barbearia_bot_db")
 SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 
 # Criação da Engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
 
 # Sessão do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

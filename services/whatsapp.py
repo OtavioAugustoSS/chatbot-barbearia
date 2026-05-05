@@ -27,45 +27,27 @@ class WhatsAppSender:
         print(response.text)
         return response.json()
 
-    def enviar_mensagem_botoes(self, numero: str, texto: str, botoes: list):
-        """
-        Envia uma mensagem interativa com botões de resposta rápida.
-        O layout esperado para os botoes é:
-        [{"type": "reply", "reply": {"id": "ID_DO_BOTAO", "title": "Texto Visível"}}]
-        """
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": numero,
-            "type": "interactive",
-            "interactive": {
-                "type": "button",
-                "body": {"text": texto},
-                "action": {
-                    "buttons": botoes
-                }
-            }
-        }
-        response = requests.post(self.url, headers=self.headers, json=payload)
-        return response.json()
 
 def extrair_informacoes_mensagem(body: dict):
     """
-    Função auxiliar padrão Meta Cloud API para extrair dados 
+    Função auxiliar padrão Meta Cloud API para extrair dados
     brutos recebidos pelo webhook do Whatsapp.
+    Retorna: (telefone, texto, nome, message_id)
     """
     try:
         entry = body.get('entry', [])[0]
         changes = entry.get('changes', [])[0]
         value = changes.get('value', {})
         messages = value.get('messages', [])
-        
+
         if not messages:
-            return None, None, None
-            
+            return None, None, None, None
+
         message = messages[0]
         numero_cliente = message.get('from')
         tipo = message.get('type')
-        
+        message_id = message.get('id')
+
         # Extração de Nome do Perfil
         nome_cliente = ""
         contacts = value.get('contacts', [])
@@ -74,15 +56,15 @@ def extrair_informacoes_mensagem(body: dict):
 
         if tipo == 'text':
             texto = message.get('text', {}).get('body')
-            return numero_cliente, texto, nome_cliente
+            return numero_cliente, texto, nome_cliente, message_id
         elif tipo == 'interactive':
             interativo = message.get('interactive', {})
             tipo_interativo = interativo.get('type')
             if tipo_interativo == 'button_reply':
                 payload = interativo.get('button_reply', {}).get('id')
-                return numero_cliente, payload, nome_cliente
+                return numero_cliente, payload, nome_cliente, message_id
         else:
-            return numero_cliente, f"MÍDIA_{tipo}", nome_cliente
+            return numero_cliente, f"MÍDIA_{tipo}", nome_cliente, message_id
 
     except Exception:
-        return None, None, None
+        return None, None, None, None
