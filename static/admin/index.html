@@ -8,59 +8,118 @@
 <style>
   .scrollbar::-webkit-scrollbar { width: 6px; }
   .scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+  .scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeInUp 0.22s ease-out; }
+
+  @keyframes pulseRing {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+    70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  }
+  .pulse-red { animation: pulseRing 1.6s ease-out infinite; }
+
+  @keyframes slideIn {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+
+  textarea#texto-msg {
+    field-sizing: content;
+    max-height: 120px;
+    overflow-y: auto;
+  }
 </style>
 </head>
-<body class="bg-gray-100 h-screen overflow-hidden">
+<body class="bg-gray-50 h-screen overflow-hidden text-gray-800">
   <div class="flex h-screen">
 
     <!-- Sidebar conversas -->
-    <aside class="w-80 bg-white border-r flex flex-col">
-      <header class="p-4 border-b flex items-center justify-between">
+    <aside class="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <header class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
         <div>
-          <h1 class="text-lg font-bold text-gray-800">Atendimentos</h1>
+          <h1 class="text-lg font-bold text-gray-900">Atendimentos</h1>
           <p id="nome-atendente" class="text-xs text-gray-500"></p>
         </div>
-        <button id="btn-sair" class="text-xs text-gray-500 hover:text-red-600">Sair</button>
+        <button id="btn-sair" title="Sair"
+                class="text-gray-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+        </button>
       </header>
-      <div class="p-2 border-b">
-        <input id="filtro" type="text" placeholder="Filtrar por nome ou telefone…"
-               class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+      <div class="px-3 py-2 border-b border-gray-200">
+        <div class="relative">
+          <svg class="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"/>
+          </svg>
+          <input id="filtro" type="text" placeholder="Buscar por nome ou telefone…"
+                 class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none transition">
+        </div>
       </div>
       <ul id="lista-conversas" class="flex-1 overflow-y-auto scrollbar"></ul>
+      <footer class="px-3 py-2 border-t border-gray-200 flex items-center justify-between text-[11px] text-gray-500">
+        <span id="status-conexao" class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-green-500"></span> conectado
+        </span>
+        <button id="btn-mute" title="Silenciar notificações" class="hover:text-gray-700 transition p-1 rounded">
+          <svg xmlns="http://www.w3.org/2000/svg" id="icone-som" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 8.25v7.5L12 18 9 15.75H6V8.25h3L12 6l3 2.25zM18 9.75a3.75 3.75 0 010 4.5M20.25 7.5a6.75 6.75 0 010 9"/>
+          </svg>
+        </button>
+      </footer>
     </aside>
 
     <!-- Thread -->
-    <main class="flex-1 flex flex-col bg-gray-50">
-      <header id="thread-header" class="bg-white border-b p-4 hidden">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 id="thread-nome" class="font-bold text-gray-800"></h2>
-            <p id="thread-telefone" class="text-xs text-gray-500"></p>
+    <main class="flex-1 flex flex-col bg-gray-100">
+      <header id="thread-header" class="bg-white border-b border-gray-200 px-4 py-3 hidden">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div id="thread-avatar" class="flex-shrink-0"></div>
+            <div class="min-w-0">
+              <h2 id="thread-nome" class="font-bold text-gray-900 truncate"></h2>
+              <p id="thread-telefone" class="text-xs text-gray-500"></p>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <button id="btn-assumir" class="hidden bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg">Assumir</button>
-            <button id="btn-devolver" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-medium px-3 py-1.5 rounded-lg">Devolver à IA</button>
+          <div class="flex gap-2 flex-shrink-0">
+            <button id="btn-assumir" class="hidden bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-medium px-3.5 py-1.5 rounded-lg shadow-sm transition">Assumir</button>
+            <button id="btn-devolver" class="hidden bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 text-sm font-medium px-3.5 py-1.5 rounded-lg border border-gray-200 transition">Devolver à IA</button>
           </div>
         </div>
-        <p id="thread-status" class="text-xs mt-1"></p>
+        <p id="thread-status" class="text-xs mt-1.5"></p>
       </header>
 
       <div id="thread-mensagens" class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar">
-        <p class="text-center text-gray-400 mt-20">Selecione uma conversa à esquerda.</p>
+        <!-- Empty state -->
+        <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center select-none">
+          <svg class="w-32 h-32 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.3">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
+          </svg>
+          <p class="text-base text-gray-500 font-medium">Selecione uma conversa</p>
+          <p class="text-xs text-gray-400 mt-1.5">Escolha alguém da lista pra ver o histórico e atender</p>
+        </div>
       </div>
 
-      <footer id="thread-footer" class="bg-white border-t p-3 hidden">
-        <form id="form-enviar" class="flex gap-2">
-          <input id="texto-msg" type="text" required placeholder="Digite uma mensagem…"
-                 class="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
-          <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-semibold px-5 rounded-lg">Enviar</button>
+      <footer id="thread-footer" class="bg-white border-t border-gray-200 px-3 py-3 hidden">
+        <form id="form-enviar" class="flex items-end gap-2">
+          <textarea id="texto-msg" rows="1" required placeholder="Digite uma mensagem… (Enter envia, Shift+Enter quebra linha)"
+                    class="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none resize-none text-sm transition"></textarea>
+          <button id="btn-enviar" type="submit"
+                  class="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg shadow-sm transition flex-shrink-0 self-stretch">
+            Enviar
+          </button>
         </form>
       </footer>
     </main>
   </div>
 
-  <!-- Toast -->
-  <div id="toast" class="hidden fixed bottom-4 right-4 bg-amber-600 text-white px-4 py-2 rounded-lg shadow-lg"></div>
+  <!-- Toast container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <script src="/static/admin/app.js"></script>
 </body>

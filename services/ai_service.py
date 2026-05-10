@@ -3,13 +3,14 @@ import re
 import json
 import time
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 load_dotenv()
 
 from openai import OpenAI
 from sqlalchemy.orm import joinedload
 from core.prompts import SYSTEM_PROMPT_BARBEARIA, ANCORA_ANTI_DRIFT
+from core.config import MODO_HIBRIDO
 from db.models import Servico, Barbeiro
 
 log = logging.getLogger("barbearia.ai")
@@ -26,6 +27,75 @@ _REGEX_AGENDAMENTO_PROIBIDO = re.compile(
 _FRASE_REDIRECT_APPBARBER = (
     "Para agendamentos, acesse nosso aplicativo oficial: https://sites.appbarber.com.br/bolshoi"
 )
+
+# Brasil é UTC-3 fixo (sem horário de verão desde 2019). Offset hardcoded
+# evita dependência de tzdata em Windows e elimina ambiguidade.
+_TZ_BR = timezone(timedelta(hours=-3), name="America/Sao_Paulo")
+_DIAS_PT = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
+_MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+
+# Horários por dia da semana. weekday(): 0=segunda ... 6=domingo.
+# (abre, fecha) em minutos desde 00:00. None = fechado.
+_HORARIOS = {
+    0: (14 * 60, 21 * 60),       # segunda
+    1: (9 * 60, 21 * 60),        # terça
+    2: (9 * 60, 21 * 60),        # quarta
+    3: (9 * 60, 21 * 60),        # quinta
+    4: (9 * 60, 21 * 60),        # sexta
+    5: (9 * 60, 18 * 60),        # sábado
+    6: None,                     # domingo
+}
+
+
+def _formatar_horario_dia(weekday: int) -> str:
+    """Texto curto do horário de um dia da semana."""
+    h = _HORARIOS[weekday]
+    if h is None:
+        return "FECHADA"
+    abre, fecha = h
+    return f"das {abre//60:02d}:{abre%60:02d} às {fecha//60:02d}:{fecha%60:02d}"
+
+
+def _construir_contexto_temporal() -> str:
+    """
+    Mensagem do sistema com data/hora atual (Brasília) e status de funcionamento.
+    Inclui horário de hoje, amanhã e depois-amanhã pra IA resolver "amanhã" / etc.
+    Reduz alucinação de dia da semana e disponibilidade.
+    """
+    from datetime import timedelta as _td
+    agora = datetime.now(_TZ_BR)
+    amanha = agora + _td(days=1)
+    depois = agora + _td(days=2)
+
+    dia_semana = _DIAS_PT[agora.weekday()]
+    data_str = f"{agora.day} de {_MESES_PT[agora.month - 1]} de {agora.year}"
+    hora_str = agora.strftime("%H:%M")
+    minutos_agora = agora.hour * 60 + agora.minute
+
+    horario_dia = _HORARIOS[agora.weekday()]
+    if horario_dia is None:
+        status = "FECHADA hoje (domingo)."
+    else:
+        abre, fecha = horario_dia
+        if minutos_agora < abre:
+            status = f"FECHADA agora. Abre hoje às {abre//60:02d}:{abre%60:02d} e fecha às {fecha//60:02d}:{fecha%60:02d}."
+        elif minutos_agora >= fecha:
+            status = f"FECHADA agora (já passou das {fecha//60:02d}:{fecha%60:02d} de hoje)."
+        else:
+            status = f"ABERTA agora. Fecha hoje às {fecha//60:02d}:{fecha%60:02d}."
+
+    return (
+        "CONTEXTO TEMPORAL — use SEMPRE estes valores ao mencionar dia, hora ou status de funcionamento. "
+        "PROIBIDO inventar ou chutar dia da semana.\n"
+        f"- Hoje é {dia_semana}, {data_str}.\n"
+        f"- Hora atual em Brasília: {hora_str}.\n"
+        f"- Status da barbearia neste momento: {status}\n"
+        f"- Amanhã ({_DIAS_PT[amanha.weekday()]}): {_formatar_horario_dia(amanha.weekday())}.\n"
+        f"- Depois de amanhã ({_DIAS_PT[depois.weekday()]}): {_formatar_horario_dia(depois.weekday())}.\n"
+        "- Use 'amanhã' / 'depois de amanhã' SEMPRE com o dia correto da semana acima.\n"
+        "- Se o cliente perguntar 'até que horas abre hoje?' / 'estão abertos?' / 'que dia é hoje?', "
+        "responda usando EXATAMENTE essas informações."
+    )
 
 
 class AIService:
@@ -54,7 +124,14 @@ class AIService:
         )
 
         def _linha_servico(s):
-            return f"✂️ {s.nome_servico}: {s.descricao} | R$ {s.preco:.2f} | {s.tempo_estimado_minutos}min"
+            # Formato pensado pra desencorajar copy-paste literal pelo LLM.
+            # PRIMÁRIO (sempre mostrar em listas): nome + preço.
+            # REFERÊNCIA (só usar se cliente perguntar diretamente sobre o serviço):
+            # descrição e duração ficam após " | ref:" e o prompt orienta a NÃO copiar isso em listas.
+            return (
+                f"✂️ {s.nome_servico} — R$ {s.preco:.2f}"
+                f"  | ref: dura {s.tempo_estimado_minutos}min; desc: {s.descricao}"
+            )
 
         barbearia = [s for s in servicos if s.categoria == "barbearia"]
         estetica = [s for s in servicos if s.categoria == "estetica"]
@@ -108,6 +185,29 @@ class AIService:
 
             messages_payload = [{"role": "system", "content": system_instruction}]
 
+            # Contexto temporal: data/hora real em Brasília + status aberto/fechado.
+            # Sem isso, IA chuta dia da semana baseado em texto solto do histórico.
+            messages_payload.append({"role": "system", "content": _construir_contexto_temporal()})
+
+            # Modo de operação: IA precisa saber se há atendente humano para oferecer.
+            if MODO_HIBRIDO:
+                modo_msg = (
+                    "MODO_OPERACAO: hibrido — há atendente humano disponível neste canal. "
+                    "Quando você não conseguir resolver algo (disponibilidade em tempo real, reclamações, "
+                    "casos especiais), pode OFERECER ao cliente falar com a recepção. "
+                    "Se o cliente aceitar (responder 'sim', 'pode', 'quero', 'por favor'), use "
+                    "intencao=chamar_recepcao. Não force a oferta toda hora — só quando fizer sentido."
+                )
+            else:
+                modo_msg = (
+                    "MODO_OPERACAO: bot_only — NÃO há atendente humano disponível neste canal. "
+                    "PROIBIDO oferecer 'falar com a recepção', 'transferir para um atendente', "
+                    "'aguardar atendimento humano'. Se não souber algo, oriente o cliente a usar "
+                    "o app https://sites.appbarber.com.br/bolshoi para agendar/consultar. "
+                    "Para falar com o Fred (proprietário), só dê o número se o cliente pedir explicitamente."
+                )
+            messages_payload.append({"role": "system", "content": modo_msg})
+
             if nome_cliente:
                 messages_payload.append({
                     "role": "system",
@@ -125,6 +225,7 @@ class AIService:
 
             messages_payload.append({"role": "user", "content": mensagem_atual})
 
+            t0 = time.time()
             completion = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages_payload,
@@ -132,6 +233,8 @@ class AIService:
                 max_tokens=2048,
                 response_format={"type": "json_object"}
             )
+            elapsed = time.time() - t0
+            log.info("IA completion ok em %.2fs (msgs=%d)", elapsed, len(messages_payload))
 
             response_text = completion.choices[0].message.content.strip()
             log.debug("IA raw response: %s", response_text[:300])

@@ -169,3 +169,12 @@ ALTER TABLE historico_conversas ADD COLUMN atendente_id INT NULL;
 ALTER TABLE historico_conversas
     ADD CONSTRAINT fk_historico_atendente
     FOREIGN KEY (atendente_id) REFERENCES atendentes(id) ON DELETE SET NULL;
+
+-- =============================================================
+-- MIGRAÇÃO v4 (indicador de entrega Meta API)
+-- =============================================================
+-- Status de entrega ao WhatsApp:
+--   TRUE  = Meta aceitou (200 OK)
+--   FALSE = Meta rejeitou (4xx/5xx, token expirado, número inválido, etc)
+--   NULL  = não aplicável (linha sem resposta) ou linha antiga pré-migração.
+ALTER TABLE historico_conversas ADD COLUMN entregue BOOLEAN NULL;

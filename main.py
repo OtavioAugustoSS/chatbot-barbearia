@@ -50,4 +50,4 @@ def read_root():
 if __name__ == "__main__":
     import uvicorn
     # Inicializa o servidor Uvicorn se for rodado diretamente (python main.py)
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

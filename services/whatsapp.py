@@ -18,7 +18,12 @@ class WhatsAppSender:
             "Content-Type": "application/json"
         }
 
-    def enviar_mensagem_texto(self, numero: str, texto: str):
+    def enviar_mensagem_texto(self, numero: str, texto: str) -> bool:
+        """
+        Envia mensagem WhatsApp via Meta Cloud API.
+        Retorna True se Meta aceitou (200 OK), False em qualquer falha
+        (erro de rede, 4xx, 5xx, token expirado, etc).
+        """
         payload = {
             "messaging_product": "whatsapp",
             "to": numero,
@@ -29,18 +34,17 @@ class WhatsAppSender:
             response = requests.post(self.url, headers=self.headers, json=payload, timeout=10)
         except requests.RequestException as e:
             log.error("Falha de rede ao enviar mensagem para %s: %s", numero, e)
-            return None
+            return False
 
         if response.status_code >= 400:
-            # Apenas erros vão pro log, e em DEBUG; sucesso silencioso pra não vazar metadados.
             log.error("Meta API erro %s para %s: %s", response.status_code, numero, response.text[:500])
-        else:
-            log.debug("Mensagem enviada para %s (status %s)", numero, response.status_code)
+            return False
 
-        try:
-            return response.json()
-        except ValueError:
-            return None
+        # Meta retorna {"messages":[{"id":"wamid..."}]} em sucesso.
+        # Considera entregue se status 2xx — entrega final ao device é assíncrona
+        # mas Meta aceitou e vai entregar.
+        log.info("Mensagem enviada para %s (status %s)", numero, response.status_code)
+        return True
 
 
 def extrair_informacoes_mensagem(body: dict):

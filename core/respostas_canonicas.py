@@ -44,12 +44,13 @@ RESPOSTA_PAGAMENTO = (
 )
 
 RESPOSTA_FAQ_ESTRUTURA = (
-    "Nossa estrutura oferece:<br><br>"
+    "🏢 Nossa estrutura oferece:<br><br>"
     "✅ Wi-Fi Ultra-Rápido<br>"
     "✅ Ambiente totalmente climatizado<br>"
     "✅ Pagamento: Pix, Dinheiro e Cartões<br>"
     "✅ Atendimento especializado Infantil<br>"
-    "✅ Acessibilidade Completa (Cadeirantes)"
+    "✅ Acessibilidade Completa (Cadeirantes)<br><br>"
+    "Posso ajudar em algo mais?"
 )
 
 # Cada entrada: (regex_compilado, resposta_canonica)
@@ -129,12 +130,33 @@ _PADROES = [
 ]
 
 
+# Disponibilidade / slot de agendamento. Não confundir com horário de funcionamento.
+# "tem horário amanhã?" = slot, NÃO operating hours. "qual o horário?" = operating hours.
+_PADRAO_DISPONIBILIDADE = re.compile(
+    r"\b("
+    r"quem\s+tem\s+(hor[aá]rio|vaga|disponibilidade)|"
+    r"tem\s+(hor[aá]rio|vaga|disponibilidade|como)\s+(pra|para|amanh[aã]|hoje|"
+        r"depois\s+de\s+amanh[aã]|sexta|s[aá]bado|segunda|ter[çc]a|quarta|quinta|domingo|"
+        r"de\s+manh[aã]|de\s+tarde|de\s+noite|\d{1,2}h)|"
+    r"vaga\s+(pra|para)|"
+    r"hor[aá]rio\s+(pra|para)\s+(amanh[aã]|hoje|sexta|s[aá]bado|segunda|ter[çc]a|quarta|quinta|domingo)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
 def detectar_resposta_canonica(texto_cliente: str) -> str | None:
     """
     Recebe a mensagem bruta do cliente. Devolve resposta canônica com tags <br>
     se algum padrão casar; caso contrário, devolve None (fluxo segue para IA).
+
+    Exclusão: perguntas de disponibilidade (slot de agendamento) NÃO disparam
+    canônico — mesmo que contenham "horário". Vão pra IA que tem contexto
+    temporal e regra específica de disponibilidade.
     """
     if not texto_cliente or not isinstance(texto_cliente, str):
+        return None
+    if _PADRAO_DISPONIBILIDADE.search(texto_cliente):
         return None
     for regex, resposta in _PADROES:
         if regex.search(texto_cliente):

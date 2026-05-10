@@ -39,6 +39,10 @@ class HistoricoConversa(Base):
     # (apenas mensagens do cliente registradas com bot inativo, sem resposta).
     origem = Column(String(10), default="bot")
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
+    # Status de entrega ao WhatsApp via Meta Cloud API:
+    # True = Meta aceitou (200 OK), False = falhou (4xx/5xx ou erro de rede),
+    # None = não aplicável (linha só de mensagem do cliente, sem resposta saindo).
+    entregue = Column(Boolean, nullable=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     usuario = relationship("Usuario", back_populates="historico")

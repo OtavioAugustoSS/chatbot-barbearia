@@ -16,7 +16,7 @@ from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
 from services.ai_service import AIService
 from services.notificador import notificador
 from core.respostas_canonicas import detectar_resposta_canonica
-from core.config import MODO_HIBRIDO
+from core.config import MODO_HIBRIDO, MODO_BOT_ONLY
 
 log = logging.getLogger("barbearia.webhook")
 
@@ -59,6 +59,29 @@ MENSAGEM_MENU_REPETIDO = (
     "Sobre qual desses tópicos você gostaria de saber?"
 )
 
+
+def _montar_saudacao(nome_cliente: str | None) -> str:
+    """
+    Resposta determinística para saudações puras. Personaliza com primeiro nome
+    quando o WhatsApp entregou nome do cliente; senão usa abertura genérica.
+    Sem IA, sem variação — formato idêntico em toda chamada.
+    """
+    primeiro = ""
+    if nome_cliente:
+        partes = nome_cliente.strip().split()
+        if partes:
+            primeiro = partes[0]
+    abertura = f"Olá, {primeiro}! " if primeiro else "Olá! "
+    return (
+        f"{abertura}Posso te ajudar com:\n\n"
+        "✂️ Nossos Serviços e Preços\n"
+        "👨‍🎨 Nossa Equipe de Barbeiros\n"
+        "📅 Agendamento de Horários\n"
+        "📍 Localização e Funcionamento\n"
+        "❓ Dúvidas Frequentes\n\n"
+        "Sobre qual desses tópicos você gostaria de saber?"
+    )
+
 # Detecta pedidos do menu de capacidades (sem usar a IA, garante padrão visual fixo).
 _PADROES_PEDIDO_MENU = re.compile(
     r"\b("
@@ -78,6 +101,55 @@ _PADROES_PEDIDO_MENU = re.compile(
 def _e_pedido_de_menu(texto: str) -> bool:
     """Detecta se o cliente está pedindo de novo o menu/lista de capacidades do bot."""
     return bool(_PADROES_PEDIDO_MENU.search(texto))
+
+
+# Saudações puras (mensagem inteira é só cumprimento, sem pergunta específica).
+# Regex ancorado em ^...$ para garantir match completo. Casos como
+# "oi qual o horário?" NÃO casam (porque "qual" não é saudação) — caem
+# em respostas_canonicas ou IA, evitando perda de intenção.
+_TOKEN_SAUDACAO = (
+    r"(?:"
+    r"oi+e?|oii+|ol[aá]+|ei+|hey+|hi+|hello+|"
+    r"opa+|op[ae]+|eae+|e\s*ae+|aee+|"
+    r"e\s*a[ií]+|iai+|fala+|"
+    r"salve+|al[oôó]+|"
+    r"bom\s+dia|boa\s+tarde|boa\s+noite|bnoite|btarde|bdia|"
+    r"tudo\s+(?:bem|bom|certo|tranquilo|tranquilao|joia|jóia|na\s+paz)|"
+    r"td\s+(?:bem|bom|certo)|"
+    r"blz|beleza|tranquil[ao]|de\s+boa|"
+    r"como\s+(?:vai|est[aá]|voc[eê]\s+est[aá]|t[aá]|tem\s+passado)"
+    r")"
+)
+# Vocativos/modificadores informais (PT-BR coloquial). Aparecem APÓS uma saudação:
+# "eai meu fi", "salve mano", "opa fera", "oi tio", "fala chefe", etc.
+_TOKEN_MODIFICADOR = (
+    r"(?:"
+    r"meu\s+(?:fi|fih|filho|irm[aã]o|amigo|querido|nego|chap[ae]|chapa)|"
+    r"mano|man[ao]|fera|fer[ao]|par[çc]a|parsa|brother|bro|"
+    r"irm[aã]o|irm[aã]os|amigo|amig[ao]|amigão|amigaum|"
+    r"querid[ao]|nego|n[eé]ga|v[eé]i|v[eé]io|v[eé]ia|"
+    r"cara|tio|tia|chefe|chefia|rapaz|rapaziada|"
+    r"gente|galera|tropa|moç[ao]|bonit[ao]|"
+    r"garot[ao]|menin[ao]|maluc[ao]|"
+    r"fi|fih"
+    r")"
+)
+# Saudação pura: começa com greeting, opcionalmente seguido de mais greetings ou
+# modificadores. Pega "eai meu fi", "fala mano", "salve fera" etc.
+_PADRAO_SAUDACAO = re.compile(
+    rf"^[\s,!?.]*{_TOKEN_SAUDACAO}(?:[\s,!?.]+(?:{_TOKEN_SAUDACAO}|{_TOKEN_MODIFICADOR}))*[\s,!?.]*$",
+    re.IGNORECASE,
+)
+
+
+def _e_saudacao_pura(texto: str) -> bool:
+    """
+    True se a mensagem é apenas saudação (sem pergunta/intenção adicional).
+    Limita a 60 caracteres para evitar regex match em frases longas atípicas.
+    """
+    if not texto or len(texto) > 60:
+        return False
+    return bool(_PADRAO_SAUDACAO.match(texto))
 
 router = APIRouter()
 whatsapp = WhatsAppSender()
@@ -189,6 +261,70 @@ def _desativar_bot(db: Session, user: Usuario):
     user.bot_desativado_em = datetime.now(timezone.utc)
     db.commit()
 
+
+def _normalizar_texto_envio(texto: str) -> str:
+    """Converte <br> e \\n literais em quebra real, colapsa quebras seguidas."""
+    t = re.sub(r"<\s*br\s*/?\s*>", "\n", texto, flags=re.IGNORECASE)
+    t = t.replace("\\n", "\n")
+    return re.sub(r"\n{3,}", "\n\n", t).strip()
+
+
+def _enviar_e_registrar(
+    db: Session,
+    user: Usuario,
+    mensagem_cliente: str | None,
+    resposta_texto: str,
+    origem: str = "bot",
+    atendente_id: int | None = None,
+) -> bool:
+    """
+    Salva uma entrada de HistoricoConversa, envia ao WhatsApp via Meta API,
+    atualiza coluna `entregue` (True/False) e publica evento SSE com status.
+
+    Retorna True se Meta aceitou a mensagem, False caso contrário.
+    Use sempre que o BOT ou ATENDENTE for enviar uma mensagem ao cliente.
+    """
+    hist = HistoricoConversa(
+        telefone_usuario=user.telefone,
+        mensagem_cliente=mensagem_cliente,
+        resposta_bot=resposta_texto,
+        origem=origem,
+        atendente_id=atendente_id,
+        entregue=None,
+    )
+    db.add(hist)
+    db.commit()
+
+    texto_envio = _normalizar_texto_envio(resposta_texto)
+    ok = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
+
+    hist.entregue = bool(ok)
+    db.commit()
+
+    _notificar_dashboard(user.telefone, user.nome_cliente, resposta_texto, origem, entregue=bool(ok))
+    return bool(ok)
+
+
+def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: str, entregue: bool | None = None):
+    """
+    Publica evento SSE no notificador para o dashboard atualizar em tempo real.
+    No-op em modo bot_only (não há dashboard). Origem: 'bot' | 'humano' | 'cliente'.
+    `entregue`: True/False pra mensagens saindo (bot/humano), None pra mensagem do cliente.
+    """
+    if not MODO_HIBRIDO:
+        return
+    try:
+        notificador.publicar({
+            "tipo": "nova_mensagem",
+            "telefone": telefone,
+            "nome": nome,
+            "texto": texto,
+            "origem": origem,
+            "entregue": entregue,
+        })
+    except Exception:
+        log.exception("Falha ao publicar evento SSE para %s", telefone)
+
 VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "barbearia_bot_123")
 
 @router.get("/webhook")
@@ -257,45 +393,27 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         # Primeiro contato (histórico vazio) → SEMPRE entrega o menu de onboarding,
         # independentemente do que o cliente digitou. A IA só assume a partir da 2ª mensagem.
         if not historico:
-            novo_historico = HistoricoConversa(
-                telefone_usuario=telefone,
-                mensagem_cliente=texto_cliente,
-                resposta_bot=MENSAGEM_BOAS_VINDAS.replace("\n", "<br>"),
-                origem="bot",
-            )
-            db.add(novo_historico)
-            db.commit()
-            whatsapp.enviar_mensagem_texto(telefone, MENSAGEM_BOAS_VINDAS)
+            _enviar_e_registrar(db, user, texto_cliente, MENSAGEM_BOAS_VINDAS.replace("\n", "<br>"), origem="bot")
             return
 
         # Cliente pedindo o menu/capacidades de novo → texto fixo (mesmo padrão visual da boas-vindas).
         # Evita que a IA regenere o menu com emojis e palavras diferentes a cada pedido.
         if _e_pedido_de_menu(texto_cliente):
-            novo_historico = HistoricoConversa(
-                telefone_usuario=telefone,
-                mensagem_cliente=texto_cliente,
-                resposta_bot=MENSAGEM_MENU_REPETIDO.replace("\n", "<br>"),
-                origem="bot",
-            )
-            db.add(novo_historico)
-            db.commit()
-            whatsapp.enviar_mensagem_texto(telefone, MENSAGEM_MENU_REPETIDO)
+            _enviar_e_registrar(db, user, texto_cliente, MENSAGEM_MENU_REPETIDO.replace("\n", "<br>"), origem="bot")
+            return
+
+        # Saudação pura (oi, eai, bom dia…) sem pergunta acoplada → resposta fixa
+        # com primeiro nome do cliente. Evita que a IA gere variações casuais.
+        if _e_saudacao_pura(texto_cliente):
+            mensagem_saudacao = _montar_saudacao(user.nome_cliente)
+            _enviar_e_registrar(db, user, texto_cliente, mensagem_saudacao.replace("\n", "<br>"), origem="bot")
             return
 
         # FAQ canônico: horário, endereço, agendamento, pagamento, estrutura.
         # Bypass de IA → custo zero, zero alucinação, formato sempre idêntico.
         resposta_canonica = detectar_resposta_canonica(texto_cliente)
         if resposta_canonica:
-            novo_historico = HistoricoConversa(
-                telefone_usuario=telefone,
-                mensagem_cliente=texto_cliente,
-                resposta_bot=resposta_canonica,
-                origem="bot",
-            )
-            db.add(novo_historico)
-            db.commit()
-            texto_envio = re.sub(r"<\s*br\s*/?\s*>", "\n", resposta_canonica, flags=re.IGNORECASE).strip()
-            whatsapp.enviar_mensagem_texto(telefone, texto_envio)
+            _enviar_e_registrar(db, user, texto_cliente, resposta_canonica, origem="bot")
             return
 
         # Processar IA Pesada
@@ -311,16 +429,6 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
             if user.atendente_id is not None or not user.bot_ativo:
                 log.info("Atendente assumiu %s durante chamada IA; descartando resposta.", telefone)
                 return
-
-        # Salva no banco com <br> para manter consistência com o contexto que a IA recebe
-        novo_historico = HistoricoConversa(
-            telefone_usuario=telefone,
-            mensagem_cliente=texto_cliente,
-            resposta_bot=resposta_bruta,
-            origem="bot",
-        )
-        db.add(novo_historico)
-        db.commit()
 
         # Poda automática: mantém últimos 50 registros por usuário (janela do contexto = 15).
         contagem = db.query(HistoricoConversa).filter(
@@ -341,33 +449,45 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
             ).delete(synchronize_session=False)
             db.commit()
 
-        # Converte <br> para \n apenas na hora do envio ao WhatsApp.
-        # A IA às vezes devolve variações como "<BR>", "< br >", "\\n", "<br/>"
-        # — normalizamos tudo para \n real para garantir quebra de linha no WhatsApp.
-        resposta_texto = resposta_bruta
-        resposta_texto = re.sub(r"<\s*br\s*/?\s*>", "\n", resposta_texto, flags=re.IGNORECASE)
-        resposta_texto = resposta_texto.replace("\\n", "\n")
-        # Colapsa 3+ quebras seguidas em duas (evita bloco com excesso de espaços vazios)
-        resposta_texto = re.sub(r"\n{3,}", "\n\n", resposta_texto).strip()
-
-        log.debug("Envio WhatsApp (%d chars) para %s", len(resposta_texto), telefone)
+        log.debug("Envio WhatsApp (%d chars) para %s", len(resposta_bruta), telefone)
 
         if intencao == "chamar_recepcao" or intencao == "transbordo_falha":
+            if MODO_BOT_ONLY:
+                # Sem atendente humano nesse modo. Substitui a resposta da IA
+                # (que prometeria "transferindo pra recepção") por orientação real.
+                # Bot CONTINUA ativo — não há ninguém pra assumir.
+                if intencao == "transbordo_falha":
+                    resposta_texto = (
+                        "Tive um problema técnico processando sua mensagem. 😕\n\n"
+                        "Pode tentar reformular sua dúvida? Posso te ajudar com:\n"
+                        "✂️ Serviços e preços\n"
+                        "👨‍🎨 Equipe\n"
+                        "📅 Agendamento\n"
+                        "📍 Localização e horários"
+                    )
+                else:
+                    resposta_texto = (
+                        "No momento o atendimento humano não está disponível por aqui. 🤖\n\n"
+                        "Mas posso te ajudar com dúvidas sobre serviços, equipe, horários e localização — é só me perguntar.\n\n"
+                        "Para agendar, use nosso app: https://sites.appbarber.com.br/bolshoi"
+                    )
+                _enviar_e_registrar(db, user, texto_cliente, resposta_texto, origem="bot")
+                return
+            # MODO_HIBRIDO: desativa bot e marca fila pra atendente humano assumir.
             _desativar_bot(db, user)
-            if MODO_HIBRIDO:
-                user.aguardando_humano = True
-                user.transbordo_em = datetime.now(timezone.utc)
-                db.commit()
-                notificador.publicar({
-                    "tipo": "novo_transbordo",
-                    "telefone": telefone,
-                    "nome": user.nome_cliente,
-                    "motivo": intencao,
-                })
-            whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
+            user.aguardando_humano = True
+            user.transbordo_em = datetime.now(timezone.utc)
+            db.commit()
+            notificador.publicar({
+                "tipo": "novo_transbordo",
+                "telefone": telefone,
+                "nome": user.nome_cliente,
+                "motivo": intencao,
+            })
+            _enviar_e_registrar(db, user, texto_cliente, resposta_bruta, origem="bot")
             return
 
-        whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
+        _enviar_e_registrar(db, user, texto_cliente, resposta_bruta, origem="bot")
 
     finally:
         db.close()
@@ -460,8 +580,8 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         return {"status": "ok"}
 
     if texto_cliente == "🙋 Falar c/ Recepção":
-        _desativar_bot(db, user)
         if MODO_HIBRIDO:
+            _desativar_bot(db, user)
             user.aguardando_humano = True
             user.transbordo_em = datetime.now(timezone.utc)
             db.commit()
@@ -473,10 +593,21 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
             })
             whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Aguarde um momento, um atendente humano vai assumir e responder você em breve. 🙋")
         else:
-            whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um atendente vai assumir!")
+            # Em bot_only, não há atendente. Bot continua ativo e orienta.
+            whatsapp.enviar_mensagem_texto(
+                telefone,
+                "No momento o atendimento humano não está disponível por aqui. 🤖\n\n"
+                "Mas posso te ajudar com dúvidas sobre serviços, equipe, horários e localização — é só me perguntar.\n\n"
+                "Para agendar, use nosso app: https://sites.appbarber.com.br/bolshoi"
+            )
         return {"status": "ok"}
 
     log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])
+    # Publica evento da mensagem do cliente IMEDIATAMENTE no dashboard (modo
+    # híbrido). Sem isso, atendente só veria a mensagem do cliente depois da IA
+    # terminar e responder — pode levar segundos. Com esse evento, msg do cliente
+    # aparece em tempo real e o atendente pode decidir assumir antes da IA agir.
+    _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente")
     background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
 
     return {"status": "ok"}

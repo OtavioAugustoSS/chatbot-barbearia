@@ -10,10 +10,25 @@ import re
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+
+def _iso_utc(dt) -> str | None:
+    """
+    Serializa datetime como ISO 8601 COM sufixo Z (timezone UTC explícito).
+    Os timestamps no DB são gravados com datetime.now(timezone.utc) mas MySQL
+    armazena DateTime como naive (sem tz info). Sem sufixo Z, JavaScript
+    interpreta como horário LOCAL ao parsear, dando defasagem de 3h em BR.
+    """
+    if dt is None:
+        return None
+    # Se já tem tzinfo, usa direto; senão assume UTC (default das colunas).
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from db.database import get_db
 from db.models import Atendente, Usuario, HistoricoConversa
@@ -99,16 +114,47 @@ def listar_conversas(
         .subquery()
     )
 
+    # Ordena via text() literal pra evitar renderização "NULLS LAST" do SQLAlchemy 2.x
+    # (sintaxe Postgres incompatível com MySQL). MySQL DESC já põe NULLs no fim.
     rows = (
         db.query(Usuario, sub_ultima.c.ultima)
         .outerjoin(sub_ultima, sub_ultima.c.telefone == Usuario.telefone)
-        .order_by(
-            Usuario.aguardando_humano.desc(),
-            sub_ultima.c.ultima.desc().nullslast(),
-        )
+        .order_by(text("usuarios.aguardando_humano DESC"), text("usuarios.data_ultima_interacao DESC"))
         .limit(200)
         .all()
     )
+
+    # Preview da última mensagem por conversa: 1 query batch, melhor que N+1.
+    telefones = [u.telefone for u, _ in rows]
+    previews: dict[str, str] = {}
+    if telefones:
+        # Busca a última msg de cada telefone (joina com max criado_em por telefone).
+        sub_max = (
+            db.query(
+                HistoricoConversa.telefone_usuario.label("tel"),
+                func.max(HistoricoConversa.criado_em).label("max_em"),
+            )
+            .filter(HistoricoConversa.telefone_usuario.in_(telefones))
+            .group_by(HistoricoConversa.telefone_usuario)
+            .subquery()
+        )
+        msgs = (
+            db.query(HistoricoConversa)
+            .join(
+                sub_max,
+                (HistoricoConversa.telefone_usuario == sub_max.c.tel)
+                & (HistoricoConversa.criado_em == sub_max.c.max_em),
+            )
+            .all()
+        )
+        for m in msgs:
+            texto = m.mensagem_cliente or m.resposta_bot or ""
+            # Remove tags <br> e quebras pra preview de uma linha.
+            texto = re.sub(r"<\s*br\s*/?\s*>", " ", texto, flags=re.IGNORECASE)
+            texto = re.sub(r"\s+", " ", texto).strip()
+            if len(texto) > 60:
+                texto = texto[:57] + "…"
+            previews[m.telefone_usuario] = texto
 
     return [
         {
@@ -118,8 +164,9 @@ def listar_conversas(
             "aguardando_humano": bool(u.aguardando_humano),
             "atendente_id": u.atendente_id,
             "assumida_por_mim": u.atendente_id == me.id,
-            "transbordo_em": u.transbordo_em.isoformat() if u.transbordo_em else None,
-            "ultima_mensagem_em": ultima.isoformat() if ultima else None,
+            "transbordo_em": _iso_utc(u.transbordo_em),
+            "ultima_mensagem_em": _iso_utc(ultima),
+            "preview": previews.get(u.telefone, ""),
         }
         for u, ultima in rows
     ]
@@ -158,7 +205,8 @@ def ver_conversa(
                 "resposta": m.resposta_bot,
                 "origem": m.origem or "bot",
                 "atendente_id": m.atendente_id,
-                "criado_em": m.criado_em.isoformat() if m.criado_em else None,
+                "entregue": m.entregue,
+                "criado_em": _iso_utc(m.criado_em),
             }
             for m in msgs
         ],
@@ -200,13 +248,14 @@ def assumir(
         raise HTTPException(status_code=409, detail="Outro atendente assumiu essa conversa antes de você.")
 
     aviso = f"👋 Olá! Sou {me.nome}, do atendimento da Barbearia Bolshoi. Vou te ajudar a partir de agora."
-    whatsapp.enviar_mensagem_texto(telefone, aviso)
+    ok = whatsapp.enviar_mensagem_texto(telefone, aviso)
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
         mensagem_cliente=None,
         resposta_bot=aviso,
         origem="humano",
         atendente_id=me.id,
+        entregue=bool(ok),
     ))
     db.commit()
 
@@ -216,7 +265,16 @@ def assumir(
         "atendente_id": me.id,
         "atendente_nome": me.nome,
     })
-    return {"status": "ok", "atendente_id": me.id}
+    notificador.publicar({
+        "tipo": "nova_mensagem",
+        "telefone": telefone,
+        "nome": user.nome_cliente,
+        "texto": aviso,
+        "origem": "humano",
+        "atendente_id": me.id,
+        "entregue": bool(ok),
+    })
+    return {"status": "ok", "atendente_id": me.id, "entregue": bool(ok)}
 
 
 @router.post("/enviar/{telefone}")
@@ -233,7 +291,7 @@ def enviar(
         raise HTTPException(status_code=403, detail="Você não assumiu essa conversa.")
 
     texto = _normalizar_resposta_humana(payload.texto)
-    whatsapp.enviar_mensagem_texto(telefone, texto)
+    ok = whatsapp.enviar_mensagem_texto(telefone, texto)
 
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
@@ -241,6 +299,7 @@ def enviar(
         resposta_bot=texto,
         origem="humano",
         atendente_id=me.id,
+        entregue=bool(ok),
     ))
     db.commit()
 
@@ -251,8 +310,9 @@ def enviar(
         "texto": texto,
         "origem": "humano",
         "atendente_id": me.id,
+        "entregue": bool(ok),
     })
-    return {"status": "ok"}
+    return {"status": "ok", "entregue": bool(ok)}
 
 
 @router.post("/devolver/{telefone}")
@@ -272,15 +332,25 @@ def devolver(
     # Se reativássemos o bot antes, uma mensagem do cliente entre o commit e o envio
     # do WhatsApp poderia disparar a IA antes do aviso de "humano saiu" chegar.
     aviso = "Atendimento humano encerrado. A IA está de volta e pronta pra te ajudar! 🤖"
-    whatsapp.enviar_mensagem_texto(telefone, aviso)
+    ok = whatsapp.enviar_mensagem_texto(telefone, aviso)
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
         mensagem_cliente=None,
         resposta_bot=aviso,
         origem="humano",
         atendente_id=me.id,
+        entregue=bool(ok),
     ))
     db.commit()
+    notificador.publicar({
+        "tipo": "nova_mensagem",
+        "telefone": telefone,
+        "nome": user.nome_cliente,
+        "texto": aviso,
+        "origem": "humano",
+        "atendente_id": me.id,
+        "entregue": bool(ok),
+    })
 
     # Agora sim libera o bot.
     user.atendente_id = None
