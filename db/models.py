@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, ForeignKey, Text, Table
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Numeric, ForeignKey, Text, Table, Index
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from db.database import Base
@@ -16,9 +16,9 @@ class Usuario(Base):
     telefone = Column(String(20), primary_key=True, index=True)
     nome_cliente = Column(String(100), nullable=True)
     bot_ativo = Column(Boolean, default=True)
+    bot_desativado_em = Column(DateTime, nullable=True)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    # Relacionamento UM-PARA-MUITOS (Usuário tem vários Históricos)
     historico = relationship("HistoricoConversa", back_populates="usuario", cascade="all, delete-orphan")
 
 
@@ -31,8 +31,20 @@ class HistoricoConversa(Base):
     resposta_bot = Column(Text, nullable=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    # Relacionamento Múltiplos-para-Um (Vários históricos pertencem a um Usuário)
     usuario = relationship("Usuario", back_populates="historico")
+
+    # Índice composto: query padrão é WHERE telefone_usuario = X ORDER BY criado_em DESC.
+    __table_args__ = (
+        Index("idx_historico_telefone_data", "telefone_usuario", "criado_em"),
+    )
+
+
+class MensagemProcessada(Base):
+    """Dedupe persistente de message.id da Meta. Sobrevive a restart do servidor."""
+    __tablename__ = 'mensagens_processadas'
+
+    message_id = Column(String(100), primary_key=True, index=True)
+    processada_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class Servico(Base):

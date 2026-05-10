@@ -1,15 +1,39 @@
 import os
 import re
 import time
+import hmac
+import hashlib
+import logging
 import threading
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from db.database import get_db, SessionLocal
-from db.models import Usuario, HistoricoConversa
+from db.models import Usuario, HistoricoConversa, MensagemProcessada
 from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
 from services.ai_service import AIService
+from core.respostas_canonicas import detectar_resposta_canonica
+
+log = logging.getLogger("barbearia.webhook")
+
+META_APP_SECRET = os.getenv("META_APP_SECRET", "").encode("utf-8")
+ADMIN_PHONES = {p.strip() for p in os.getenv("ADMIN_PHONES", "").split(",") if p.strip()}
+BOT_REATIVAR_APOS_HORAS = int(os.getenv("BOT_REATIVAR_APOS_HORAS", "24"))
+RATE_LIMIT_MSGS_POR_MINUTO = int(os.getenv("RATE_LIMIT_MSGS_POR_MINUTO", "10"))
+
+
+def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> bool:
+    """Verifica HMAC-SHA256 de payload Meta. Sem META_APP_SECRET configurado, devolve True (modo dev)."""
+    if not META_APP_SECRET:
+        log.warning("META_APP_SECRET não configurado - assinatura webhook não verificada (modo dev).")
+        return True
+    if not header_signature or not header_signature.startswith("sha256="):
+        return False
+    esperado = hmac.new(META_APP_SECRET, raw_body, hashlib.sha256).hexdigest()
+    recebido = header_signature.split("=", 1)[1]
+    return hmac.compare_digest(esperado, recebido)
 
 MENSAGEM_BOAS_VINDAS = (
     "Olá, seja muito bem-vindo à Barbearia Bolshoi! 💈\n"
@@ -57,38 +81,104 @@ router = APIRouter()
 whatsapp = WhatsAppSender()
 ai_service = AIService()
 
-# Garante processamento sequencial por usuário: evita que duas mensagens
-# rápidas do mesmo telefone sejam processadas em paralelo e gerem respostas
-# fora de ordem ou com histórico duplicado.
-_locks_por_telefone: dict[str, threading.Lock] = {}
+# Locks por telefone com TTL: limpa entradas antigas pra evitar crescimento ilimitado.
+_locks_por_telefone: dict[str, tuple[threading.Lock, float]] = {}
 _meta_lock = threading.Lock()
+_LOCK_TTL_SEGUNDOS = 1800  # 30min sem uso → lock descartado
 
-# Dedupe de message.id da Meta — quando a Meta acha que não recebeu o ACK
-# rápido o suficiente, ela RETRANSMITE o webhook com o mesmo message.id.
-# Sem dedupe, isso gera múltiplas respostas para a mesma mensagem do cliente.
-_mensagens_processadas: dict[str, float] = {}
-_dedupe_lock = threading.Lock()
-_DEDUPE_TTL_SEGUNDOS = 600  # 10 minutos é suficiente para cobrir todos os retries da Meta
+# Rate limit por telefone: deque de timestamps das últimas mensagens.
+_janela_rate_limit: dict[str, list[float]] = {}
+_rate_lock = threading.Lock()
+_DEDUPE_TTL_SEGUNDOS = 600  # cobre retries da Meta
 
-def _ja_processada(message_id: str) -> bool:
-    """True se message_id já foi processada nos últimos 10 min. Caso contrário, registra e retorna False."""
-    agora = time.time()
-    with _dedupe_lock:
-        # Limpa entradas antigas (cheap, roda por chamada)
-        expirados = [mid for mid, ts in _mensagens_processadas.items() if agora - ts > _DEDUPE_TTL_SEGUNDOS]
-        for mid in expirados:
-            del _mensagens_processadas[mid]
-
-        if message_id in _mensagens_processadas:
+def _ja_processada(db: Session, message_id: str) -> bool:
+    """
+    Dedupe persistente em DB. Sobrevive a restart do servidor.
+    True se message_id já foi processado; caso contrário registra e devolve False.
+    """
+    if not message_id:
+        return False
+    try:
+        existente = db.query(MensagemProcessada).filter(MensagemProcessada.message_id == message_id).first()
+        if existente:
             return True
-        _mensagens_processadas[message_id] = agora
+        db.add(MensagemProcessada(message_id=message_id))
+        db.commit()
+
+        # Limpeza oportunista: 1% das chamadas remove registros expirados.
+        import random
+        if random.random() < 0.01:
+            limite = datetime.now(timezone.utc) - timedelta(seconds=_DEDUPE_TTL_SEGUNDOS * 2)
+            db.query(MensagemProcessada).filter(MensagemProcessada.processada_em < limite).delete()
+            db.commit()
+        return False
+    except Exception:
+        log.exception("Erro no dedupe DB - permitindo passagem.")
+        db.rollback()
         return False
 
+
+def _excedeu_rate_limit(telefone: str) -> bool:
+    """True se o telefone enviou mais de RATE_LIMIT_MSGS_POR_MINUTO mensagens nos últimos 60s."""
+    agora = time.time()
+    with _rate_lock:
+        janela = _janela_rate_limit.setdefault(telefone, [])
+        janela[:] = [t for t in janela if agora - t < 60]
+        if len(janela) >= RATE_LIMIT_MSGS_POR_MINUTO:
+            return True
+        janela.append(agora)
+        # Limpeza periódica do dict inteiro
+        if len(_janela_rate_limit) > 1000:
+            inativos = [k for k, v in _janela_rate_limit.items() if not v or agora - v[-1] > 300]
+            for k in inativos:
+                del _janela_rate_limit[k]
+        return False
+
+
 def _lock_do_telefone(telefone: str) -> threading.Lock:
+    """Lock por telefone com TTL: entradas inativas há mais de 30min são descartadas."""
+    agora = time.time()
     with _meta_lock:
-        if telefone not in _locks_por_telefone:
-            _locks_por_telefone[telefone] = threading.Lock()
-        return _locks_por_telefone[telefone]
+        # Limpeza oportunista
+        expirados = [tel for tel, (_, ts) in _locks_por_telefone.items() if agora - ts > _LOCK_TTL_SEGUNDOS]
+        for tel in expirados:
+            del _locks_por_telefone[tel]
+
+        existente = _locks_por_telefone.get(telefone)
+        if existente:
+            _locks_por_telefone[telefone] = (existente[0], agora)
+            return existente[0]
+        novo = threading.Lock()
+        _locks_por_telefone[telefone] = (novo, agora)
+        return novo
+
+
+def _verificar_e_reativar_bot(db: Session, user: Usuario) -> bool:
+    """
+    Se bot foi desativado há mais de BOT_REATIVAR_APOS_HORAS, reativa automaticamente.
+    Devolve True se bot está ativo após verificação.
+    """
+    if user.bot_ativo:
+        return True
+    if not user.bot_desativado_em:
+        return False
+    desativado_em = user.bot_desativado_em
+    if desativado_em.tzinfo is None:
+        desativado_em = desativado_em.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) - desativado_em > timedelta(hours=BOT_REATIVAR_APOS_HORAS):
+        user.bot_ativo = True
+        user.bot_desativado_em = None
+        db.commit()
+        log.info("Bot reativado automaticamente para %s após %sh.", user.telefone, BOT_REATIVAR_APOS_HORAS)
+        return True
+    return False
+
+
+def _desativar_bot(db: Session, user: Usuario):
+    """Desativa bot e marca timestamp para reativação automática."""
+    user.bot_ativo = False
+    user.bot_desativado_em = datetime.now(timezone.utc)
+    db.commit()
 
 VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "barbearia_bot_123")
 
@@ -118,11 +208,11 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         if not user or not user.bot_ativo:
             return
 
-        # Puxar o histórico
+        # Janela de contexto: últimas 15 trocas. Mais memória sem inflar tokens demais.
         historico = db.query(HistoricoConversa).filter(
             HistoricoConversa.telefone_usuario == telefone
-        ).order_by(HistoricoConversa.criado_em.desc()).limit(5).all()
-        
+        ).order_by(HistoricoConversa.criado_em.desc()).limit(15).all()
+
         historico.reverse()
         
         contexto_mensagens = []
@@ -159,6 +249,21 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
             whatsapp.enviar_mensagem_texto(telefone, MENSAGEM_MENU_REPETIDO)
             return
 
+        # FAQ canônico: horário, endereço, agendamento, pagamento, estrutura.
+        # Bypass de IA → custo zero, zero alucinação, formato sempre idêntico.
+        resposta_canonica = detectar_resposta_canonica(texto_cliente)
+        if resposta_canonica:
+            novo_historico = HistoricoConversa(
+                telefone_usuario=telefone,
+                mensagem_cliente=texto_cliente,
+                resposta_bot=resposta_canonica,
+            )
+            db.add(novo_historico)
+            db.commit()
+            texto_envio = re.sub(r"<\s*br\s*/?\s*>", "\n", resposta_canonica, flags=re.IGNORECASE).strip()
+            whatsapp.enviar_mensagem_texto(telefone, texto_envio)
+            return
+
         # Processar IA Pesada
         resultado_ia = ai_service.processar_intencao(db, contexto_mensagens, texto_cliente, user.nome_cliente)
         intencao = resultado_ia.get("intencao")
@@ -174,17 +279,17 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         db.add(novo_historico)
         db.commit()
 
-        # Poda automática: mantém apenas os últimos 20 registros por usuário
+        # Poda automática: mantém últimos 50 registros por usuário (janela do contexto = 15).
         contagem = db.query(HistoricoConversa).filter(
             HistoricoConversa.telefone_usuario == telefone
         ).count()
-        if contagem > 20:
+        if contagem > 50:
             ids_manter = [
                 row.id for row in
                 db.query(HistoricoConversa.id)
                 .filter(HistoricoConversa.telefone_usuario == telefone)
                 .order_by(HistoricoConversa.criado_em.desc())
-                .limit(20)
+                .limit(50)
                 .all()
             ]
             db.query(HistoricoConversa).filter(
@@ -202,16 +307,13 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         # Colapsa 3+ quebras seguidas em duas (evita bloco com excesso de espaços vazios)
         resposta_texto = re.sub(r"\n{3,}", "\n\n", resposta_texto).strip()
 
-        print(f"[DEBUG ENVIO] Texto final ({len(resposta_texto)} chars): {repr(resposta_texto)}")
+        log.debug("Envio WhatsApp (%d chars) para %s", len(resposta_texto), telefone)
 
-        # 8. Roteamento baseado na Intenção
         if intencao == "chamar_recepcao" or intencao == "transbordo_falha":
-            user.bot_ativo = False
-            db.commit()
+            _desativar_bot(db, user)
             whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
             return
 
-        # Caminho 1: 100% Conversacional. Enviamos direto o texto limpo da IA.
         whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
 
     finally:
@@ -221,16 +323,27 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
 
 @router.post("/webhook")
 async def receive_message(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    body = await request.json()
+    raw_body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256")
+    if not _validar_assinatura_meta(raw_body, signature):
+        log.error("Assinatura Meta inválida - request rejeitado.")
+        raise HTTPException(status_code=403, detail="Assinatura inválida")
+
+    import json as _json
+    try:
+        body = _json.loads(raw_body)
+    except _json.JSONDecodeError:
+        return {"status": "ok"}
+
     telefone, texto_cliente, nome_cliente, message_id = extrair_informacoes_mensagem(body)
 
     if not telefone or not texto_cliente:
         return {"status": "ok"}
 
-    # Dedupe: a Meta retransmite o webhook quando acha que não recebeu o ACK.
-    # Sem isso, o cliente recebe a mesma resposta 2-4 vezes.
-    if message_id and _ja_processada(message_id):
-        print(f"⏭️  [DEDUPE] message_id {message_id} já processado, ignorando retry da Meta.")
+    # Dedupe persistente: Meta retransmite quando não recebe ACK rápido. Sem isso, cliente
+    # recebe resposta duplicada. Persistido em DB → sobrevive a restart.
+    if message_id and _ja_processada(db, message_id):
+        log.info("Dedupe: message_id %s já processado, ignorando retransmissão.", message_id)
         return {"status": "ok"}
 
     if str(texto_cliente).startswith("MÍDIA_"):
@@ -241,7 +354,11 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         )
         return {"status": "ok"}
 
-    # Busca ou Criação de Usuário e Salva o Nome se fornecido
+    # Rate limit: protege contra flood (DoS / fatura inflada).
+    if _excedeu_rate_limit(telefone):
+        log.warning("Rate limit excedido para %s.", telefone)
+        return {"status": "ok"}
+
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
         user = Usuario(telefone=telefone, nome_cliente=nome_cliente, bot_ativo=True)
@@ -252,30 +369,30 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         user.nome_cliente = nome_cliente
         db.commit()
 
-    # 1. Comandos Diretos de Bypass (Resolvemos na hora)
+    # !reiniciar: comando de admin. Cliente comum não pode limpar próprio histórico.
     if str(texto_cliente).strip().lower() == "!reiniciar":
+        if telefone not in ADMIN_PHONES:
+            log.warning("Tentativa de !reiniciar por telefone não-admin: %s", telefone)
+            return {"status": "ok"}
         user.bot_ativo = True
-        # Limpar o histórico da IA para o bot esquecer conversas velhas e formatos velhos
+        user.bot_desativado_em = None
         db.query(HistoricoConversa).filter(HistoricoConversa.telefone_usuario == telefone).delete()
         db.commit()
-        whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot manual reiniciado! A memória do meu cérebro foi totalmente limpa. Como posso ajudar?")
+        whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot reiniciado por admin. Memória limpa.")
         return {"status": "ok"}
 
-    # Trava Humana (Transbordo)
-    if not user.bot_ativo:
-        print(f"🔒 [MSG IGNORADA] Usuário {telefone} está com Trava Humana ativa.")
+    # Reativação automática do bot após N horas sem atividade humana.
+    bot_ativo = _verificar_e_reativar_bot(db, user)
+    if not bot_ativo:
+        log.info("Mensagem ignorada: bot desativado para %s (transbordo humano em curso).", telefone)
         return {"status": "ok"}
 
-    # Transbordo pelo Botão
     if texto_cliente == "🙋 Falar c/ Recepção":
-        user.bot_ativo = False
-        db.commit()
+        _desativar_bot(db, user)
         whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um atendente vai assumir!")
         return {"status": "ok"}
-    
-    # IMPORTANTE: Enviamos a IA para rodar "em segundo plano" 
-    # e devolvemos OK imediato para o Facebook parar de duplicar
-    print(f"-> Enviando para IA em 2º plano. Mensagem: {telefone} diz '{texto_cliente}'")
+
+    log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])
     background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
-    
+
     return {"status": "ok"}

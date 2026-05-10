@@ -1,8 +1,12 @@
 import os
+import logging
 import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+
+log = logging.getLogger("barbearia.whatsapp")
+
 
 class WhatsAppSender:
     def __init__(self):
@@ -21,11 +25,22 @@ class WhatsAppSender:
             "type": "text",
             "text": {"body": texto}
         }
-        response = requests.post(self.url, headers=self.headers, json=payload)
-        # Debugging importante para sabermos a resposta da API Oficial
-        print("====== RETORNO FACEBOOK (TEXTO) ======")
-        print(response.text)
-        return response.json()
+        try:
+            response = requests.post(self.url, headers=self.headers, json=payload, timeout=10)
+        except requests.RequestException as e:
+            log.error("Falha de rede ao enviar mensagem para %s: %s", numero, e)
+            return None
+
+        if response.status_code >= 400:
+            # Apenas erros vão pro log, e em DEBUG; sucesso silencioso pra não vazar metadados.
+            log.error("Meta API erro %s para %s: %s", response.status_code, numero, response.text[:500])
+        else:
+            log.debug("Mensagem enviada para %s (status %s)", numero, response.status_code)
+
+        try:
+            return response.json()
+        except ValueError:
+            return None
 
 
 def extrair_informacoes_mensagem(body: dict):

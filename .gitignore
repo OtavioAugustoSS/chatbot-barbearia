@@ -4,9 +4,48 @@ venv/
 env/
 __pycache__/
 
-# Arquivos sensiveis
+# Arquivos sensíveis (secrets, tokens, senhas)
 .env
+.env.local
+.env.*.local
 
-# Outros
-*.pyc
+# Logs e debug (podem conter mensagens de clientes / dados pessoais)
+erro_ia_debug.txt
+*.log
+logs/
+
+# Backups e dumps de DB (contêm dados reais de clientes - LGPD)
+backup_*.sql
+*.dump
+*.bak
+
+# IDE / editor
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Bytecode Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage / testes
+.coverage
+htmlcov/
+.tox/
+
+# Distribuição
+dist/
+build/

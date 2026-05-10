@@ -119,3 +119,20 @@ UPDATE servicos SET categoria = 'estetica' WHERE nome_servico IN (
     'Nanoblading',
     'Sobrancelha na Cera'
 );
+
+-- =============================================================
+-- MIGRAÇÃO v2 (anti-alucinação + dedupe persistente + reativação automática)
+-- Execute uma única vez em banco já populado.
+-- MySQL não suporta IF NOT EXISTS em ALTER ADD COLUMN nem em CREATE INDEX.
+-- Se rodar 2x → erro 1060 (Duplicate column) / 1061 (Duplicate key) — esperado.
+-- =============================================================
+ALTER TABLE usuarios ADD COLUMN bot_desativado_em DATETIME NULL;
+
+CREATE INDEX idx_historico_telefone_data
+    ON historico_conversas (telefone_usuario, criado_em);
+
+CREATE TABLE IF NOT EXISTS mensagens_processadas (
+    message_id VARCHAR(100) PRIMARY KEY,
+    processada_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_mensagens_processadas_data (processada_em)
+);

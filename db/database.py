@@ -15,8 +15,17 @@ DB_NAME = os.getenv("DB_NAME", "barbearia_bot_db")
 # URL de conexão para MySQL utilizando pymysql (driver recomendado)
 SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 
-# Criação da Engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+# Engine com pool tuning:
+# - pool_pre_ping: detecta conexões mortas antes de usar
+# - pool_recycle: recicla conexões antes do MySQL fechar por idle (default 8h)
+# - pool_size/max_overflow: dimensiona pool para ~30 mensagens simultâneas
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_size=10,
+    max_overflow=20,
+)
 
 # Sessão do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

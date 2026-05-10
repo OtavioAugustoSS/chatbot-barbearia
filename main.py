@@ -1,9 +1,18 @@
+import logging
+import os
 from fastapi import FastAPI
 from api import webhook
 from db.database import engine, Base
 
-# Ao rodar esse comando, o SQLAlchemy verifica as tabelas criadas no models.py
-# e, se não existirem no seu Banco MySQL (da porta 3306), ele as cria!
+# Logging estruturado: substitui prints espalhados.
+# LOG_LEVEL configurável via env (default INFO; DEBUG mostra payload IA).
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# SQLAlchemy cria tabelas que ainda não existem no MySQL (porta 3306).
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
