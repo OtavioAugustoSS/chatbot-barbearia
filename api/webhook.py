@@ -14,7 +14,9 @@ from db.database import get_db, SessionLocal
 from db.models import Usuario, HistoricoConversa, MensagemProcessada
 from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
 from services.ai_service import AIService
+from services.notificador import notificador
 from core.respostas_canonicas import detectar_resposta_canonica
+from core.config import MODO_HIBRIDO
 
 log = logging.getLogger("barbearia.webhook")
 
@@ -157,9 +159,16 @@ def _verificar_e_reativar_bot(db: Session, user: Usuario) -> bool:
     """
     Se bot foi desativado há mais de BOT_REATIVAR_APOS_HORAS, reativa automaticamente.
     Devolve True se bot está ativo após verificação.
+
+    Modo híbrido: NUNCA reativa se há atendente humano dono da conversa
+    (atendente_id setado) ou se o cliente está aguardando atendimento humano
+    na fila. Atendente precisa devolver explicitamente via /admin/devolver.
     """
     if user.bot_ativo:
         return True
+    # Modo híbrido: bot só volta por ação explícita do atendente.
+    if MODO_HIBRIDO and (user.atendente_id is not None or user.aguardando_humano):
+        return False
     if not user.bot_desativado_em:
         return False
     desativado_em = user.bot_desativado_em
@@ -205,7 +214,29 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
     try:
         # Puxamos o usuario no DB dessa sessão avulsa
         user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
-        if not user or not user.bot_ativo:
+        if not user:
+            return
+        # Modo híbrido: se entre o enfileiramento e este ponto o bot foi desativado
+        # (atendente assumiu, transbordo), abortamos a IA mas preservamos a mensagem
+        # do cliente no histórico para o atendente ver.
+        if MODO_HIBRIDO and (not user.bot_ativo or user.atendente_id is not None):
+            log.info("Modo híbrido: bot inativo ou atendente assumiu %s; persistindo msg para painel.", telefone)
+            db.add(HistoricoConversa(
+                telefone_usuario=telefone,
+                mensagem_cliente=texto_cliente,
+                resposta_bot=None,
+                origem="cliente",
+            ))
+            db.commit()
+            notificador.publicar({
+                "tipo": "nova_mensagem",
+                "telefone": telefone,
+                "nome": user.nome_cliente,
+                "texto": texto_cliente,
+                "origem": "cliente",
+            })
+            return
+        if not user.bot_ativo:
             return
 
         # Janela de contexto: últimas 15 trocas. Mais memória sem inflar tokens demais.
@@ -229,7 +260,8 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
             novo_historico = HistoricoConversa(
                 telefone_usuario=telefone,
                 mensagem_cliente=texto_cliente,
-                resposta_bot=MENSAGEM_BOAS_VINDAS.replace("\n", "<br>")
+                resposta_bot=MENSAGEM_BOAS_VINDAS.replace("\n", "<br>"),
+                origem="bot",
             )
             db.add(novo_historico)
             db.commit()
@@ -242,7 +274,8 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
             novo_historico = HistoricoConversa(
                 telefone_usuario=telefone,
                 mensagem_cliente=texto_cliente,
-                resposta_bot=MENSAGEM_MENU_REPETIDO.replace("\n", "<br>")
+                resposta_bot=MENSAGEM_MENU_REPETIDO.replace("\n", "<br>"),
+                origem="bot",
             )
             db.add(novo_historico)
             db.commit()
@@ -257,6 +290,7 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 telefone_usuario=telefone,
                 mensagem_cliente=texto_cliente,
                 resposta_bot=resposta_canonica,
+                origem="bot",
             )
             db.add(novo_historico)
             db.commit()
@@ -267,14 +301,23 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         # Processar IA Pesada
         resultado_ia = ai_service.processar_intencao(db, contexto_mensagens, texto_cliente, user.nome_cliente)
         intencao = resultado_ia.get("intencao")
-        
+
         resposta_bruta = resultado_ia.get("resposta_sugerida", "Tivemos um problema processando sua solicitação.")
+
+        # Modo híbrido: durante a chamada da IA (vários segundos) um atendente pode
+        # ter assumido a conversa. Re-checa antes de gravar/enviar para não atropelar.
+        if MODO_HIBRIDO:
+            db.refresh(user)
+            if user.atendente_id is not None or not user.bot_ativo:
+                log.info("Atendente assumiu %s durante chamada IA; descartando resposta.", telefone)
+                return
 
         # Salva no banco com <br> para manter consistência com o contexto que a IA recebe
         novo_historico = HistoricoConversa(
             telefone_usuario=telefone,
             mensagem_cliente=texto_cliente,
-            resposta_bot=resposta_bruta
+            resposta_bot=resposta_bruta,
+            origem="bot",
         )
         db.add(novo_historico)
         db.commit()
@@ -311,6 +354,16 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
 
         if intencao == "chamar_recepcao" or intencao == "transbordo_falha":
             _desativar_bot(db, user)
+            if MODO_HIBRIDO:
+                user.aguardando_humano = True
+                user.transbordo_em = datetime.now(timezone.utc)
+                db.commit()
+                notificador.publicar({
+                    "tipo": "novo_transbordo",
+                    "telefone": telefone,
+                    "nome": user.nome_cliente,
+                    "motivo": intencao,
+                })
             whatsapp.enviar_mensagem_texto(telefone, resposta_texto)
             return
 
@@ -384,12 +437,43 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     # Reativação automática do bot após N horas sem atividade humana.
     bot_ativo = _verificar_e_reativar_bot(db, user)
     if not bot_ativo:
-        log.info("Mensagem ignorada: bot desativado para %s (transbordo humano em curso).", telefone)
+        if MODO_HIBRIDO:
+            # Persiste mensagem do cliente para o atendente ver no dashboard.
+            # Não respondemos nada — atendente humano que decide.
+            db.add(HistoricoConversa(
+                telefone_usuario=telefone,
+                mensagem_cliente=texto_cliente,
+                resposta_bot=None,
+                origem="cliente",
+            ))
+            db.commit()
+            notificador.publicar({
+                "tipo": "nova_mensagem",
+                "telefone": telefone,
+                "nome": user.nome_cliente,
+                "texto": texto_cliente,
+                "origem": "cliente",
+            })
+            log.info("Modo híbrido: msg de %s persistida para atendimento humano.", telefone)
+        else:
+            log.info("Mensagem ignorada: bot desativado para %s (modo bot_only).", telefone)
         return {"status": "ok"}
 
     if texto_cliente == "🙋 Falar c/ Recepção":
         _desativar_bot(db, user)
-        whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um atendente vai assumir!")
+        if MODO_HIBRIDO:
+            user.aguardando_humano = True
+            user.transbordo_em = datetime.now(timezone.utc)
+            db.commit()
+            notificador.publicar({
+                "tipo": "novo_transbordo",
+                "telefone": telefone,
+                "nome": user.nome_cliente,
+                "motivo": "botao_recepcao",
+            })
+            whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Aguarde um momento, um atendente humano vai assumir e responder você em breve. 🙋")
+        else:
+            whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Estou te direcionando para a nossa recepção real. Pode mandar sua dúvida aqui que um atendente vai assumir!")
         return {"status": "ok"}
 
     log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])

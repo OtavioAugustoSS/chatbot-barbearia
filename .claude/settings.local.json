@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Home\\\\.vscode\\\\chatbot-barbearia\" -Force)",
-      "Bash(Select-Object Name, Mode)"
-    ]
-  }
-}

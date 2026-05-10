@@ -136,3 +136,36 @@ CREATE TABLE IF NOT EXISTS mensagens_processadas (
     processada_em DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_mensagens_processadas_data (processada_em)
 );
+
+-- =============================================================
+-- MIGRAÇÃO v3 (modo híbrido bot + atendente humano com dashboard)
+-- Execute uma única vez em banco já populado.
+-- Se rodar 2x → erro 1060 (Duplicate column) / 1050 (Table exists) — esperado.
+-- =============================================================
+
+-- Tabela de atendentes humanos (login no dashboard).
+CREATE TABLE IF NOT EXISTS atendentes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    usuario_login VARCHAR(50) NOT NULL UNIQUE,
+    senha_hash VARCHAR(255) NOT NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_atendentes_login (usuario_login)
+);
+
+-- Colunas novas em usuarios para fluxo de transbordo humano.
+ALTER TABLE usuarios ADD COLUMN aguardando_humano BOOLEAN DEFAULT FALSE;
+ALTER TABLE usuarios ADD COLUMN transbordo_em DATETIME NULL;
+ALTER TABLE usuarios ADD COLUMN atendente_id INT NULL;
+ALTER TABLE usuarios
+    ADD CONSTRAINT fk_usuarios_atendente
+    FOREIGN KEY (atendente_id) REFERENCES atendentes(id) ON DELETE SET NULL;
+
+-- Colunas novas em historico_conversas para diferenciar autoria da resposta.
+-- origem: 'bot' (IA), 'humano' (atendente), 'cliente' (mensagem registrada sem resposta).
+ALTER TABLE historico_conversas ADD COLUMN origem VARCHAR(10) DEFAULT 'bot';
+ALTER TABLE historico_conversas ADD COLUMN atendente_id INT NULL;
+ALTER TABLE historico_conversas
+    ADD CONSTRAINT fk_historico_atendente
+    FOREIGN KEY (atendente_id) REFERENCES atendentes(id) ON DELETE SET NULL;

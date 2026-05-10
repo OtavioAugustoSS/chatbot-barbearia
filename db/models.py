@@ -17,9 +17,15 @@ class Usuario(Base):
     nome_cliente = Column(String(100), nullable=True)
     bot_ativo = Column(Boolean, default=True)
     bot_desativado_em = Column(DateTime, nullable=True)
+    # Modo híbrido: cliente pediu transbordo e ainda nenhum atendente assumiu.
+    aguardando_humano = Column(Boolean, default=False)
+    transbordo_em = Column(DateTime, nullable=True)
+    # Atendente que assumiu a conversa. NULL = nenhum atendente ativo.
+    atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     historico = relationship("HistoricoConversa", back_populates="usuario", cascade="all, delete-orphan")
+    atendente = relationship("Atendente", foreign_keys=[atendente_id])
 
 
 class HistoricoConversa(Base):
@@ -29,14 +35,31 @@ class HistoricoConversa(Base):
     telefone_usuario = Column(String(20), ForeignKey('usuarios.telefone', ondelete='CASCADE'))
     mensagem_cliente = Column(Text, nullable=True)
     resposta_bot = Column(Text, nullable=True)
+    # Origem da resposta: "bot" (IA), "humano" (atendente via dashboard) ou "cliente"
+    # (apenas mensagens do cliente registradas com bot inativo, sem resposta).
+    origem = Column(String(10), default="bot")
+    atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     usuario = relationship("Usuario", back_populates="historico")
+    atendente = relationship("Atendente", foreign_keys=[atendente_id])
 
     # Índice composto: query padrão é WHERE telefone_usuario = X ORDER BY criado_em DESC.
     __table_args__ = (
         Index("idx_historico_telefone_data", "telefone_usuario", "criado_em"),
     )
+
+
+class Atendente(Base):
+    """Operador humano que assume conversas via dashboard (modo híbrido)."""
+    __tablename__ = 'atendentes'
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String(100), nullable=False)
+    usuario_login = Column(String(50), unique=True, nullable=False, index=True)
+    senha_hash = Column(String(255), nullable=False)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class MensagemProcessada(Base):

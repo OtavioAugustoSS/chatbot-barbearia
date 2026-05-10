@@ -26,6 +26,9 @@ backup_*.sql
 *.swo
 *~
 
+# Claude Code: configurações pessoais do dev (não compartilhar)
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
