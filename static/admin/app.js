@@ -1,6 +1,18 @@
 // Painel atendente — Barbearia Bolshoi
 // Vanilla JS + fetch + fetch-streaming SSE. Sem build, sem framework.
 
+// TASK-013: canned responses
+const RESPOSTAS_RAPIDAS = [
+  "Olá! Em que posso ajudá-lo(a)?",
+  "Obrigado por entrar em contato com a Barbearia Bolshoi!",
+  "Para agendar, utilize o aplicativo AppBarber.",
+  "Nosso endereço é [endereço da barbearia]. Estamos abertos de segunda a sábado.",
+  "Aguarde um momento, estou verificando as informações.",
+  "Posso ajudar com mais alguma coisa?",
+  "Encerrando o atendimento. Obrigado pela preferência!",
+  "Em caso de dúvidas, entre em contato pelo WhatsApp novamente.",
+];
+
 const TOKEN = localStorage.getItem('token');
 const ATENDENTE_ID = parseInt(localStorage.getItem('atendente_id') || '0');
 const ATENDENTE_NOME = localStorage.getItem('atendente_nome') || '';
@@ -11,6 +23,26 @@ if (!TOKEN) {
 }
 
 document.getElementById('nome-atendente').textContent = ATENDENTE_NOME;
+
+// TASK-019: exibir último acesso na sidebar
+(function exibirUltimoAcesso() {
+  const iso = localStorage.getItem('ultimo_login');
+  const el = document.getElementById('ultimo-acesso');
+  if (!el) return;
+  if (!iso) { el.classList.add('hidden'); return; }
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const aaaa = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    el.textContent = `Último acesso: ${dd}/${mm}/${aaaa} às ${hh}:${min}`;
+    el.classList.remove('hidden');
+  } catch (_) {
+    el.classList.add('hidden');
+  }
+})();
 
 let conversaAtual = null;
 let conversas = [];
@@ -152,6 +184,51 @@ function tocarNotificacao() {
 }
 
 // ============================================================
+// Tag helpers
+// ============================================================
+
+function tagBadgeHTML(tag) {
+  if (tag === 'resolvido') {
+    return '<span class="text-[9px] uppercase font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">&#10003; Resolvido</span>';
+  }
+  if (tag === 'follow_up') {
+    return '<span class="text-[9px] uppercase font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">&#8617; Follow-up</span>';
+  }
+  return '';
+}
+
+async function definirTag(telefone, tag) {
+  // tag pode ser "resolvido", "follow_up" ou null (remover)
+  await api(`/admin/conversa/${encodeURIComponent(telefone)}/tag`, {
+    method: 'PATCH',
+    body: JSON.stringify({ tag }),
+  });
+  // Atualiza o objeto local em memória
+  const conv = conversas.find(c => c.telefone === telefone);
+  if (conv) conv.tag = tag;
+  // Atualiza badge na sidebar sem re-fetch completo
+  const li = document.querySelector(`#lista-conversas li[data-telefone="${CSS.escape(telefone)}"]`);
+  if (li) {
+    const badgeEl = li.querySelector('[data-tag-badge]');
+    if (badgeEl) badgeEl.innerHTML = tagBadgeHTML(tag);
+  }
+  // Atualiza seletor no header
+  renderTagHeader(tag);
+  const labels = { resolvido: 'Resolvido', follow_up: 'Follow-up', null: 'removida' };
+  toast(`Tag ${labels[tag] || 'removida'}.`, 'ok');
+}
+
+function renderTagHeader(tag) {
+  const el = document.getElementById('tag-selector');
+  if (!el) return;
+  document.querySelectorAll('#tag-selector button[data-tag]').forEach(btn => {
+    const isAtivo = btn.dataset.tag === (tag || '');
+    btn.classList.toggle('ring-2', isAtivo);
+    btn.classList.toggle('ring-offset-1', isAtivo);
+  });
+}
+
+// ============================================================
 // Render — sidebar
 // ============================================================
 
@@ -190,7 +267,10 @@ function renderListaConversas() {
       etiqueta = '<span class="text-[9px] uppercase font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">Bot</span>';
     }
 
+    const tagBadge = tagBadgeHTML(c.tag);
+
     li.className = `px-3 py-2.5 border-b border-gray-100 cursor-pointer transition relative ${ativo ? 'bg-amber-50' : 'hover:bg-gray-50'}`;
+    li.dataset.telefone = c.telefone;
     li.innerHTML = `
       <div class="flex items-start gap-2.5">
         <div class="${extraClasses} rounded-full">
@@ -203,7 +283,7 @@ function renderListaConversas() {
           </div>
           <div class="flex items-center justify-between gap-2 mt-0.5">
             <span class="text-xs text-gray-500 truncate">${escapeHtml(c.preview || c.telefone)}</span>
-            ${etiqueta}
+            <div class="flex items-center gap-1 flex-shrink-0"><span data-tag-badge>${tagBadge}</span>${etiqueta}</div>
           </div>
         </div>
       </div>
@@ -213,10 +293,21 @@ function renderListaConversas() {
   }
 }
 
+// TASK-012: compute and render queue metrics
+function atualizarMetricas() {
+  const aguardando = conversas.filter(c => c.aguardando_humano === true).length;
+  const atendimento = conversas.filter(c => c.atendente_id !== null && c.atendente_id !== undefined).length;
+  const comBot = conversas.filter(c => c.bot_ativo === true && !c.aguardando_humano).length;
+  document.getElementById('metric-aguardando').textContent = aguardando;
+  document.getElementById('metric-atendimento').textContent = atendimento;
+  document.getElementById('metric-bot').textContent = comBot;
+}
+
 async function carregarConversas() {
   try {
     conversas = await api('/admin/conversas');
     renderListaConversas();
+    atualizarMetricas();
   } catch (e) { console.error(e); }
 }
 
@@ -227,10 +318,15 @@ async function carregarConversas() {
 async function abrirConversa(telefone) {
   conversaAtual = telefone;
   renderListaConversas();
+  // TASK-018: auto-close sidebar drawer on mobile when conversation is selected
+  if (window.innerWidth < 640) fecharSidebar();
   try {
     const data = await api(`/admin/conversa/${encodeURIComponent(telefone)}`);
     renderThread(data);
   } catch (e) { console.error(e); }
+  // TASK-015: mostrar painel e carregar notas ao abrir conversa
+  document.getElementById('painel-notas').classList.remove('hidden');
+  carregarNotas(telefone);
 }
 
 function atualizarHeaderThread(u) {
@@ -238,6 +334,9 @@ function atualizarHeaderThread(u) {
   document.getElementById('thread-avatar').innerHTML = avatarHTML(u.nome, u.telefone, 'w-10 h-10 text-sm');
   document.getElementById('thread-nome').textContent = u.nome || u.telefone;
   document.getElementById('thread-telefone').textContent = u.telefone;
+
+  // Render tag selector
+  renderTagHeader(u.tag);
 
   const status = document.getElementById('thread-status');
   const btnAssumir = document.getElementById('btn-assumir');
@@ -327,6 +426,21 @@ function indicadorEntrega(entregue, pending) {
   return '';
 }
 
+// TASK-014: resolve MÍDIA_ prefix to chip HTML
+function resolverConteudoMensagem(texto) {
+  if (texto && texto.startsWith('MÍDIA_')) {
+    const tipo = texto.replace('MÍDIA_', '').toLowerCase();
+    const chips = {
+      audio: '🎵 Áudio',
+      image: '🖼️ Imagem',
+      document: '📎 Documento',
+    };
+    const label = chips[tipo] || '📁 Mídia';
+    return { html: `<span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">${label}</span>`, isMedia: true };
+  }
+  return { html: null, isMedia: false };
+}
+
 function bolha(texto, origem, criado_em, opts = {}) {
   const wrapper = document.createElement('div');
   const isOutgoing = origem === 'humano' || origem === 'bot';
@@ -357,10 +471,16 @@ function bolha(texto, origem, criado_em, opts = {}) {
   // Só mostra indicador em mensagens saindo (cliente não tem status de entrega).
   const status = isOutgoing ? indicadorEntrega(opts.entregue, opts.pending) : '';
 
+  // TASK-014: check for MÍDIA_ prefix
+  const { html: mediaHtml, isMedia } = resolverConteudoMensagem(texto);
+  const conteudoHtml = isMedia
+    ? mediaHtml
+    : `<span class="block text-sm whitespace-pre-wrap text-gray-800 leading-relaxed">${escapeHtml(texto)}</span>`;
+
   wrapper.innerHTML = `
     <div class="max-w-md px-3 py-2 rounded-2xl shadow-sm ${cls} ${isOutgoing ? 'rounded-tr-sm' : 'rounded-tl-sm'}">
       <span class="block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wide">${label}</span>
-      <span class="block text-sm whitespace-pre-wrap text-gray-800 leading-relaxed">${escapeHtml(texto)}</span>
+      ${conteudoHtml}
       <span class="block text-[10px] text-gray-400 mt-1 text-right">${hora}${status}</span>
     </div>
   `;
@@ -419,6 +539,62 @@ function atualizarIconeMute() {
   }
 }
 atualizarIconeMute();
+
+// ============================================================
+// TASK-013: canned responses panel
+// ============================================================
+
+(function iniciarRespostasRapidas() {
+  const listaDom = document.getElementById('lista-rapidas');
+  RESPOSTAS_RAPIDAS.forEach(texto => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'w-full text-left text-sm px-3 py-2 hover:bg-amber-50 hover:text-amber-700 transition text-gray-700 border-b border-gray-100 last:border-0';
+    btn.textContent = texto;
+    btn.addEventListener('click', () => {
+      const ta = document.getElementById('texto-msg');
+      ta.value = texto;
+      autoResize();
+      ta.focus();
+      fecharPopoverRapidas();
+    });
+    listaDom.appendChild(btn);
+  });
+})();
+
+function fecharPopoverRapidas() {
+  document.getElementById('popover-rapidas').classList.add('hidden');
+}
+
+document.getElementById('btn-rapidas').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('popover-rapidas').classList.toggle('hidden');
+});
+
+document.addEventListener('click', (e) => {
+  const popover = document.getElementById('popover-rapidas');
+  if (popover && !popover.classList.contains('hidden') &&
+      !popover.contains(e.target) && e.target !== document.getElementById('btn-rapidas')) {
+    fecharPopoverRapidas();
+  }
+});
+
+// ============================================================
+// TASK-018: responsive sidebar toggle (mobile)
+// ============================================================
+
+function abrirSidebar() {
+  document.getElementById('sidebar').classList.remove('-translate-x-full');
+  document.getElementById('sidebar-backdrop').classList.remove('hidden');
+}
+
+function fecharSidebar() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sidebar-backdrop').classList.add('hidden');
+}
+
+document.getElementById('btn-hamburger').addEventListener('click', abrirSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', fecharSidebar);
 
 document.getElementById('btn-assumir').addEventListener('click', async (e) => {
   if (!conversaAtual) return;
@@ -639,6 +815,112 @@ function ultimoSeparadorLabel() {
   const sep = document.querySelectorAll('#thread-mensagens > .flex.items-center.justify-center > span');
   return sep.length ? sep[sep.length - 1].textContent : null;
 }
+
+// ============================================================
+// Tag selector — event delegation
+// ============================================================
+
+document.getElementById('tag-selector').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-tag]');
+  if (!btn || !conversaAtual) return;
+  const novaTag = btn.dataset.tag || null; // botão "remover" tem data-tag=""
+  btn.disabled = true;
+  try {
+    await definirTag(conversaAtual, novaTag);
+  } catch (err) {
+    toast('Erro ao salvar tag: ' + err.message, 'transbordo');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ============================================================
+// TASK-015: Notas internas
+// ============================================================
+
+async function carregarNotas(telefone) {
+  const lista = document.getElementById('lista-notas');
+  if (!lista) return;
+  lista.innerHTML = '<li class="text-xs text-gray-400 italic">Carregando…</li>';
+  try {
+    const notas = await api(`/admin/notas/${encodeURIComponent(telefone)}`);
+    lista.innerHTML = '';
+    if (!notas || notas.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'text-xs text-gray-400 italic';
+      li.textContent = 'Nenhuma nota ainda.';
+      lista.appendChild(li);
+      return;
+    }
+    for (const n of notas) {
+      const li = document.createElement('li');
+      li.className = 'bg-yellow-50 border border-yellow-100 rounded-lg px-2.5 py-1.5';
+      const hora = n.criado_em
+        ? (() => {
+            const d = new Date(n.criado_em);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const aaaa = d.getFullYear();
+            const hh = String(d.getHours()).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            return `${dd}/${mm}/${aaaa} ${hh}:${min}`;
+          })()
+        : '';
+      li.innerHTML = `
+        <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(n.texto)}</p>
+        <p class="text-[10px] text-gray-400 mt-0.5">${hora}</p>
+      `;
+      lista.appendChild(li);
+    }
+  } catch (err) {
+    lista.innerHTML = '<li class="text-xs text-red-500">Erro ao carregar notas.</li>';
+    console.error('carregarNotas:', err);
+  }
+}
+
+async function adicionarNota(telefone) {
+  const ta = document.getElementById('textarea-nota');
+  const btn = document.getElementById('btn-adicionar-nota');
+  if (!ta || !btn) return;
+  const texto = ta.value.trim();
+  if (!texto) { ta.focus(); return; }
+  btn.disabled = true;
+  try {
+    await api(`/admin/notas/${encodeURIComponent(telefone)}`, {
+      method: 'POST',
+      body: JSON.stringify({ texto }),
+    });
+    ta.value = '';
+    await carregarNotas(telefone);
+    toast('Nota adicionada.', 'ok');
+  } catch (err) {
+    toast('Erro ao salvar nota: ' + err.message, 'transbordo');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Toggle abrir/fechar painel de notas
+document.getElementById('btn-toggle-notas').addEventListener('click', () => {
+  const corpo = document.getElementById('corpo-notas');
+  const chevron = document.getElementById('icone-notas-chevron');
+  const aberto = !corpo.classList.contains('hidden');
+  corpo.classList.toggle('hidden', aberto);
+  chevron.classList.toggle('rotate-180', !aberto);
+});
+
+// Botão "Adicionar nota"
+document.getElementById('btn-adicionar-nota').addEventListener('click', () => {
+  if (conversaAtual) adicionarNota(conversaAtual);
+});
+
+// Enter no textarea de nota (Shift+Enter = nova linha, Enter = adicionar)
+document.getElementById('textarea-nota').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    if (conversaAtual) adicionarNota(conversaAtual);
+  }
+});
 
 // ============================================================
 // Bootstrap

@@ -22,7 +22,9 @@ class Usuario(Base):
     transbordo_em = Column(DateTime, nullable=True)
     # Atendente que assumiu a conversa. NULL = nenhum atendente ativo.
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
+    tag = Column(String(20), nullable=True, default=None)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     historico = relationship("HistoricoConversa", back_populates="usuario", cascade="all, delete-orphan")
     atendente = relationship("Atendente", foreign_keys=[atendente_id])
@@ -38,6 +40,7 @@ class HistoricoConversa(Base):
     # Origem da resposta: "bot" (IA), "humano" (atendente via dashboard) ou "cliente"
     # (apenas mensagens do cliente registradas com bot inativo, sem resposta).
     origem = Column(String(10), default="bot")
+    intencao = Column(String(30), nullable=True)
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
     # Status de entrega ao WhatsApp via Meta Cloud API:
     # True = Meta aceitou (200 OK), False = falhou (4xx/5xx ou erro de rede),
@@ -64,6 +67,7 @@ class Atendente(Base):
     senha_hash = Column(String(255), nullable=False)
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    ultimo_login = Column(DateTime, nullable=True)
 
 
 class MensagemProcessada(Base):
@@ -83,6 +87,7 @@ class Servico(Base):
     preco = Column(Numeric(10, 2), nullable=False)
     tempo_estimado_minutos = Column(Integer, nullable=False)
     categoria = Column(String(20), nullable=False, default="barbearia")
+    ativo = Column(Boolean, default=True, nullable=False)
 
     # Relacionamento MUITOS-PARA-MUITOS bidirecional
     barbeiros = relationship(
@@ -105,3 +110,26 @@ class Barbeiro(Base):
         secondary=barbeiros_servicos,
         back_populates="barbeiros"
     )
+
+
+class Horario(Base):
+    """Horários de funcionamento por dia da semana (0=segunda ... 6=domingo)."""
+    __tablename__ = "horarios"
+
+    dia_semana = Column(Integer, primary_key=True)  # 0=Monday, 6=Sunday (Python weekday())
+    abertura = Column(String(5), nullable=True)      # "HH:MM", NULL if fechado
+    fechamento = Column(String(5), nullable=True)    # "HH:MM", NULL if fechado
+    fechado = Column(Boolean, default=False, nullable=False)
+
+
+class NotaInterna(Base):
+    """Nota interna de atendente sobre um cliente (visível apenas no dashboard)."""
+    __tablename__ = "notas_internas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    telefone_usuario = Column(String(20), ForeignKey("usuarios.telefone", ondelete="CASCADE"), nullable=False)
+    atendente_id = Column(Integer, ForeignKey("atendentes.id", ondelete="SET NULL"), nullable=True)
+    texto = Column(Text, nullable=False)
+    criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (Index("idx_notas_telefone", "telefone_usuario"),)

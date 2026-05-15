@@ -54,6 +54,11 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     localStorage.setItem('token', data.token);
     localStorage.setItem('atendente_nome', data.nome);
     localStorage.setItem('atendente_id', data.atendente_id);
+    if (data.ultimo_login) {
+      localStorage.setItem('ultimo_login', data.ultimo_login);
+    } else {
+      localStorage.removeItem('ultimo_login');
+    }
     window.location.href = '/static/admin/index.html';
   } catch (err) {
     erro.textContent = 'Falha de conexão.';

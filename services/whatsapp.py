@@ -31,7 +31,13 @@ class WhatsAppSender:
             "text": {"body": texto}
         }
         try:
-            response = requests.post(self.url, headers=self.headers, json=payload, timeout=10)
+            import time
+            for attempt in range(3):
+                response = requests.post(self.url, headers=self.headers, json=payload, timeout=10)
+                if response.status_code < 500:
+                    break
+                if attempt < 2:
+                    time.sleep(1)
         except requests.RequestException as e:
             log.error("Falha de rede ao enviar mensagem para %s: %s", numero, e)
             return False

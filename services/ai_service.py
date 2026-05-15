@@ -7,11 +7,13 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 load_dotenv()
 
+import openai
 from openai import OpenAI
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sqlalchemy.orm import joinedload
 from core.prompts import SYSTEM_PROMPT_BARBEARIA, ANCORA_ANTI_DRIFT
 from core.config import MODO_HIBRIDO
-from db.models import Servico, Barbeiro
+from db.models import Servico, Barbeiro, Horario
 
 log = logging.getLogger("barbearia.ai")
 
@@ -36,6 +38,9 @@ _MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho"
 
 # Horários por dia da semana. weekday(): 0=segunda ... 6=domingo.
 # (abre, fecha) em minutos desde 00:00. None = fechado.
+# ATENÇÃO: estes valores agora vivem na tabela `horarios` do banco de dados.
+# Populados via scripts/seed_horarios.py. Este dict é usado APENAS como fallback
+# caso a tabela esteja vazia (ex.: primeiro boot antes do seed).
 _HORARIOS = {
     0: (14 * 60, 21 * 60),       # segunda
     1: (9 * 60, 21 * 60),        # terça
@@ -47,13 +52,44 @@ _HORARIOS = {
 }
 
 
-def _formatar_horario_dia(weekday: int) -> str:
-    """Texto curto do horário de um dia da semana."""
-    h = _HORARIOS[weekday]
+def _horario_para_minutos(horario_str: str) -> int:
+    """Converte 'HH:MM' em minutos desde 00:00."""
+    h, m = horario_str.split(":")
+    return int(h) * 60 + int(m)
+
+
+def _formatar_horario_dia(weekday: int, horarios_db: dict | None = None) -> str:
+    """Texto curto do horário de um dia da semana.
+
+    Prioridade: horarios_db (Horario objects do banco) → _HORARIOS (fallback hardcoded).
+    horarios_db: dict {dia_semana: Horario} ou None.
+    """
+    if horarios_db and weekday in horarios_db:
+        reg = horarios_db[weekday]
+        if reg.fechado or reg.abertura is None:
+            return "FECHADA"
+        return f"das {reg.abertura} às {reg.fechamento}"
+
+    # Fallback: dict hardcoded
+    h = _HORARIOS.get(weekday)
     if h is None:
         return "FECHADA"
     abre, fecha = h
     return f"das {abre//60:02d}:{abre%60:02d} às {fecha//60:02d}:{fecha%60:02d}"
+
+
+def _carregar_horarios_db() -> dict:
+    """Retorna dict {dia_semana: Horario} consultando o banco. Retorna {} em caso de erro."""
+    from db.database import SessionLocal
+    db = SessionLocal()
+    try:
+        registros = db.query(Horario).all()
+        return {r.dia_semana: r for r in registros}
+    except Exception as e:
+        log.warning("Falha ao carregar horarios do banco, usando fallback hardcoded: %s", e)
+        return {}
+    finally:
+        db.close()
 
 
 def _construir_contexto_temporal() -> str:
@@ -61,6 +97,9 @@ def _construir_contexto_temporal() -> str:
     Mensagem do sistema com data/hora atual (Brasília) e status de funcionamento.
     Inclui horário de hoje, amanhã e depois-amanhã pra IA resolver "amanhã" / etc.
     Reduz alucinação de dia da semana e disponibilidade.
+
+    Horários são consultados da tabela `horarios` no banco de dados.
+    Fallback para _HORARIOS hardcoded se a tabela estiver vazia ou inacessível.
     """
     from datetime import timedelta as _td
     agora = datetime.now(_TZ_BR)
@@ -72,17 +111,37 @@ def _construir_contexto_temporal() -> str:
     hora_str = agora.strftime("%H:%M")
     minutos_agora = agora.hour * 60 + agora.minute
 
-    horario_dia = _HORARIOS[agora.weekday()]
-    if horario_dia is None:
-        status = "FECHADA hoje (domingo)."
-    else:
-        abre, fecha = horario_dia
-        if minutos_agora < abre:
-            status = f"FECHADA agora. Abre hoje às {abre//60:02d}:{abre%60:02d} e fecha às {fecha//60:02d}:{fecha%60:02d}."
-        elif minutos_agora >= fecha:
-            status = f"FECHADA agora (já passou das {fecha//60:02d}:{fecha%60:02d} de hoje)."
+    # Carrega horários do banco; fallback silencioso para dict hardcoded se vazio.
+    horarios_db = _carregar_horarios_db()
+    usar_db = bool(horarios_db)
+
+    if usar_db:
+        reg_hoje = horarios_db.get(agora.weekday())
+        if reg_hoje is None or reg_hoje.fechado or reg_hoje.abertura is None:
+            nome_dia = _DIAS_PT[agora.weekday()]
+            status = f"FECHADA hoje ({nome_dia})."
         else:
-            status = f"ABERTA agora. Fecha hoje às {fecha//60:02d}:{fecha%60:02d}."
+            abre = _horario_para_minutos(reg_hoje.abertura)
+            fecha = _horario_para_minutos(reg_hoje.fechamento)
+            if minutos_agora < abre:
+                status = f"FECHADA agora. Abre hoje às {reg_hoje.abertura} e fecha às {reg_hoje.fechamento}."
+            elif minutos_agora >= fecha:
+                status = f"FECHADA agora (já passou das {reg_hoje.fechamento} de hoje)."
+            else:
+                status = f"ABERTA agora. Fecha hoje às {reg_hoje.fechamento}."
+    else:
+        # Fallback hardcoded
+        horario_dia = _HORARIOS[agora.weekday()]
+        if horario_dia is None:
+            status = "FECHADA hoje (domingo)."
+        else:
+            abre, fecha = horario_dia
+            if minutos_agora < abre:
+                status = f"FECHADA agora. Abre hoje às {abre//60:02d}:{abre%60:02d} e fecha às {fecha//60:02d}:{fecha%60:02d}."
+            elif minutos_agora >= fecha:
+                status = f"FECHADA agora (já passou das {fecha//60:02d}:{fecha%60:02d} de hoje)."
+            else:
+                status = f"ABERTA agora. Fecha hoje às {fecha//60:02d}:{fecha%60:02d}."
 
     return (
         "CONTEXTO TEMPORAL — use SEMPRE estes valores ao mencionar dia, hora ou status de funcionamento. "
@@ -90,8 +149,8 @@ def _construir_contexto_temporal() -> str:
         f"- Hoje é {dia_semana}, {data_str}.\n"
         f"- Hora atual em Brasília: {hora_str}.\n"
         f"- Status da barbearia neste momento: {status}\n"
-        f"- Amanhã ({_DIAS_PT[amanha.weekday()]}): {_formatar_horario_dia(amanha.weekday())}.\n"
-        f"- Depois de amanhã ({_DIAS_PT[depois.weekday()]}): {_formatar_horario_dia(depois.weekday())}.\n"
+        f"- Amanhã ({_DIAS_PT[amanha.weekday()]}): {_formatar_horario_dia(amanha.weekday(), horarios_db)}.\n"
+        f"- Depois de amanhã ({_DIAS_PT[depois.weekday()]}): {_formatar_horario_dia(depois.weekday(), horarios_db)}.\n"
         "- Use 'amanhã' / 'depois de amanhã' SEMPRE com o dia correto da semana acima.\n"
         "- Se o cliente perguntar 'até que horas abre hoje?' / 'estão abertos?' / 'que dia é hoje?', "
         "responda usando EXATAMENTE essas informações."
@@ -115,7 +174,7 @@ class AIService:
         if self._cache_db["data"] and agora < self._cache_db["expira_em"]:
             return self._cache_db["data"]
 
-        servicos = db_session.query(Servico).order_by(Servico.categoria, Servico.id).all()
+        servicos = db_session.query(Servico).filter(Servico.ativo == True).order_by(Servico.categoria, Servico.id).all()
         barbeiros = (
             db_session.query(Barbeiro)
             .options(joinedload(Barbeiro.servicos))
@@ -157,6 +216,22 @@ class AIService:
     def invalidar_cache_db(self):
         """Chamar após mutação em Servico/Barbeiro pra forçar revalidação."""
         self._cache_db = {"data": None, "expira_em": 0.0}
+
+    @retry(
+        retry=retry_if_exception_type((openai.APITimeoutError, openai.APIConnectionError)),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=8),
+        reraise=True,
+    )
+    def _chamar_llm(self, messages):
+        return self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            temperature=0.0,
+            max_tokens=2048,
+            response_format={"type": "json_object"},
+            timeout=30,
+        )
 
     def _validar_resposta(self, dados: dict) -> dict:
         """Sanitiza resposta da IA: enum válido + bloqueio de promessas de agendamento."""
@@ -226,13 +301,7 @@ class AIService:
             messages_payload.append({"role": "user", "content": mensagem_atual})
 
             t0 = time.time()
-            completion = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages_payload,
-                temperature=0.0,
-                max_tokens=2048,
-                response_format={"type": "json_object"}
-            )
+            completion = self._chamar_llm(messages_payload)
             elapsed = time.time() - t0
             log.info("IA completion ok em %.2fs (msgs=%d)", elapsed, len(messages_payload))
 

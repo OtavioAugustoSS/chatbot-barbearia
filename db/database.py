@@ -25,6 +25,8 @@ engine = create_engine(
     pool_recycle=3600,
     pool_size=10,
     max_overflow=20,
+    pool_timeout=30,
+    connect_args={"connect_timeout": 10},
 )
 
 # Sessão do banco de dados

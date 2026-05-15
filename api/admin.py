@@ -31,13 +31,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 
 from db.database import get_db
-from db.models import Atendente, Usuario, HistoricoConversa
+from db.models import Atendente, Usuario, HistoricoConversa, NotaInterna
 from services.whatsapp import WhatsAppSender
 from services.notificador import notificador
 from api.auth import (
     atendente_atual,
     verificar_senha,
     criar_token,
+    hash_senha,
     login_rate_limited,
 )
 
@@ -56,6 +57,7 @@ class LoginOut(BaseModel):
     token: str
     nome: str
     atendente_id: int
+    ultimo_login: str | None = None
 
 
 class EnviarMensagemIn(BaseModel):
@@ -88,9 +90,12 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         log.warning("Login inválido para usuario_login=%r de IP %s", payload.usuario_login, ip)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
 
+    ultimo_login_anterior = _iso_utc(atendente.ultimo_login)
+    atendente.ultimo_login = datetime.now(timezone.utc)
+    db.commit()
     token = criar_token(atendente)
     log.info("Login OK: atendente_id=%s nome=%s", atendente.id, atendente.nome)
-    return LoginOut(token=token, nome=atendente.nome, atendente_id=atendente.id)
+    return LoginOut(token=token, nome=atendente.nome, atendente_id=atendente.id, ultimo_login=ultimo_login_anterior)
 
 
 @router.get("/conversas")
@@ -167,6 +172,7 @@ def listar_conversas(
             "transbordo_em": _iso_utc(u.transbordo_em),
             "ultima_mensagem_em": _iso_utc(ultima),
             "preview": previews.get(u.telefone, ""),
+            "tag": u.tag,
         }
         for u, ultima in rows
     ]
@@ -197,6 +203,7 @@ def ver_conversa(
             "bot_ativo": bool(user.bot_ativo),
             "aguardando_humano": bool(user.aguardando_humano),
             "atendente_id": user.atendente_id,
+            "tag": user.tag,
         },
         "mensagens": [
             {
@@ -367,6 +374,25 @@ def devolver(
     return {"status": "ok"}
 
 
+@router.patch("/conversa/{telefone}/tag")
+def atualizar_tag(
+    telefone: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    atendente: Atendente = Depends(atendente_atual),
+):
+    """Define ou remove a tag de uma conversa ('resolvido', 'follow_up' ou None)."""
+    tag = body.get("tag")  # "resolvido", "follow_up", or None to clear
+    if tag not in ("resolvido", "follow_up", None):
+        raise HTTPException(400, "Tag inválida")
+    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+    if not user:
+        raise HTTPException(404, "Usuário não encontrado")
+    user.tag = tag
+    db.commit()
+    return {"ok": True, "tag": tag}
+
+
 @router.get("/eventos/stream")
 def stream_eventos(_me: Atendente = Depends(atendente_atual)):
     """Server-Sent Events. Cliente conecta com EventSource()."""
@@ -380,3 +406,90 @@ def stream_eventos(_me: Atendente = Depends(atendente_atual)):
             "Connection": "keep-alive",
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# TASK-020: Gerenciamento de atendentes
+# ---------------------------------------------------------------------------
+
+@router.get("/atendentes")
+async def listar_atendentes(db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
+    """Lista todos os atendentes ordenados pelo nome."""
+    atendentes = db.query(Atendente).order_by(Atendente.nome).all()
+    return [
+        {
+            "id": a.id,
+            "nome": a.nome,
+            "usuario_login": a.usuario_login,
+            "ativo": a.ativo,
+            "criado_em": _iso_utc(a.criado_em),
+            "ultimo_login": _iso_utc(a.ultimo_login),
+        }
+        for a in atendentes
+    ]
+
+
+@router.post("/atendentes", status_code=201)
+async def criar_atendente(body: dict, db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
+    """Cria um novo atendente. Requer nome, usuario_login e senha (mín. 8 chars)."""
+    nome = body.get("nome", "").strip()
+    login = body.get("usuario_login", "").strip()
+    senha = body.get("senha", "")
+    if not nome or not login or len(senha) < 8:
+        raise HTTPException(400, "Nome, login e senha (mín. 8 chars) são obrigatórios")
+    if db.query(Atendente).filter(Atendente.usuario_login == login).first():
+        raise HTTPException(409, "Login já existe")
+    novo = Atendente(nome=nome, usuario_login=login, senha_hash=hash_senha(senha), ativo=True)
+    db.add(novo)
+    db.commit()
+    db.refresh(novo)
+    return {"id": novo.id, "nome": novo.nome, "usuario_login": novo.usuario_login}
+
+
+@router.patch("/atendentes/{atendente_id}/desativar")
+async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), atual: Atendente = Depends(atendente_atual)):
+    """Desativa um atendente. Não é permitido desativar a própria conta."""
+    if atual.id == atendente_id:
+        raise HTTPException(400, "Não é possível desativar sua própria conta")
+    a = db.query(Atendente).filter(Atendente.id == atendente_id).first()
+    if not a:
+        raise HTTPException(404, "Atendente não encontrado")
+    a.ativo = False
+    db.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# TASK-015: Notas internas por cliente
+# ---------------------------------------------------------------------------
+
+@router.get("/notas/{telefone}")
+async def listar_notas(telefone: str, db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
+    """Lista as notas internas de um cliente em ordem decrescente de criação."""
+    notas = (
+        db.query(NotaInterna)
+        .filter(NotaInterna.telefone_usuario == telefone)
+        .order_by(NotaInterna.criado_em.desc())
+        .all()
+    )
+    return [
+        {
+            "id": n.id,
+            "texto": n.texto,
+            "atendente_id": n.atendente_id,
+            "criado_em": _iso_utc(n.criado_em),
+        }
+        for n in notas
+    ]
+
+
+@router.post("/notas/{telefone}", status_code=201)
+async def criar_nota(telefone: str, body: dict, db: Session = Depends(get_db), atual: Atendente = Depends(atendente_atual)):
+    """Registra uma nova nota interna para o cliente identificado pelo telefone."""
+    texto = body.get("texto", "").strip()
+    if not texto:
+        raise HTTPException(400, "Texto da nota é obrigatório")
+    nota = NotaInterna(telefone_usuario=telefone, atendente_id=atual.id, texto=texto)
+    db.add(nota)
+    db.commit()
+    return {"ok": True}

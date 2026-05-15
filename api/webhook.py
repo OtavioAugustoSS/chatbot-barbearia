@@ -276,6 +276,7 @@ def _enviar_e_registrar(
     resposta_texto: str,
     origem: str = "bot",
     atendente_id: int | None = None,
+    intencao: str | None = None,
 ) -> bool:
     """
     Salva uma entrada de HistoricoConversa, envia ao WhatsApp via Meta API,
@@ -289,6 +290,7 @@ def _enviar_e_registrar(
         mensagem_cliente=mensagem_cliente,
         resposta_bot=resposta_texto,
         origem=origem,
+        intencao=intencao,
         atendente_id=atendente_id,
         entregue=None,
     )
@@ -471,7 +473,7 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                         "Mas posso te ajudar com dúvidas sobre serviços, equipe, horários e localização — é só me perguntar.\n\n"
                         "Para agendar, use nosso app: https://sites.appbarber.com.br/bolshoi"
                     )
-                _enviar_e_registrar(db, user, texto_cliente, resposta_texto, origem="bot")
+                _enviar_e_registrar(db, user, texto_cliente, resposta_texto, origem="bot", intencao=intencao)
                 return
             # MODO_HIBRIDO: desativa bot e marca fila pra atendente humano assumir.
             _desativar_bot(db, user)
@@ -484,10 +486,10 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 "nome": user.nome_cliente,
                 "motivo": intencao,
             })
-            _enviar_e_registrar(db, user, texto_cliente, resposta_bruta, origem="bot")
+            _enviar_e_registrar(db, user, texto_cliente, resposta_bruta, origem="bot", intencao=intencao)
             return
 
-        _enviar_e_registrar(db, user, texto_cliente, resposta_bruta, origem="bot")
+        _enviar_e_registrar(db, user, texto_cliente, resposta_bruta, origem="bot", intencao=intencao)
 
     finally:
         db.close()
@@ -608,6 +610,10 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     # terminar e responder — pode levar segundos. Com esse evento, msg do cliente
     # aparece em tempo real e o atendente pode decidir assumir antes da IA agir.
     _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente")
+    try:
+        whatsapp.enviar_mensagem_texto(telefone, "⏳ Processando sua mensagem...")
+    except Exception:
+        pass
     background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
 
     return {"status": "ok"}
