@@ -152,20 +152,27 @@ AI responses use `<br>` for line breaks (mandated in system prompt). `_normaliza
 
 ## Multi-Agent System
 
-Specialized agents live in `.claude/agents/`. Each agent knows this codebase deeply. Workflow protocol is in `.claude/WORKFLOW.md`. Task history is in `AGENT_STATE.md`.
+Specialized agents live in `.claude/agents/`. Claude principal IS the coordinator. Full workflow in `.claude/WORKFLOW.md`. Task history in `.claude/AGENT_STATE.md`.
 
-| Agent | Model | Role |
-|-------|-------|------|
-| `orchestrator` | Opus 4.7 | Coordinates all agents, spawns them in the right order |
-| `po-agent` | Opus 4.7 | Guards business rules — approves before Dev implements |
-| `dev-agent` | Sonnet 4.6 | Implements features and bug fixes |
-| `qa-agent` | Sonnet 4.6 | Reviews quality, creates test scenarios |
-| `db-agent` | Haiku 4.5 | SQL migrations and schema changes |
-| `prompt-engineer` | Opus 4.7 | Optimizes AI system prompt and behavior |
+| Agent | subagent_type | Model | Role |
+|-------|---------------|-------|------|
+| `po-agent` | po-agent | Opus 4.7 | Business rules — approves before Dev implements |
+| `dev-agent` | dev-agent | Sonnet 4.6 | Implements features and bug fixes |
+| `qa-agent` | qa-agent | Sonnet 4.6 | Quality review — always last before shipping |
+| `db-agent` | db-agent | Haiku 4.5 | SQL migrations only (ADD/ALTER/DROP/RENAME) |
+| `prompt-engineer` | prompt-engineer | Opus 4.7 | AI behavior and system prompt optimization |
 
-**How agents communicate:** via `.claude/handoff-context.md` (temporary, overwritten each cycle). Permanent log goes to `AGENT_STATE.md`.
+**Two modes:**
+- **Standalone**: `Agent(subagent_type="...")` sequential — Claude principal coordinates each step
+- **Team**: `TeamCreate` + `Agent(name="...", run_in_background=True)` — agents communicate via `SendMessage` directly with each other
 
-**Standard flow:** PO approves → Dev implements → QA reviews → close in AGENT_STATE.md
+**Communication graph**: po → dev → qa (PASS → Claude principal, FAIL → dev). db → dev. prompt-engineer → qa.
+
+**Standard flows:**
+- Feature with client impact: `po → dev → [db →] qa`
+- Technical bug: `dev → qa`
+- AI behavior problem: `po → prompt-engineer → qa`
+- Parallel audit: spawn qa + po + prompt-engineer simultaneously
 
 **To start a full system improvement cycle:**
-> "Use o orchestrator para fazer uma revisão completa do sistema e melhorar o que for possível"
+> "Faça uma revisão completa do sistema usando os agentes especializados"

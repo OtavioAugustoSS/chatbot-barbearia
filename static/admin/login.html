@@ -6,27 +6,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white shadow-lg rounded-2xl p-8 w-full max-w-sm">
-    <h1 class="text-2xl font-bold text-gray-800 mb-1">Barbearia Bolshoi</h1>
-    <p class="text-sm text-gray-500 mb-6">Painel de Atendimento</p>
+<body class="bg-[#212121] flex items-center justify-center min-h-screen">
+  <div class="bg-[#1c1c1c] border border-[#3a3a3a] shadow-2xl rounded-2xl p-8 w-full max-w-sm">
+    <div class="mb-6">
+      <div class="w-16 h-16 bg-[#2481cc] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+        <span class="text-2xl font-black text-white tracking-tight">BB</span>
+      </div>
+      <h1 class="text-2xl font-bold text-[#ffffff]">Barbearia Bolshoi</h1>
+      <p class="text-sm text-[#aaaaaa] mt-1">Painel de Atendimento</p>
+    </div>
 
     <form id="form-login" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+        <label class="block text-sm font-medium text-[#ffffff] mb-1">Usuário</label>
         <input id="usuario" type="text" required autocomplete="username"
-               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+               class="w-full px-3 py-2.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+        <label class="block text-sm font-medium text-[#ffffff] mb-1">Senha</label>
         <input id="senha" type="password" required autocomplete="current-password"
-               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+               class="w-full px-3 py-2.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
       </div>
       <button type="submit"
-              class="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 rounded-lg transition">
+              class="w-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] text-white font-semibold py-2.5 rounded-lg transition">
         Entrar
       </button>
-      <p id="erro" class="text-sm text-red-600 hidden"></p>
+      <p id="erro" class="text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2 hidden"></p>
     </form>
   </div>
 

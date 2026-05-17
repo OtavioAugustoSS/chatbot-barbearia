@@ -23,6 +23,11 @@ class Usuario(Base):
     # Atendente que assumiu a conversa. NULL = nenhum atendente ativo.
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
     tag = Column(String(20), nullable=True, default=None)
+    # Cache curto da URL de foto de perfil do WhatsApp (Meta API).
+    # URL expira em ~1h — refrescamos sob demanda no endpoint de info do cliente.
+    # NULL = nunca buscado, privacidade fechada ou última tentativa falhou.
+    foto_url = Column(String(500), nullable=True, default=None)
+    foto_atualizada_em = Column(DateTime, nullable=True, default=None)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

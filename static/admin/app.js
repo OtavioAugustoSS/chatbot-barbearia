@@ -6,7 +6,7 @@ const RESPOSTAS_RAPIDAS = [
   "Olá! Em que posso ajudá-lo(a)?",
   "Obrigado por entrar em contato com a Barbearia Bolshoi!",
   "Para agendar, utilize o aplicativo AppBarber.",
-  "Nosso endereço é [endereço da barbearia]. Estamos abertos de segunda a sábado.",
+  "Nosso endereço é R. Zaida Torres Martins, 195 - Bairro Cruzeiro, Unaí - MG. Atendemos de segunda a sábado.",
   "Aguarde um momento, estou verificando as informações.",
   "Posso ajudar com mais alguma coisa?",
   "Encerrando o atendimento. Obrigado pela preferência!",
@@ -82,16 +82,26 @@ function escapeHtml(s) {
   return (s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
+// Paleta Telegram Dark — cores derivadas do nome/telefone por hash determinístico.
+// Inline-style (não classe Tailwind) garante render mesmo com Tailwind CDN
+// que não scaneia bg-[#hex] em strings JS dinâmicas.
 const _CORES_AVATAR = [
-  'bg-blue-500', 'bg-purple-500', 'bg-pink-500', 'bg-emerald-500',
-  'bg-amber-500', 'bg-rose-500', 'bg-indigo-500', 'bg-teal-500',
-  'bg-cyan-500', 'bg-fuchsia-500', 'bg-lime-600', 'bg-orange-500',
+  '#2481cc', '#1a6eb0', '#6c5ce7', '#00b894',
+  '#e17055', '#d63031', '#636e72', '#0984e3',
+  '#00838f', '#8e44ad', '#27ae60', '#c0392b',
 ];
 
-function corDoTelefone(tel) {
+function _hashStr(s) {
   let h = 0;
-  for (const c of (tel || '')) h = ((h * 31) + c.charCodeAt(0)) >>> 0;
-  return _CORES_AVATAR[h % _CORES_AVATAR.length];
+  for (const c of (s || '')) h = ((h * 31) + c.charCodeAt(0)) >>> 0;
+  return h;
+}
+
+function corDoCliente(nomeOuTel) {
+  // Usa nome se disponível (mesmo cliente em telefones diferentes → mesma cor),
+  // senão cai no telefone.
+  const fonte = (nomeOuTel || '').trim() || '?';
+  return _CORES_AVATAR[_hashStr(fonte) % _CORES_AVATAR.length];
 }
 
 function iniciais(nome, fallback) {
@@ -103,8 +113,8 @@ function iniciais(nome, fallback) {
 }
 
 function avatarHTML(nome, tel, size = 'w-10 h-10 text-sm') {
-  const cor = corDoTelefone(tel);
-  return `<div class="${cor} ${size} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 select-none">${escapeHtml(iniciais(nome, tel))}</div>`;
+  const cor = corDoCliente(nome || tel);
+  return `<div class="${size} rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 select-none" style="background:${cor}">${escapeHtml(iniciais(nome, tel))}</div>`;
 }
 
 function horarioRelativo(iso) {
@@ -119,6 +129,32 @@ function horarioRelativo(iso) {
   if (diff < 172800) return 'ontem';
   if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
   return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+// Variante longa para o painel de info ("há 2 horas", "há 3 dias")
+function horarioRelativoLongo(iso) {
+  if (!iso) return '—';
+  const data = new Date(iso);
+  const diff = (Date.now() - data.getTime()) / 1000;
+  if (diff < 60) return 'agora mesmo';
+  if (diff < 120) return 'há 1 minuto';
+  if (diff < 3600) return `há ${Math.floor(diff / 60)} minutos`;
+  if (diff < 7200) return 'há 1 hora';
+  if (diff < 86400) return `há ${Math.floor(diff / 3600)} horas`;
+  if (diff < 172800) return 'ontem';
+  if (diff < 604800) return `há ${Math.floor(diff / 86400)} dias`;
+  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function dataFormatoBR(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const aaaa = d.getFullYear();
+    return `${dd}/${mm}/${aaaa}`;
+  } catch (_) { return '—'; }
 }
 
 function dataLabel(iso) {
@@ -143,9 +179,9 @@ function horaCurta(iso) {
 
 function toast(texto, tipo = 'info') {
   const cores = {
-    info: 'bg-amber-600',
-    transbordo: 'bg-red-600',
-    ok: 'bg-emerald-600',
+    info: 'bg-[#2481cc]',
+    transbordo: 'bg-red-700',
+    ok: 'bg-emerald-700',
   };
   const el = document.createElement('div');
   el.className = `${cores[tipo] || cores.info} slide-in text-white px-4 py-2.5 rounded-lg shadow-lg text-sm pointer-events-auto max-w-xs`;
@@ -189,10 +225,10 @@ function tocarNotificacao() {
 
 function tagBadgeHTML(tag) {
   if (tag === 'resolvido') {
-    return '<span class="text-[9px] uppercase font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">&#10003; Resolvido</span>';
+    return '<span class="text-[9px] uppercase font-bold text-emerald-300 bg-emerald-900/50 px-1.5 py-0.5 rounded">&#10003; Resolvido</span>';
   }
   if (tag === 'follow_up') {
-    return '<span class="text-[9px] uppercase font-bold text-yellow-700 bg-yellow-100 px-1.5 py-0.5 rounded">&#8617; Follow-up</span>';
+    return '<span class="text-[9px] uppercase font-bold text-yellow-300 bg-yellow-900/50 px-1.5 py-0.5 rounded">&#8617; Follow-up</span>';
   }
   return '';
 }
@@ -223,8 +259,7 @@ function renderTagHeader(tag) {
   if (!el) return;
   document.querySelectorAll('#tag-selector button[data-tag]').forEach(btn => {
     const isAtivo = btn.dataset.tag === (tag || '');
-    btn.classList.toggle('ring-2', isAtivo);
-    btn.classList.toggle('ring-offset-1', isAtivo);
+    btn.classList.toggle('bg-[#2f2f2f]', isAtivo);
   });
 }
 
@@ -244,7 +279,7 @@ function renderListaConversas() {
 
   if (visiveis.length === 0) {
     const li = document.createElement('li');
-    li.className = 'px-4 py-8 text-center text-xs text-gray-400';
+    li.className = 'px-4 py-8 text-center text-xs text-[#aaaaaa]';
     li.textContent = filtro ? 'Nenhuma conversa encontrada' : 'Sem conversas ainda';
     ul.appendChild(li);
     return;
@@ -254,36 +289,47 @@ function renderListaConversas() {
     const li = document.createElement('li');
     const ativo = conversaAtual === c.telefone;
 
-    let etiqueta = '';
-    let extraClasses = '';
+    // Status do cliente expresso como ponto colorido (não pílula de texto):
+    //   vermelho pulsante = aguardando atendente
+    //   azul Telegram     = atendendo eu
+    //   cinza             = atendido por outro operador
+    //   verde discreto    = com bot
+    let dotColor = '#636e72';   // bot (cinza neutro)
+    let dotTitle = 'Atendido pelo bot';
+    let dotPulse = '';
     if (c.aguardando_humano) {
-      etiqueta = '<span class="text-[9px] uppercase font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">Aguardando</span>';
-      extraClasses = 'pulse-red';
+      dotColor = '#ef4444'; dotTitle = 'Aguardando atendente'; dotPulse = 'pulse-red';
     } else if (c.assumida_por_mim) {
-      etiqueta = '<span class="text-[9px] uppercase font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Eu</span>';
+      dotColor = '#2481cc'; dotTitle = 'Atendendo você';
     } else if (c.atendente_id) {
-      etiqueta = '<span class="text-[9px] uppercase font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">Outro</span>';
-    } else {
-      etiqueta = '<span class="text-[9px] uppercase font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">Bot</span>';
+      dotColor = '#aaaaaa'; dotTitle = 'Em atendimento por outro operador';
+    } else if (c.bot_ativo) {
+      dotColor = '#10b981'; dotTitle = 'Bot ativo';
     }
 
     const tagBadge = tagBadgeHTML(c.tag);
+    // Preview truncado em 60 chars (já vem assim do backend, mas reforça defesa).
+    let preview = c.preview || c.telefone || '';
+    if (preview.length > 60) preview = preview.slice(0, 57) + '…';
 
-    li.className = `px-3 py-2.5 border-b border-gray-100 cursor-pointer transition relative ${ativo ? 'bg-amber-50' : 'hover:bg-gray-50'}`;
+    li.className = `conv-item px-3 py-2.5 border-b border-[#3a3a3a] cursor-pointer relative ${ativo ? 'ativo' : ''}`;
     li.dataset.telefone = c.telefone;
     li.innerHTML = `
       <div class="flex items-start gap-2.5">
-        <div class="${extraClasses} rounded-full">
+        <div class="relative flex-shrink-0">
           ${avatarHTML(c.nome, c.telefone, 'w-10 h-10 text-sm')}
+          <span title="${escapeHtml(dotTitle)}"
+                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#1c1c1c] ${dotPulse}"
+                style="background:${dotColor}"></span>
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline justify-between gap-2">
-            <span class="font-semibold text-sm text-gray-900 truncate">${escapeHtml(c.nome || c.telefone)}</span>
-            <span class="text-[10px] text-gray-400 flex-shrink-0">${horarioRelativo(c.ultima_mensagem_em)}</span>
+            <span class="text-sm truncate ${c.aguardando_humano ? 'font-bold text-white' : 'font-semibold text-[#e0e0e0]'}">${escapeHtml(c.nome || c.telefone)}</span>
+            <span class="text-[10px] text-[#aaaaaa] flex-shrink-0">${horarioRelativo(c.ultima_mensagem_em)}</span>
           </div>
           <div class="flex items-center justify-between gap-2 mt-0.5">
-            <span class="text-xs text-gray-500 truncate">${escapeHtml(c.preview || c.telefone)}</span>
-            <div class="flex items-center gap-1 flex-shrink-0"><span data-tag-badge>${tagBadge}</span>${etiqueta}</div>
+            <span class="text-xs text-[#aaaaaa] truncate">${escapeHtml(preview)}</span>
+            <span data-tag-badge class="flex-shrink-0">${tagBadge}</span>
           </div>
         </div>
       </div>
@@ -318,15 +364,26 @@ async function carregarConversas() {
 async function abrirConversa(telefone) {
   conversaAtual = telefone;
   renderListaConversas();
+  // Fecha popover de tag caso estivesse aberto na conversa anterior
+  const tagPopover = document.getElementById('tag-selector');
+  if (tagPopover) tagPopover.classList.add('hidden');
   // TASK-018: auto-close sidebar drawer on mobile when conversation is selected
   if (window.innerWidth < 640) fecharSidebar();
   try {
     const data = await api(`/admin/conversa/${encodeURIComponent(telefone)}`);
     renderThread(data);
   } catch (e) { console.error(e); }
-  // TASK-015: mostrar painel e carregar notas ao abrir conversa
+  // TASK-CLIENT-INFO-PANEL: revela painel lateral direito + carrega stats/foto.
+  // Em desktop abre o painel automaticamente; em mobile atendente decide.
+  if (window.innerWidth >= 1024) {
+    abrirInfoPanel();
+  } else {
+    document.getElementById('info-panel').classList.remove('hidden');
+  }
+  // Mostra notas e info do cliente.
   document.getElementById('painel-notas').classList.remove('hidden');
   carregarNotas(telefone);
+  carregarInfoCliente(telefone);
 }
 
 function atualizarHeaderThread(u) {
@@ -348,25 +405,25 @@ function atualizarHeaderThread(u) {
   footer.classList.add('hidden');
 
   if (u.atendente_id === ATENDENTE_ID) {
-    status.textContent = '🟢 Você está atendendo essa conversa.';
-    status.className = 'text-xs mt-1.5 text-emerald-700 font-medium';
+    status.textContent = 'Você está atendendo essa conversa.';
+    status.className = 'text-xs mt-1.5 text-emerald-400 font-medium';
     btnDevolver.classList.remove('hidden');
     footer.classList.remove('hidden');
     setTimeout(() => document.getElementById('texto-msg').focus(), 50);
   } else if (u.atendente_id) {
-    status.textContent = `Conversa atendida por outro atendente (id ${u.atendente_id}).`;
-    status.className = 'text-xs mt-1.5 text-gray-500';
+    status.textContent = `Em atendimento por outro operador.`;
+    status.className = 'text-xs mt-1.5 text-[#aaaaaa]';
   } else if (u.aguardando_humano) {
-    status.textContent = '🔴 Cliente aguardando atendente humano.';
-    status.className = 'text-xs mt-1.5 text-red-600 font-semibold';
+    status.textContent = 'Cliente aguardando atendente humano.';
+    status.className = 'text-xs mt-1.5 text-red-400 font-semibold';
     btnAssumir.classList.remove('hidden');
   } else if (u.bot_ativo) {
-    status.textContent = '🤖 Bot ativo. Você pode assumir a conversa se quiser.';
-    status.className = 'text-xs mt-1.5 text-blue-600';
+    status.textContent = 'Bot ativo. Você pode assumir a conversa.';
+    status.className = 'text-xs mt-1.5 text-[#2481cc]';
     btnAssumir.classList.remove('hidden');
   } else {
     status.textContent = 'Bot inativo, sem atendente designado.';
-    status.className = 'text-xs mt-1.5 text-gray-500';
+    status.className = 'text-xs mt-1.5 text-[#aaaaaa]';
     btnAssumir.classList.remove('hidden');
   }
 }
@@ -379,7 +436,7 @@ function renderThread(data) {
 
   if (data.mensagens.length === 0) {
     const div = document.createElement('div');
-    div.className = 'flex items-center justify-center h-full text-sm text-gray-400';
+    div.className = 'flex items-center justify-center h-full text-sm text-[#aaaaaa]';
     div.textContent = 'Nenhuma mensagem ainda';
     cont.appendChild(div);
     return;
@@ -410,18 +467,18 @@ function renderThread(data) {
 function separadorData(label) {
   const div = document.createElement('div');
   div.className = 'flex items-center justify-center my-3 fade-in';
-  div.innerHTML = `<span class="text-[11px] font-medium text-gray-500 bg-white border border-gray-200 px-3 py-0.5 rounded-full">${escapeHtml(label)}</span>`;
+  div.innerHTML = `<span class="text-[11px] font-medium text-[#aaaaaa] bg-[#2b2b2b] border border-[#3a3a3a] px-3 py-0.5 rounded-full">${escapeHtml(label)}</span>`;
   return div;
 }
 
 function indicadorEntrega(entregue, pending) {
-  // Ícones de entrega WhatsApp: ✓ entregue / ⚠ falhou / "..." pendente / nada para cliente.
-  if (pending) return '<span data-status class="ml-1.5 italic">enviando…</span>';
+  // Ícones de entrega: ✓ entregue / ⚠ falhou / "..." pendente / nada para cliente.
+  if (pending) return '<span data-status class="ml-1.5 italic text-[#aaaaaa]">enviando…</span>';
   if (entregue === true) {
-    return '<span title="Entregue ao WhatsApp" class="ml-1.5 text-emerald-600 font-bold">✓</span>';
+    return '<span title="Entregue ao WhatsApp" class="ml-1.5 text-[#2481cc] font-bold">✓</span>';
   }
   if (entregue === false) {
-    return '<span title="FALHOU - Meta API rejeitou. Token expirado, número inválido ou janela 24h fechada." class="ml-1.5 text-red-600 font-bold cursor-help">⚠ não entregue</span>';
+    return '<span title="FALHOU - Meta API rejeitou. Token expirado, número inválido ou janela 24h fechada." class="ml-1.5 text-red-500 font-bold cursor-help">⚠ não entregue</span>';
   }
   return '';
 }
@@ -436,7 +493,7 @@ function resolverConteudoMensagem(texto) {
       document: '📎 Documento',
     };
     const label = chips[tipo] || '📁 Mídia';
-    return { html: `<span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">${label}</span>`, isMedia: true };
+    return { html: `<span class="inline-block bg-[#2b2b2b] text-[#aaaaaa] text-xs px-2 py-1 rounded-full">${label}</span>`, isMedia: true };
   }
   return { html: null, isMedia: false };
 }
@@ -448,19 +505,19 @@ function bolha(texto, origem, criado_em, opts = {}) {
   let cls = '';
   let label = '';
   if (origem === 'cliente') {
-    cls = 'bg-white border border-gray-200';
+    cls = 'bolha-incoming';
     label = 'Cliente';
   } else if (origem === 'humano') {
-    cls = 'bg-emerald-100 border border-emerald-200';
+    cls = 'bolha-outgoing-humano';
     label = 'Atendente';
   } else {
-    cls = 'bg-amber-50 border border-amber-200';
+    cls = 'bolha-outgoing-bot';
     label = 'Bot';
   }
 
   // Bolhas saindo (bot/humano) que falharam ganham borda vermelha de aviso.
   if (isOutgoing && opts.entregue === false) {
-    cls = 'bg-red-50 border-2 border-red-300';
+    cls = 'bolha-falha';
   }
 
   wrapper.className = `flex fade-in ${isOutgoing ? 'justify-end' : 'justify-start'}`;
@@ -475,13 +532,13 @@ function bolha(texto, origem, criado_em, opts = {}) {
   const { html: mediaHtml, isMedia } = resolverConteudoMensagem(texto);
   const conteudoHtml = isMedia
     ? mediaHtml
-    : `<span class="block text-sm whitespace-pre-wrap text-gray-800 leading-relaxed">${escapeHtml(texto)}</span>`;
+    : `<span class="block text-sm whitespace-pre-wrap text-white leading-relaxed">${escapeHtml(texto)}</span>`;
 
   wrapper.innerHTML = `
-    <div class="max-w-md px-3 py-2 rounded-2xl shadow-sm ${cls} ${isOutgoing ? 'rounded-tr-sm' : 'rounded-tl-sm'}">
-      <span class="block text-[10px] uppercase font-bold text-gray-500 mb-1 tracking-wide">${label}</span>
+    <div class="relative max-w-[85%] px-3 py-2 rounded-2xl shadow-md ${cls} ${isOutgoing ? 'rounded-tr-sm' : 'rounded-tl-sm'}">
+      <span class="block text-[10px] uppercase font-semibold bolha-label mb-1 tracking-wide">${label}</span>
       ${conteudoHtml}
-      <span class="block text-[10px] text-gray-400 mt-1 text-right">${hora}${status}</span>
+      <span class="block text-[10px] bolha-label mt-1 text-right">${hora}${status}</span>
     </div>
   `;
   return wrapper;
@@ -549,7 +606,7 @@ atualizarIconeMute();
   RESPOSTAS_RAPIDAS.forEach(texto => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'w-full text-left text-sm px-3 py-2 hover:bg-amber-50 hover:text-amber-700 transition text-gray-700 border-b border-gray-100 last:border-0';
+    btn.className = 'hover:bg-[#2f2f2f] hover:text-[#ffffff] text-[#aaaaaa] border-b border-[#3a3a3a]/50 w-full text-left text-sm px-3 py-2 transition-colors last:border-0';
     btn.textContent = texto;
     btn.addEventListener('click', () => {
       const ta = document.getElementById('texto-msg');
@@ -682,22 +739,22 @@ document.getElementById('form-enviar').addEventListener('submit', async (e) => {
       novoSpan.innerHTML = indicadorEntrega(resp.entregue, false);
       status.replaceWith(novoSpan.firstChild || novoSpan);
     }
-    // Se Meta rejeitou, marca bolha vermelha.
+    // Se Meta rejeitou, marca bolha vermelha (usa classe declarada no <style>).
     if (resp.entregue === false) {
       const inner = tempBolha.querySelector('div');
       if (inner) {
-        inner.classList.remove('bg-emerald-100', 'border-emerald-200');
-        inner.classList.add('bg-red-50', 'border-2', 'border-red-300');
+        inner.classList.remove('bolha-outgoing-humano', 'bolha-outgoing-bot');
+        inner.classList.add('bolha-falha');
       }
       toast('⚠ Meta API rejeitou — mensagem não chegou ao cliente.', 'transbordo');
     }
     carregarConversas();
   } catch (err) {
-    // Falha — marca vermelho com botão retry
+    // Falha de rede — marca vermelho com botão retry
     const inner = tempBolha.querySelector('div');
     if (inner) {
-      inner.classList.remove('bg-emerald-100', 'border-emerald-200');
-      inner.classList.add('bg-red-100', 'border-red-300');
+      inner.classList.remove('bolha-outgoing-humano', 'bolha-outgoing-bot');
+      inner.classList.add('bolha-falha');
     }
     const status = tempBolha.querySelector('[data-status]');
     if (status) {
@@ -760,13 +817,13 @@ function setStatusConexao(ok) {
   if (ok) {
     el.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> conectado';
   } else {
-    el.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span> reconectando…';
+    el.innerHTML = '<span class="w-2 h-2 rounded-full bg-[#aaaaaa] animate-pulse"></span> reconectando…';
   }
 }
 
 function tratarEvento(ev) {
   if (ev.tipo === 'novo_transbordo') {
-    toast(`🔔 ${ev.nome || ev.telefone} aguardando atendimento`, 'transbordo');
+    toast(`${ev.nome || ev.telefone} aguardando atendimento`, 'transbordo');
     tocarNotificacao();
     carregarConversas();
   } else if (ev.tipo === 'nova_mensagem') {
@@ -778,7 +835,7 @@ function tratarEvento(ev) {
         appendMensagemIncremental(ev.texto, ev.origem, ev.entregue);
       }
     } else if (ev.origem === 'cliente') {
-      toast(`💬 Nova mensagem de ${ev.nome || ev.telefone}`, 'info');
+      toast(`Nova mensagem de ${ev.nome || ev.telefone}`, 'info');
       tocarNotificacao();
     }
     carregarConversas();
@@ -827,10 +884,31 @@ document.getElementById('tag-selector').addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     await definirTag(conversaAtual, novaTag);
+    fecharPopoverTag();
   } catch (err) {
     toast('Erro ao salvar tag: ' + err.message, 'transbordo');
   } finally {
     btn.disabled = false;
+  }
+});
+
+// Toggle do popover de tags (botão no header da thread)
+function fecharPopoverTag() {
+  document.getElementById('tag-selector').classList.add('hidden');
+}
+
+document.getElementById('btn-toggle-tag').addEventListener('click', (e) => {
+  e.stopPropagation();
+  document.getElementById('tag-selector').classList.toggle('hidden');
+});
+
+// Fecha popover de tag ao clicar fora
+document.addEventListener('click', (e) => {
+  const popover = document.getElementById('tag-selector');
+  if (popover && !popover.classList.contains('hidden') &&
+      !popover.contains(e.target) && e.target !== document.getElementById('btn-toggle-tag') &&
+      !document.getElementById('btn-toggle-tag').contains(e.target)) {
+    fecharPopoverTag();
   }
 });
 
@@ -841,20 +919,20 @@ document.getElementById('tag-selector').addEventListener('click', async (e) => {
 async function carregarNotas(telefone) {
   const lista = document.getElementById('lista-notas');
   if (!lista) return;
-  lista.innerHTML = '<li class="text-xs text-gray-400 italic">Carregando…</li>';
+  lista.innerHTML = '<li class="text-xs text-[#aaaaaa] italic">Carregando…</li>';
   try {
     const notas = await api(`/admin/notas/${encodeURIComponent(telefone)}`);
     lista.innerHTML = '';
     if (!notas || notas.length === 0) {
       const li = document.createElement('li');
-      li.className = 'text-xs text-gray-400 italic';
+      li.className = 'text-xs text-[#aaaaaa] italic';
       li.textContent = 'Nenhuma nota ainda.';
       lista.appendChild(li);
       return;
     }
     for (const n of notas) {
       const li = document.createElement('li');
-      li.className = 'bg-yellow-50 border border-yellow-100 rounded-lg px-2.5 py-1.5';
+      li.className = 'bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg px-2.5 py-1.5';
       const hora = n.criado_em
         ? (() => {
             const d = new Date(n.criado_em);
@@ -867,13 +945,13 @@ async function carregarNotas(telefone) {
           })()
         : '';
       li.innerHTML = `
-        <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(n.texto)}</p>
-        <p class="text-[10px] text-gray-400 mt-0.5">${hora}</p>
+        <p class="text-sm text-[#ffffff] whitespace-pre-wrap">${escapeHtml(n.texto)}</p>
+        <p class="text-[10px] text-[#aaaaaa] mt-0.5">${hora}</p>
       `;
       lista.appendChild(li);
     }
   } catch (err) {
-    lista.innerHTML = '<li class="text-xs text-red-500">Erro ao carregar notas.</li>';
+    lista.innerHTML = '<li class="text-xs text-red-400">Erro ao carregar notas.</li>';
     console.error('carregarNotas:', err);
   }
 }
@@ -921,6 +999,139 @@ document.getElementById('textarea-nota').addEventListener('keydown', (e) => {
     if (conversaAtual) adicionarNota(conversaAtual);
   }
 });
+
+// ============================================================
+// TASK-CLIENT-INFO-PANEL: painel lateral direito
+// ============================================================
+
+let _infoCarregandoTelefone = null;
+
+async function carregarInfoCliente(telefone) {
+  // Evita corrida quando o atendente clica rápido entre conversas.
+  _infoCarregandoTelefone = telefone;
+
+  // Estados imediatos com fallback (iniciais coloridas e dashes).
+  preencherInfoBasica({ telefone, nome_cliente: null });
+
+  try {
+    const data = await api(`/admin/cliente/${encodeURIComponent(telefone)}/info`);
+    // Se o atendente já abriu outra conversa enquanto fetch carregava, descarta.
+    if (_infoCarregandoTelefone !== telefone) return;
+    preencherInfoCompleta(data);
+  } catch (err) {
+    console.error('carregarInfoCliente:', err);
+    // Mantém os fallbacks já renderizados (iniciais + dashes), sem toast invasivo.
+  }
+}
+
+function preencherInfoBasica(info) {
+  const avatar = document.getElementById('info-avatar');
+  if (avatar) {
+    const cor = corDoCliente(info.nome_cliente || info.telefone);
+    avatar.textContent = iniciais(info.nome_cliente, info.telefone);
+    // Usar backgroundColor (não o shorthand `background`) para não resetar
+    // background-size/position definidos no CSS — sem isso a foto não fica cover/center.
+    avatar.style.backgroundColor = cor;
+    avatar.style.backgroundImage = 'none';
+    avatar.style.backgroundSize = '';
+    avatar.style.backgroundPosition = '';
+  }
+  document.getElementById('info-nome').textContent = info.nome_cliente || info.telefone || '—';
+  document.getElementById('info-telefone').textContent = info.telefone || '—';
+  document.getElementById('info-criado-em').textContent = '—';
+  document.getElementById('info-ultima-interacao').textContent = '—';
+  document.getElementById('info-total-mensagens').textContent = '—';
+  document.getElementById('info-total-humanos').textContent = '—';
+  document.getElementById('info-status-bot').textContent = '—';
+  document.getElementById('info-status-bot').className = 'font-semibold text-[#aaaaaa]';
+  document.getElementById('info-tag').innerHTML = '<span class="text-[#aaaaaa]">—</span>';
+}
+
+function preencherInfoCompleta(info) {
+  // Foto: se foto_url existe, exibe como bg image; senão mantém iniciais coloridas.
+  const avatar = document.getElementById('info-avatar');
+  if (avatar) {
+    if (info.foto_url) {
+      // Tenta carregar a imagem; se falhar, cai pra iniciais sem alarde.
+      const img = new Image();
+      img.onload = () => {
+        if (_infoCarregandoTelefone !== info.telefone) return;
+        avatar.style.backgroundImage = `url("${info.foto_url}")`;
+        avatar.style.backgroundSize = 'cover';
+        avatar.style.backgroundPosition = 'center';
+        avatar.style.backgroundColor = 'transparent';
+        avatar.textContent = '';
+      };
+      img.onerror = () => { /* mantém fallback iniciais */ };
+      img.src = info.foto_url;
+    } else {
+      avatar.style.backgroundImage = 'none';
+      avatar.textContent = iniciais(info.nome_cliente, info.telefone);
+      avatar.style.backgroundColor = corDoCliente(info.nome_cliente || info.telefone);
+    }
+  }
+
+  document.getElementById('info-nome').textContent = info.nome_cliente || info.telefone || '—';
+  document.getElementById('info-telefone').textContent = info.telefone || '—';
+  document.getElementById('info-criado-em').textContent = dataFormatoBR(info.criado_em);
+  document.getElementById('info-ultima-interacao').textContent = horarioRelativoLongo(info.data_ultima_interacao);
+  document.getElementById('info-total-mensagens').textContent = (info.total_mensagens ?? 0).toLocaleString('pt-BR');
+  document.getElementById('info-total-humanos').textContent = (info.total_atendimentos_humanos ?? 0).toLocaleString('pt-BR');
+
+  const statusBot = document.getElementById('info-status-bot');
+  if (info.aguardando_humano) {
+    statusBot.textContent = 'Aguardando atendente';
+    statusBot.className = 'font-semibold text-red-400';
+  } else if (info.atendente_id) {
+    statusBot.textContent = info.atendente_id === ATENDENTE_ID ? 'Atendendo você' : 'Outro operador';
+    statusBot.className = 'font-semibold text-[#2481cc]';
+  } else if (info.bot_ativo) {
+    statusBot.textContent = 'Ativo';
+    statusBot.className = 'font-semibold text-emerald-400';
+  } else {
+    statusBot.textContent = 'Inativo';
+    statusBot.className = 'font-semibold text-[#aaaaaa]';
+  }
+
+  const tagEl = document.getElementById('info-tag');
+  const tagHTML = tagBadgeHTML(info.tag);
+  tagEl.innerHTML = tagHTML || '<span class="text-[#aaaaaa]">sem marcação</span>';
+}
+
+function abrirInfoPanel() {
+  const panel = document.getElementById('info-panel');
+  const backdrop = document.getElementById('info-panel-backdrop');
+  panel.classList.remove('hidden', 'colapsado');
+  // Em telas pequenas/médias o painel vira drawer com backdrop.
+  if (window.innerWidth < 1024 && backdrop) {
+    backdrop.classList.remove('hidden');
+  }
+}
+
+function fecharInfoPanel() {
+  const panel = document.getElementById('info-panel');
+  const backdrop = document.getElementById('info-panel-backdrop');
+  panel.classList.add('colapsado');
+  if (backdrop) backdrop.classList.add('hidden');
+}
+
+// Liga handlers do painel apenas se os elementos existirem (defesa contra HTML
+// servido por outra versão durante deploy parcial).
+(function ligarHandlersInfoPanel() {
+  const btnToggle = document.getElementById('btn-toggle-info');
+  const btnFechar = document.getElementById('btn-fechar-info');
+  const backdrop = document.getElementById('info-panel-backdrop');
+  if (btnToggle) {
+    btnToggle.addEventListener('click', () => {
+      const panel = document.getElementById('info-panel');
+      if (!panel || panel.classList.contains('hidden')) return;
+      if (panel.classList.contains('colapsado')) abrirInfoPanel();
+      else fecharInfoPanel();
+    });
+  }
+  if (btnFechar) btnFechar.addEventListener('click', fecharInfoPanel);
+  if (backdrop) backdrop.addEventListener('click', fecharInfoPanel);
+})();
 
 // ============================================================
 // Bootstrap

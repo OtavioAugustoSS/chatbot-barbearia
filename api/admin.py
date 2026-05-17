@@ -26,7 +26,7 @@ def _iso_utc(dt) -> str | None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 
@@ -62,6 +62,27 @@ class LoginOut(BaseModel):
 
 class EnviarMensagemIn(BaseModel):
     texto: str = Field(..., min_length=1, max_length=4096)
+
+
+class TagIn(BaseModel):
+    tag: str | None = None
+
+
+class NotaIn(BaseModel):
+    texto: str = Field(..., min_length=1, max_length=4096)
+
+    @field_validator("texto")
+    @classmethod
+    def texto_nao_vazio(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Texto não pode conter apenas espaços")
+        return v
+
+
+class CriarAtendenteIn(BaseModel):
+    nome: str = Field(..., min_length=1, max_length=100)
+    usuario_login: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-z0-9_]+$')
+    senha: str = Field(..., min_length=8, max_length=128)
 
 
 def _normalizar_resposta_humana(texto: str) -> str:
@@ -234,7 +255,7 @@ def assumir(
     if not user:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
     if user.atendente_id and user.atendente_id != me.id:
-        raise HTTPException(status_code=409, detail=f"Conversa já assumida por outro atendente (id={user.atendente_id})")
+        raise HTTPException(status_code=409, detail="Conversa já assumida por outro atendente.")
 
     afetadas = (
         db.query(Usuario)
@@ -332,13 +353,32 @@ def devolver(
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
-    if user.atendente_id != me.id:
-        raise HTTPException(status_code=403, detail="Você não é o atendente dessa conversa.")
 
-    # ORDEM CRÍTICA: avisa o cliente PRIMEIRO, com bot ainda inativo.
-    # Se reativássemos o bot antes, uma mensagem do cliente entre o commit e o envio
-    # do WhatsApp poderia disparar a IA antes do aviso de "humano saiu" chegar.
-    aviso = "Atendimento humano encerrado. A IA está de volta e pronta pra te ajudar! 🤖"
+    # UPDATE condicional PRIMEIRO: garante que só um request vence a corrida.
+    # Se dois requests simultâneos chegarem, apenas um terá afetadas=1.
+    # Só enviamos o aviso WhatsApp após confirmar que somos o vencedor,
+    # eliminando o double-send do aviso de despedida.
+    # Trade-off aceito: bot fica ativo antes do aviso chegar (~<1s HTTP Meta API).
+    # Esse janela é menor que o risco de dois avisos confundir o cliente.
+    afetadas = (
+        db.query(Usuario)
+        .filter(Usuario.telefone == telefone, Usuario.atendente_id == me.id)
+        .update(
+            {
+                "atendente_id": None,
+                "bot_ativo": True,
+                "bot_desativado_em": None,
+                "aguardando_humano": False,
+                "transbordo_em": None,
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    if afetadas == 0:
+        raise HTTPException(status_code=409, detail="Conversa não está sob seu atendimento.")
+
+    aviso = "Atendimento humano encerrado. O assistente virtual está de volta e pronto para te ajudar."
     ok = whatsapp.enviar_mensagem_texto(telefone, aviso)
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
@@ -358,15 +398,6 @@ def devolver(
         "atendente_id": me.id,
         "entregue": bool(ok),
     })
-
-    # Agora sim libera o bot.
-    user.atendente_id = None
-    user.bot_ativo = True
-    user.bot_desativado_em = None
-    user.aguardando_humano = False
-    user.transbordo_em = None
-    db.commit()
-
     notificador.publicar({
         "tipo": "bot_devolveu",
         "telefone": telefone,
@@ -374,15 +405,66 @@ def devolver(
     return {"status": "ok"}
 
 
+@router.get("/cliente/{telefone}/info")
+def info_cliente(
+    telefone: str,
+    db: Session = Depends(get_db),
+    _me: Atendente = Depends(atendente_atual),
+):
+    """
+    Retorna metadados do cliente para o painel lateral de informações do dashboard.
+
+    Inclui stats agregadas (total de mensagens, atendimentos humanos) e uma URL
+    de avatar DiceBear gerada deterministicamente via nome/telefone — sem chamadas
+    externas em runtime, sem TTL, sem escrita em banco.
+    """
+    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    # Contagens — duas queries simples, índice composto já existe em historico_conversas.
+    total_mensagens = (
+        db.query(func.count(HistoricoConversa.id))
+        .filter(HistoricoConversa.telefone_usuario == telefone)
+        .scalar()
+        or 0
+    )
+    total_atendimentos_humanos = (
+        db.query(func.count(HistoricoConversa.id))
+        .filter(
+            HistoricoConversa.telefone_usuario == telefone,
+            HistoricoConversa.origem == "humano",
+        )
+        .scalar()
+        or 0
+    )
+
+    foto_url = whatsapp.gerar_url_avatar(user.nome_cliente, telefone)
+
+    return {
+        "telefone": user.telefone,
+        "nome_cliente": user.nome_cliente,
+        "criado_em": _iso_utc(user.criado_em),
+        "data_ultima_interacao": _iso_utc(user.data_ultima_interacao),
+        "tag": user.tag,
+        "bot_ativo": bool(user.bot_ativo),
+        "aguardando_humano": bool(user.aguardando_humano),
+        "atendente_id": user.atendente_id,
+        "total_mensagens": int(total_mensagens),
+        "total_atendimentos_humanos": int(total_atendimentos_humanos),
+        "foto_url": foto_url,
+    }
+
+
 @router.patch("/conversa/{telefone}/tag")
 def atualizar_tag(
     telefone: str,
-    body: dict,
+    body: TagIn,
     db: Session = Depends(get_db),
     atendente: Atendente = Depends(atendente_atual),
 ):
     """Define ou remove a tag de uma conversa ('resolvido', 'follow_up' ou None)."""
-    tag = body.get("tag")  # "resolvido", "follow_up", or None to clear
+    tag = body.tag
     if tag not in ("resolvido", "follow_up", None):
         raise HTTPException(400, "Tag inválida")
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
@@ -430,16 +512,11 @@ async def listar_atendentes(db: Session = Depends(get_db), _: Atendente = Depend
 
 
 @router.post("/atendentes", status_code=201)
-async def criar_atendente(body: dict, db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
+async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
     """Cria um novo atendente. Requer nome, usuario_login e senha (mín. 8 chars)."""
-    nome = body.get("nome", "").strip()
-    login = body.get("usuario_login", "").strip()
-    senha = body.get("senha", "")
-    if not nome or not login or len(senha) < 8:
-        raise HTTPException(400, "Nome, login e senha (mín. 8 chars) são obrigatórios")
-    if db.query(Atendente).filter(Atendente.usuario_login == login).first():
+    if db.query(Atendente).filter(Atendente.usuario_login == body.usuario_login).first():
         raise HTTPException(409, "Login já existe")
-    novo = Atendente(nome=nome, usuario_login=login, senha_hash=hash_senha(senha), ativo=True)
+    novo = Atendente(nome=body.nome.strip(), usuario_login=body.usuario_login, senha_hash=hash_senha(body.senha), ativo=True)
     db.add(novo)
     db.commit()
     db.refresh(novo)
@@ -455,6 +532,19 @@ async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), 
     if not a:
         raise HTTPException(404, "Atendente não encontrado")
     a.ativo = False
+    # Libera conversas abertas do atendente desativado para evitar que clientes
+    # fiquem em limbo (bot_ativo=False sem atendente ativo).
+    db.query(Usuario).filter(
+        Usuario.atendente_id == atendente_id,
+        Usuario.bot_ativo == False,
+    ).update(
+        {
+            "atendente_id": None,
+            "bot_ativo": True,
+            "aguardando_humano": False,
+        },
+        synchronize_session=False,
+    )
     db.commit()
     return {"ok": True}
 
@@ -484,12 +574,9 @@ async def listar_notas(telefone: str, db: Session = Depends(get_db), _: Atendent
 
 
 @router.post("/notas/{telefone}", status_code=201)
-async def criar_nota(telefone: str, body: dict, db: Session = Depends(get_db), atual: Atendente = Depends(atendente_atual)):
+async def criar_nota(telefone: str, body: NotaIn, db: Session = Depends(get_db), atual: Atendente = Depends(atendente_atual)):
     """Registra uma nova nota interna para o cliente identificado pelo telefone."""
-    texto = body.get("texto", "").strip()
-    if not texto:
-        raise HTTPException(400, "Texto da nota é obrigatório")
-    nota = NotaInterna(telefone_usuario=telefone, atendente_id=atual.id, texto=texto)
+    nota = NotaInterna(telefone_usuario=telefone, atendente_id=atual.id, texto=body.texto.strip())
     db.add(nota)
     db.commit()
     return {"ok": True}

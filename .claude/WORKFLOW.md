@@ -1,102 +1,248 @@
 # Multi-Agent Workflow — Barbearia Bolshoi
 
-Protocolo de comunicação entre agentes. Leia antes de iniciar qualquer tarefa multi-agente.
+## Arquitetura
 
-## Agentes Disponíveis e Seus Papéis
+Claude principal é o coordenador e entry point. Dois modos de operação:
+
+| Modo | Quando usar | Como |
+|------|-------------|------|
+| **Standalone** | 1-2 agentes, tarefa simples | `Agent(subagent_type=...)` sequencial |
+| **Time** | 3+ agentes, feature complexa, ciclos | `TeamCreate` + `Agent(name=..., run_in_background=True)` |
+
+---
+
+## Grafo de Comunicação
 
 ```
-orchestrator     → coordena todos, tem tool Agent, define ordem de execução
-po-agent         → valida regras de negócio (leitura, sem escrita de código)
-dev-agent        → implementa código (FastAPI, SQLAlchemy, WhatsApp, IA)
-db-agent         → migrações SQL e schema (MySQL + SQLAlchemy models)
-qa-agent         → revisa qualidade, checklists, edge cases
-prompt-engineer  → otimiza comportamento da IA (core/prompts.py, respostas_canonicas.py)
-```
+Claude principal
+      │ inicia fluxo
+      ▼
+  po-agent ──────────────────────→ dev-agent   (aprovação + restrições)
+                ↘                 ↗
+               db-agent ─────────            (se schema muda: po-agent pede, db entrega ao dev)
 
-## Fluxos de Trabalho
+  dev-agent ──────────────────────→ qa-agent   (implementação concluída)
+  dev-agent ──────────────────────→ prompt-engineer  (se bug de IA encontrado)
 
-### Feature com impacto no cliente
-```
-orchestrator
-  → po-agent: "feature X está alinhada com negócio?"
-  ↓ (se aprovado)
-  → dev-agent: "implemente X"
-  ↓
-  → qa-agent: "revise implementação X"
-  ↓ (se PASS)
-  → atualiza AGENT_STATE.md
-```
+  qa-agent  ──→ dev-agent          (FAIL: dev precisa corrigir)
+  qa-agent  ──→ prompt-engineer    (problema de comportamento da IA)
+  qa-agent  ──→ Claude principal   (PASS/FINAL: veredicto final)
 
-### Feature com mudança de schema
-```
-orchestrator
-  → po-agent: "valida requisito"
-  ↓
-  → [em paralelo]:
-      db-agent: "cria migration"
-      dev-agent: "implementa lógica (assumindo schema novo)"
-  ↓
-  → qa-agent: "revisa tudo junto"
+  prompt-engineer ────────────────→ qa-agent   (otimização concluída)
 ```
 
-### Bug de comportamento da IA
-```
-orchestrator
-  → po-agent: "confirma comportamento esperado"
-  → prompt-engineer: "diagnóstica e corrige"
-  → qa-agent: "valida cenário específico do bug"
+Regra: **cada agente sabe quem é seu upstream (quem o aciona) e seu downstream (quem ele aciona).**
+
+---
+
+## Modo Standalone (sequencial, Claude coordena)
+
+Usado para tarefas simples onde Claude principal lê cada resultado e passa para o próximo.
+
+```python
+# Bug fix simples
+resultado_dev = Agent(subagent_type="dev-agent", prompt="...")
+resultado_qa  = Agent(subagent_type="qa-agent",  prompt=f"...{resultado_dev}...")
+
+# Feature com validação
+resultado_po  = Agent(subagent_type="po-agent",  prompt="...")
+resultado_dev = Agent(subagent_type="dev-agent", prompt=f"PO disse: {resultado_po}. Implemente...")
+resultado_qa  = Agent(subagent_type="qa-agent",  prompt=f"Dev fez: {resultado_dev}. Revise...")
 ```
 
-### Mudança técnica sem impacto no cliente
+Cada agente escreve handoff em `.claude/handoff-context.md`. Próximo lê antes de iniciar.
+
+---
+
+## Modo Time (paralelo, agentes se comunicam diretamente)
+
+Usado para features complexas onde agentes precisam trocar mensagens sem esperar Claude principal.
+
+### REGRA CRÍTICA DE TIMING
+
+**Agents não fazem wait loop.** Um agent spawned com tarefa "aguarde mensagens" vai idle imediatamente se a mailbox estiver vazia. SendMessage que chega depois NÃO acorda agent idle automaticamente.
+
+**Anti-padrão (QUEBRADO):**
+```python
+# ERRADO: QA vai idle antes de po/dev terminarem
+Agent(name="qa", prompt="Aguarde mensagens de po e dev...")  # idle imediato
+Agent(name="po", ...)  # termina depois — SendMessage para qa que está dormindo
+Agent(name="dev", ...)  # idem
+```
+
+### Padrão A — Cadeia (sequencial, mais robusto)
+
+Cada agent acorda o próximo via SendMessage só após concluir. Nenhuma race condition.
+
+```python
+TeamCreate(name="feat-nome")
+
+# Apenas po e dev em paralelo (fazem trabalho independente)
+Agent(name="po", run_in_background=True,
+      prompt="[analise]. Depois: SendMessage({to:'dev', ...})")
+Agent(name="dev", run_in_background=True,
+      prompt="[implemente]. Aguarda mensagem do po. Depois: SendMessage({to:'qa', ...})")
+
+# qa é spawned pelo dev via SendMessage — ou Claude spawna após dev concluir
+# QA sempre recebe contexto completo no prompt ou via mensagem de quem o acionou
+```
+
+### Padrão B — Paralelo com funil no team-lead (auditorias, reviews)
+
+Quando múltiplos agents fazem trabalho independente e um deve consolidar:
+
+```python
+TeamCreate(name="audit-X")
+
+# po e dev trabalham em paralelo, ambos reportam ao team-lead
+Agent(name="po", run_in_background=True,
+      prompt="[analise]. Depois: SendMessage({to:'team-lead@audit-X', ...})")
+Agent(name="dev", run_in_background=True,
+      prompt="[analise técnica]. Depois: SendMessage({to:'team-lead@audit-X', ...})")
+
+# Claude principal recebe ambos via notificação de idle
+# Depois spawna QA com TODO o contexto no prompt inicial (sem depender de mailbox)
+Agent(name="qa", run_in_background=True,
+      prompt=f"Contexto po: {resultado_po}. Contexto dev: {resultado_dev}. Consolide e emita veredicto.")
+```
+
+### Padrão C — QA com trabalho próprio (quando precisa ser spawned junto)
+
+Se QA precisa ser spawned em paralelo, deve ter trabalho independente suficiente para durar enquanto po/dev terminam:
+
+```python
+Agent(name="qa", run_in_background=True,
+      prompt="""
+      FASE 1 (seu trabalho independente): Leia [arquivos] e forme sua própria análise.
+      FASE 2 (após completar fase 1): Verifique mailbox — mensagens de po e dev devem ter chegado.
+      Consolide fase 1 + mensagens recebidas e emita veredicto.
+      Envie resultado: SendMessage({to:'team-lead@...'})
+      """)
+```
+
+### Criando o time
+
+```python
+# 1. Criar contexto do time
+TeamCreate(name="feat-nome-da-feature")
+
+# 2. Spawnar agentes respeitando padrão de timing correto (A, B ou C acima)
+```
+
+### Protocolo SendMessage entre agentes
+
+Todo agente ao enviar para outro usa este formato:
+
+```
+FROM: [nome-do-agente]
+STATUS: DONE | BLOCKED | NEED_INPUT
+RESULT: [resumo do que foi feito/decidido]
+FILES_MODIFIED: [lista ou "nenhum"]
+RESTRICTIONS: [restrições para o receptor respeitar]
+NEXT: [o que o receptor deve fazer]
+```
+
+Para usar SendMessage, o agente deve primeiro carregar o schema:
+```
+1. ToolSearch({query: "select:SendMessage"})
+2. SendMessage({to: "[nome-do-agente]", message: "..."})
+```
+
+### Quem envia para quem (time)
+
+| De | Para | Quando |
+|----|------|--------|
+| po-agent | dev | Aprovação/rejeição concluída |
+| po-agent | db | Se schema precisa mudar (cc dev) |
+| db-agent | dev | Migration pronta |
+| dev-agent | qa | Implementação concluída |
+| dev-agent | prompt-engineer | Bug de comportamento da IA identificado |
+| qa-agent | dev | FAIL — correções necessárias |
+| qa-agent | prompt-engineer | Problema de IA identificado |
+| qa-agent | orchestrator (Claude principal) | PASS — veredicto final |
+| prompt-engineer | qa | Otimização concluída |
+
+---
+
+## Fluxos por Tipo de Tarefa
+
+### Feature nova com impacto no cliente
+```
+po-agent → dev-agent → [db-agent →] qa-agent
+```
+1. po-agent valida regras de negócio
+2. dev-agent implementa (com restrições do PO)
+3. [se schema muda] db-agent cria migration → dev-agent aplica
+4. qa-agent revisa → veredicto
+
+### Bug técnico (sem impacto no cliente)
 ```
 dev-agent → qa-agent
-(PO não precisa ser consultado)
 ```
 
-## Arquivos de Estado
+### Problema de IA (alucinação, tom errado, JSON inválido)
+```
+po-agent → prompt-engineer → qa-agent
+```
+1. po-agent confirma comportamento esperado
+2. prompt-engineer diagnostica e corrige
+3. qa-agent valida
 
-| Arquivo | Propósito | Quem escreve | Quem lê |
-|---------|-----------|--------------|---------|
-| `AGENT_STATE.md` | Log permanente de tarefas | orchestrator | todos |
-| `.claude/handoff-context.md` | Contexto temporário entre agentes no mesmo ciclo | agente atual | agente seguinte |
+### Auditoria paralela
+```
+po-agent + prompt-engineer (paralelos) → SendMessage("team-lead") → Claude spawna qa com contexto completo
+```
+Po e prompt-engineer trabalham em paralelo, ambos enviam para `team-lead`. Claude principal recebe resultados e spawna qa COM o contexto completo no prompt — qa nunca depende de mailbox vazia.
 
-## Protocolo de Handoff (`.claude/handoff-context.md`)
+---
 
-Formato padrão que cada agente deve escrever ao passar trabalho para o próximo:
+## Quando Invocar Cada Agente
 
+| Agente | Invocar quando | NÃO invocar quando |
+|--------|---------------|-------------------|
+| `po-agent` | Mudança com impacto no cliente | Bug técnico puro |
+| `dev-agent` | Qualquer implementação de código | — |
+| `qa-agent` | Após qualquer implementação | — (sempre usar) |
+| `db-agent` | ADD/ALTER/DROP/RENAME no schema MySQL | Só muda lógica Python |
+| `prompt-engineer` | Problema de comportamento da IA | Bug de código puro |
+
+---
+
+## Handoff Context (Modo Standalone)
+
+Arquivo: `.claude/handoff-context.md`
+
+Formato que cada agente escreve ao terminar:
 ```markdown
-## Handoff: [agente-origem] → [agente-destino]
-**Tarefa**: [o que foi pedido]
-**O que foi feito**: [resumo]
-**Decisão/Aprovação**: [aprovado/reprovado/condicionalmente aprovado]
-**Contexto para o próximo agente**: [o que ele precisa saber]
-**Arquivos modificados**: [lista de arquivos, se aplicável]
-**Bloqueios**: [se houver]
+## Handoff: [agente] → [próximo]
+**Resultado**: [decisão ou o que foi implementado]
+**Restrições**: [o que o próximo deve respeitar]
+**Arquivos modificados**: [lista ou "nenhum"]
+**Edge cases para QA**: [lista]
 ```
 
-## Regras de Comunicação
+---
 
-1. **PO deve aprovar antes de Dev implementar** qualquer mudança com impacto no cliente
-2. **QA deve revisar antes de fechar** qualquer task (exceto mudanças de documentação pura)
-3. **DB migration antes do código** que depende do novo schema
-4. **Paralelo OK** quando não há dependência de dados entre as tarefas
-5. **Agentes não escrevem código de outros domínios** — DB não altera lógica Python, Dev não cria migrations sem DB-agent
+## Estado das Tarefas
 
-## Status de Tarefas
+Arquivo permanente: `.claude/AGENT_STATE.md`
 
-| Status | Significado |
-|--------|-------------|
-| `pending` | Aguardando início |
-| `in_progress` | Agente trabalhando |
-| `pending_qa` | Dev terminou, aguarda QA |
-| `done` | QA aprovou |
-| `blocked` | Problema impedindo progresso |
+```
+| TASK-XXX | status | último-agente | QA-verdict | data | resumo |
+```
+- Status: `pending` | `in_progress` | `done` | `blocked`
+- QA: `PASS` | `FAIL` | `PASS_WITH_NOTES`
 
-## Custo × Benefício
+---
 
-Antes de invocar um agente, pergunte:
-- **Opus (PO, orchestrator, prompt-engineer)**: use para decisões complexas, ambíguas, ou críticas ao negócio
-- **Sonnet (dev, qa)**: use para implementação e revisão — maioria das tarefas
-- **Haiku (db)**: use para SQL e schema — tarefas bem definidas e mecânicas
+## Agentes
 
-Evite chamar agentes grandes para tarefas triviais. Um bugfix de uma linha não precisa de po-agent.
+| Agente | subagent_type | Modelo | Papel |
+|--------|---------------|--------|-------|
+| po-agent | po-agent | claude-opus-4-7 | Regras de negócio |
+| dev-agent | dev-agent | claude-sonnet-4-6 | Implementação |
+| qa-agent | qa-agent | claude-sonnet-4-6 | Qualidade |
+| db-agent | db-agent | claude-haiku-4-5-20251001 | Migrations SQL |
+| prompt-engineer | prompt-engineer | claude-opus-4-7 | Comportamento IA |
+
+Working dir: `C:\Users\Home\.vscode\chatbot-barbearia`

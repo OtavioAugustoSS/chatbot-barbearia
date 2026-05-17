@@ -11,11 +11,17 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 
 from db.database import get_db, SessionLocal
-from db.models import Usuario, HistoricoConversa, MensagemProcessada
+from db.models import Usuario, HistoricoConversa, MensagemProcessada, Servico, Barbeiro
 from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
 from services.ai_service import AIService
 from services.notificador import notificador
-from core.respostas_canonicas import detectar_resposta_canonica
+from core.respostas_canonicas import (
+    detectar_resposta_canonica,
+    RESPOSTA_HORARIO_ENDERECO,
+    RESPOSTA_AGENDAMENTO,
+    RESPOSTA_AGENDAMENTO_HIBRIDO,
+    RESPOSTA_PAGAMENTO,
+)
 from core.config import MODO_HIBRIDO, MODO_BOT_ONLY
 
 log = logging.getLogger("barbearia.webhook")
@@ -38,19 +44,9 @@ def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> b
     return hmac.compare_digest(esperado, recebido)
 
 MENSAGEM_BOAS_VINDAS = (
-    "Olá, seja muito bem-vindo à Barbearia Bolshoi! 💈\n"
-    "Eu sou o seu assistente virtual.\n\n"
-    "Para agilizarmos seu atendimento, pode me consultar diretamente sobre:\n"
-    "✂️ Nossos Serviços e Preços\n"
-    "👨‍🎨 Nossa Equipe de Barbeiros\n"
-    "📅 Agendamento de Horários\n"
-    "📍 Localização e Funcionamento\n"
-    "❓ Dúvidas Frequentes\n\n"
-    "Em que posso ser útil hoje?"
-)
-
-MENSAGEM_MENU_REPETIDO = (
-    "Claro! Posso te ajudar com:\n\n"
+    "Olá, seja bem-vindo(a) à *Barbearia Bolshoi*! 💈\n"
+    "Sou o assistente virtual da casa.\n\n"
+    "*Posso te ajudar com:*\n\n"
     "✂️ Nossos Serviços e Preços\n"
     "👨‍🎨 Nossa Equipe de Barbeiros\n"
     "📅 Agendamento de Horários\n"
@@ -65,15 +61,19 @@ def _montar_saudacao(nome_cliente: str | None) -> str:
     Resposta determinística para saudações puras. Personaliza com primeiro nome
     quando o WhatsApp entregou nome do cliente; senão usa abertura genérica.
     Sem IA, sem variação — formato idêntico em toda chamada.
+
+    Usado APENAS como fallback de texto plano quando a Interactive List falha.
+    Fluxo normal usa _enviar_menu_lista() para entregar lista interativa rica.
     """
     primeiro = ""
     if nome_cliente:
         partes = nome_cliente.strip().split()
         if partes:
             primeiro = partes[0]
-    abertura = f"Olá, {primeiro}! " if primeiro else "Olá! "
+    abertura = f"Olá, {primeiro}!" if primeiro else "Olá!"
     return (
-        f"{abertura}Posso te ajudar com:\n\n"
+        f"{abertura}\n\n"
+        "*Posso te ajudar com:*\n\n"
         "✂️ Nossos Serviços e Preços\n"
         "👨‍🎨 Nossa Equipe de Barbeiros\n"
         "📅 Agendamento de Horários\n"
@@ -81,6 +81,598 @@ def _montar_saudacao(nome_cliente: str | None) -> str:
         "❓ Dúvidas Frequentes\n\n"
         "Sobre qual desses tópicos você gostaria de saber?"
     )
+
+
+# ============================================================
+# Interactive List Menu (substitui menus de texto plano)
+# ============================================================
+
+# IDs canônicos dos itens. Recebidos como payload em list_reply.
+_MENU_ID_SERVICOS_PRECO = "MENU_SERVICOS_PRECO"
+_MENU_ID_EQUIPE = "MENU_EQUIPE"
+_MENU_ID_AGENDAMENTO = "MENU_AGENDAMENTO"
+_MENU_ID_HORARIO_LOCAL = "MENU_HORARIO_LOCAL"
+_MENU_ID_PAGAMENTO = "MENU_PAGAMENTO"
+_MENU_ID_RECEPCAO = "MENU_RECEPCAO"
+
+_MENU_IDS = {
+    _MENU_ID_SERVICOS_PRECO,
+    _MENU_ID_EQUIPE,
+    _MENU_ID_AGENDAMENTO,
+    _MENU_ID_HORARIO_LOCAL,
+    _MENU_ID_PAGAMENTO,
+    _MENU_ID_RECEPCAO,
+}
+
+# Estrutura da lista para Meta API. Limites verificados:
+# row.title ≤24, row.description ≤72, section.title ≤24, max 10 rows.
+#
+# MODE-AWARE: a função é avaliada em runtime para refletir MODO_HIBRIDO atual.
+# - bot_only: 2 seções (Serviços + Informações). Sem "Atendimento" — não há
+#             atendente humano nesse modo, prometer um seria quebra de UX.
+# - hibrido:  3 seções (Serviços + Informações + Atendimento) com "Falar c/
+#             Atendente" mapeado ao handoff para o dashboard /admin.
+def _montar_menu_sections() -> list[dict]:
+    secoes = [
+        {
+            "title": "Serviços",
+            "rows": [
+                {
+                    "id": _MENU_ID_SERVICOS_PRECO,
+                    "title": "✂️ Serviços e Preços",
+                    "description": "Cortes, barba, estética e valores",
+                },
+                {
+                    "id": _MENU_ID_EQUIPE,
+                    "title": "👨‍🎨 Nossa Equipe",
+                    "description": "Conheça nossos barbeiros e profissionais",
+                },
+            ],
+        },
+        {
+            "title": "Informações",
+            "rows": [
+                {
+                    "id": _MENU_ID_AGENDAMENTO,
+                    "title": "📅 Agendamento",
+                    "description": "Como marcar seu horário pelo app",
+                },
+                {
+                    "id": _MENU_ID_HORARIO_LOCAL,
+                    "title": "📍 Horários e Endereço",
+                    "description": "Funcionamento e onde encontrar a barbearia",
+                },
+                {
+                    "id": _MENU_ID_PAGAMENTO,
+                    "title": "💳 Formas de Pagamento",
+                    "description": "Dinheiro, Pix, débito e crédito",
+                },
+            ],
+        },
+    ]
+    if MODO_HIBRIDO:
+        secoes.append({
+            "title": "Atendimento",
+            "rows": [
+                {
+                    "id": _MENU_ID_RECEPCAO,
+                    "title": "🙋 Falar c/ Atendente",
+                    "description": "Falar diretamente com um atendente",
+                },
+            ],
+        })
+    return secoes
+
+# Itens cuja seleção responde com texto canônico (sem IA) e SEM botões anexados.
+# MENU_HORARIO_LOCAL usa RESPOSTA_HORARIO_ENDERECO — versão combinada com UM
+# único fechamento (evita duplicação de "Posso ajudar em algo mais?").
+# OBS: MENU_AGENDAMENTO NÃO está aqui — é tratado separadamente porque carrega botão extra.
+# OBS: MENU_SERVICOS_PRECO e MENU_EQUIPE NÃO estão aqui — abrem sub-fluxo de botões.
+_RESPOSTAS_DIRETAS_MENU = {
+    _MENU_ID_PAGAMENTO: RESPOSTA_PAGAMENTO,
+    _MENU_ID_HORARIO_LOCAL: RESPOSTA_HORARIO_ENDERECO,
+}
+
+# ============================================================
+# Sub-fluxo de botões (após cliente clicar em MENU_SERVICOS_PRECO / MENU_EQUIPE)
+# ============================================================
+
+# IDs canônicos dos botões de sub-fluxo. Recebidos como payload em button_reply.
+_SUB_ID_SERV_BARBEARIA = "SUB_SERV_BARBEARIA"
+_SUB_ID_SERV_ESTETICA = "SUB_SERV_ESTETICA"
+_SUB_ID_EQUIPE_BARBEIROS = "SUB_EQUIPE_BARBEIROS"
+_SUB_ID_EQUIPE_ESTETICA = "SUB_EQUIPE_ESTETICA"
+_SUB_ID_AGENDAR = "SUB_AGENDAR"
+_SUB_ID_VOLTAR_MENU = "SUB_VOLTAR_MENU"
+# Botão "Falar c/ Atendente" — só aparece em modo híbrido. Em bot_only nunca
+# é exibido (não há atendente humano). Tratado SÍNCRONO em receive_message,
+# análogo ao MENU_RECEPCAO legado.
+_SUB_ID_FALAR_ATENDENTE = "SUB_FALAR_ATENDENTE"
+
+_SUB_IDS = {
+    _SUB_ID_SERV_BARBEARIA,
+    _SUB_ID_SERV_ESTETICA,
+    _SUB_ID_EQUIPE_BARBEIROS,
+    _SUB_ID_EQUIPE_ESTETICA,
+    _SUB_ID_AGENDAR,
+    _SUB_ID_VOLTAR_MENU,
+    _SUB_ID_FALAR_ATENDENTE,
+}
+
+
+def _montar_body_menu(nome_cliente: str | None, primeiro_contato: bool) -> str:
+    """Body text da Interactive List. Limite Meta: 1024 chars."""
+    primeiro = ""
+    if nome_cliente:
+        partes = nome_cliente.strip().split()
+        if partes:
+            primeiro = partes[0]
+    if primeiro_contato:
+        abertura = f"Olá, {primeiro}! Seja bem-vindo(a) à Barbearia Bolshoi 💈" if primeiro \
+            else "Olá! Seja bem-vindo(a) à Barbearia Bolshoi 💈"
+        return (
+            f"{abertura}\n\n"
+            "Sou o assistente virtual da casa. Escolha uma das opções abaixo "
+            "ou me envie sua dúvida por mensagem."
+        )
+    abertura = f"Olá novamente, {primeiro}!" if primeiro else "Olá novamente!"
+    return f"{abertura} Escolha uma das opções abaixo ou me envie sua dúvida por mensagem."
+
+
+def _enviar_menu_lista(db: Session, user: Usuario, texto_cliente_trigger: str | None, primeiro_contato: bool = False) -> bool:
+    """
+    Envia Interactive List Message ao cliente. Registra no histórico um marcador
+    "[MENU INTERATIVO ENVIADO]" como resposta_bot e publica evento SSE.
+
+    Em caso de falha de envio da lista (Meta retornou erro), faz fallback automático
+    para texto plano via _enviar_e_registrar() com MENSAGEM_BOAS_VINDAS — garante
+    que o cliente sempre receba ALGUMA resposta.
+    """
+    body = _montar_body_menu(user.nome_cliente, primeiro_contato)
+    placeholder_historico = "📋 [MENU INTERATIVO ENVIADO]"
+
+    hist = HistoricoConversa(
+        telefone_usuario=user.telefone,
+        mensagem_cliente=texto_cliente_trigger,
+        resposta_bot=placeholder_historico,
+        origem="bot",
+        intencao="menu_interativo",
+        entregue=None,
+    )
+    db.add(hist)
+    db.commit()
+
+    ok = whatsapp.enviar_lista_interativa(
+        numero=user.telefone,
+        body_text=body,
+        button_text="Ver opções",
+        sections=_montar_menu_sections(),
+        header_text="Barbearia Bolshoi 💈",
+        footer_text="Toque em Ver opções abaixo",
+    )
+
+    if not ok:
+        # Fallback: texto plano. Atualiza o registro do histórico, não duplica.
+        log.warning("Falha ao enviar lista interativa para %s — caindo para texto plano.", user.telefone)
+        fallback_texto = MENSAGEM_BOAS_VINDAS.replace("\n", "<br>") if primeiro_contato \
+            else _montar_saudacao(user.nome_cliente).replace("\n", "<br>")
+        texto_envio = _normalizar_texto_envio(fallback_texto)
+        ok_fallback = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
+        hist.resposta_bot = fallback_texto
+        hist.intencao = "menu_fallback_texto"
+        hist.entregue = bool(ok_fallback)
+        db.commit()
+        _notificar_dashboard(user.telefone, user.nome_cliente, fallback_texto, "bot", entregue=bool(ok_fallback))
+        return bool(ok_fallback)
+
+    hist.entregue = True
+    db.commit()
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder_historico, "bot", entregue=True)
+    return True
+
+
+def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
+    """
+    Lógica unificada do handoff por solicitação explícita do cliente
+    (botão antigo "🙋 Falar c/ Recepção" ou item MENU_RECEPCAO).
+    Comportamento depende do modo de operação.
+    """
+    if MODO_HIBRIDO:
+        _desativar_bot(db, user)
+        user.aguardando_humano = True
+        user.transbordo_em = datetime.now(timezone.utc)
+        db.commit()
+        notificador.publicar({
+            "tipo": "novo_transbordo",
+            "telefone": user.telefone,
+            "nome": user.nome_cliente,
+            "motivo": motivo,
+        })
+        whatsapp.enviar_mensagem_texto(
+            user.telefone,
+            "Perfeito! Aguarde um instante — um atendente da nossa recepção "
+            "vai assumir o atendimento em breve."
+        )
+    else:
+        mensagem_bot_only = (
+            "No momento o atendimento por aqui é feito apenas pelo assistente virtual.\n\n"
+            "Posso te ajudar com dúvidas sobre *serviços*, *equipe*, *horários* e *localização* — é só me perguntar.\n\n"
+            "Para agendar, acesse nosso app:\n"
+            "https://sites.appbarber.com.br/bolshoi"
+        )
+        whatsapp.enviar_mensagem_texto(user.telefone, mensagem_bot_only)
+
+
+# ============================================================
+# Sub-fluxo determinístico (botões pós-seleção de itens da lista)
+# ============================================================
+
+def _registrar_envio_botoes(
+    db: Session,
+    user: Usuario,
+    mensagem_cliente: str | None,
+    resposta_texto: str,
+    body_botoes: str,
+    buttons: list[dict],
+    intencao: str,
+    header_text: str | None = None,
+    footer_text: str | None = None,
+) -> bool:
+    """
+    Helper que:
+      1. Salva resposta_texto no histórico (com placeholder de botões anexo).
+      2. Envia o texto via Meta API.
+      3. Envia os botões (com body_botoes curto, ex: "O que prefere fazer?").
+      4. Fallback automático: se botões falharem, manda lista de opções como texto.
+
+    Retorna True se ao menos o texto foi entregue; botões são UX bonus.
+    """
+    placeholder = f"{resposta_texto}<br><br>[BOTÕES: {' | '.join(b['title'] for b in buttons)}]"
+
+    hist = HistoricoConversa(
+        telefone_usuario=user.telefone,
+        mensagem_cliente=mensagem_cliente,
+        resposta_bot=placeholder,
+        origem="bot",
+        intencao=intencao,
+        entregue=None,
+    )
+    db.add(hist)
+    db.commit()
+
+    texto_envio = _normalizar_texto_envio(resposta_texto)
+    ok_texto = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
+
+    ok_botoes = whatsapp.enviar_botoes_resposta(
+        numero=user.telefone,
+        body_text=body_botoes,
+        buttons=buttons,
+        header_text=header_text,
+        footer_text=footer_text,
+    )
+
+    if not ok_botoes:
+        # Fallback discreto: lista as opções como texto para o cliente saber o que pode pedir.
+        log.warning("Botões falharam para %s — enviando hint textual.", user.telefone)
+        hint = "Você pode responder:\n" + "\n".join(f"• {b['title']}" for b in buttons)
+        whatsapp.enviar_mensagem_texto(user.telefone, hint)
+
+    hist.entregue = bool(ok_texto)
+    db.commit()
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(ok_texto))
+    return bool(ok_texto)
+
+
+def _enviar_subflow_servicos(db: Session, user: Usuario, texto_cliente_trigger: str) -> None:
+    """Cliente clicou em MENU_SERVICOS_PRECO → oferece sub-categorias por botões."""
+    body = "Sobre qual categoria você quer saber?"
+    buttons = [
+        {"id": _SUB_ID_SERV_BARBEARIA, "title": "💈 Barbearia"},
+        {"id": _SUB_ID_SERV_ESTETICA, "title": "💆 Estética"},
+        {"id": _SUB_ID_AGENDAR, "title": "📅 Agendar"},
+    ]
+    placeholder = f"[SUB-FLUXO SERVIÇOS] {body}"
+    hist = HistoricoConversa(
+        telefone_usuario=user.telefone,
+        mensagem_cliente=texto_cliente_trigger,
+        resposta_bot=placeholder,
+        origem="bot",
+        intencao="sub_servicos_menu",
+        entregue=None,
+    )
+    db.add(hist)
+    db.commit()
+
+    ok = whatsapp.enviar_botoes_resposta(
+        numero=user.telefone,
+        body_text=body,
+        buttons=buttons,
+        header_text="✂️ Serviços e Preços",
+    )
+    if not ok:
+        # Fallback texto: hint para o cliente conseguir prosseguir mesmo sem botões.
+        fallback = (
+            "*Sobre qual categoria você quer saber?*\n\n"
+            "Responda com uma destas opções:\n\n"
+            "• Barbearia (cortes, barba e acabamentos)\n"
+            "• Estética (procedimentos com a Isabella)\n"
+            "• Agendar"
+        )
+        ok_fb = whatsapp.enviar_mensagem_texto(user.telefone, fallback)
+        hist.resposta_bot = fallback
+        hist.intencao = "sub_servicos_fallback"
+        hist.entregue = bool(ok_fb)
+    else:
+        hist.entregue = True
+    db.commit()
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
+
+
+def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: str) -> None:
+    """Cliente clicou em MENU_EQUIPE → oferece sub-categorias por botões."""
+    body = "Qual equipe você quer conhecer?"
+    buttons = [
+        {"id": _SUB_ID_EQUIPE_BARBEIROS, "title": "💈 Barbeiros"},
+        {"id": _SUB_ID_EQUIPE_ESTETICA, "title": "💆 Estética"},
+        {"id": _SUB_ID_AGENDAR, "title": "📅 Agendar"},
+    ]
+    placeholder = f"[SUB-FLUXO EQUIPE] {body}"
+    hist = HistoricoConversa(
+        telefone_usuario=user.telefone,
+        mensagem_cliente=texto_cliente_trigger,
+        resposta_bot=placeholder,
+        origem="bot",
+        intencao="sub_equipe_menu",
+        entregue=None,
+    )
+    db.add(hist)
+    db.commit()
+
+    ok = whatsapp.enviar_botoes_resposta(
+        numero=user.telefone,
+        body_text=body,
+        buttons=buttons,
+        header_text="👨‍🎨 Nossa Equipe",
+    )
+    if not ok:
+        fallback = (
+            "*Qual equipe você quer conhecer?*\n\n"
+            "Responda com uma destas opções:\n\n"
+            "• Barbeiros\n"
+            "• Estética\n"
+            "• Agendar"
+        )
+        ok_fb = whatsapp.enviar_mensagem_texto(user.telefone, fallback)
+        hist.resposta_bot = fallback
+        hist.intencao = "sub_equipe_fallback"
+        hist.entregue = bool(ok_fb)
+    else:
+        hist.entregue = True
+    db.commit()
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
+
+
+def _botoes_acao_pos_lista(incluir_voltar: bool = True) -> list[dict]:
+    """
+    Monta lista de botões padrão para mensagens pós-categoria (serviços/equipe).
+    MODE-AWARE:
+      - bot_only: [📅 Agendar pelo App] [Menu principal]  (2 botões)
+      - hibrido:  [📅 Agendar pelo App] [🙋 Falar c/ Atendente] [Menu principal]  (3 botões, máx Meta)
+    Títulos verificados (limite Meta = 20 chars):
+      - "📅 Agendar pelo App"   = 19 chars  OK
+      - "🙋 Falar c/ Atendente" = 20 chars  OK
+      - "Menu principal"     = 16 chars  OK
+    """
+    botoes = [{"id": _SUB_ID_AGENDAR, "title": "📅 Agendar pelo App"}]
+    if MODO_HIBRIDO:
+        botoes.append({"id": _SUB_ID_FALAR_ATENDENTE, "title": "🙋 Falar c/ Atendente"})
+    if incluir_voltar:
+        botoes.append({"id": _SUB_ID_VOLTAR_MENU, "title": "Menu principal"})
+    return botoes
+
+
+def _enviar_agendamento_com_botao_recepcao(db: Session, user: Usuario, texto_cliente_trigger: str) -> None:
+    """
+    Cliente clicou em MENU_AGENDAMENTO → resposta canônica.
+    MODE-AWARE:
+      - bot_only: apenas texto puro (RESPOSTA_AGENDAMENTO), sem botão — não há atendente.
+      - hibrido:  RESPOSTA_AGENDAMENTO_HIBRIDO + 1 botão "Falar c/ Atendente".
+    """
+    if MODO_BOT_ONLY:
+        _enviar_e_registrar(
+            db, user, texto_cliente_trigger,
+            RESPOSTA_AGENDAMENTO,
+            origem="bot",
+            intencao="menu_agendamento",
+        )
+        return
+
+    # Híbrido: texto com nota suave + botão para chamar atendente humano.
+    body_botoes = "Precisa de ajuda para usar o app?"
+    buttons = [
+        {"id": _SUB_ID_FALAR_ATENDENTE, "title": "🙋 Falar c/ Atendente"},
+    ]
+    _registrar_envio_botoes(
+        db=db,
+        user=user,
+        mensagem_cliente=texto_cliente_trigger,
+        resposta_texto=RESPOSTA_AGENDAMENTO_HIBRIDO,
+        body_botoes=body_botoes,
+        buttons=buttons,
+        intencao="menu_agendamento",
+        header_text="📅 Agendamento",
+    )
+
+
+def _listar_servicos_categoria(db: Session, categoria: str) -> str:
+    """
+    Retorna texto formatado com serviços ativos da categoria (sem chamar IA).
+    Categoria: 'barbearia' ou 'estetica'.
+    """
+    servicos = (
+        db.query(Servico)
+        .filter(Servico.ativo == True, Servico.categoria == categoria)
+        .order_by(Servico.id)
+        .all()
+    )
+    if not servicos:
+        return ""
+    linhas = []
+    for s in servicos:
+        try:
+            preco_fmt = f"R$ {float(s.preco):.2f}".replace(".", ",")
+        except (TypeError, ValueError):
+            preco_fmt = "consultar"
+        linhas.append(f"✂️ {s.nome_servico} — {preco_fmt}")
+    return "<br>".join(linhas)
+
+
+def _listar_equipe_categoria(db: Session, categoria: str) -> str:
+    """
+    Retorna texto formatado com profissionais que executam serviços da categoria.
+    Categoria: 'barbearia' ou 'estetica'.
+    Inclui nome, dias de trabalho e serviços que faz dentro da categoria.
+    """
+    from sqlalchemy.orm import joinedload
+    barbeiros = (
+        db.query(Barbeiro)
+        .options(joinedload(Barbeiro.servicos))
+        .order_by(Barbeiro.id)
+        .all()
+    )
+    blocos = []
+    for b in barbeiros:
+        servs_categoria = [s for s in b.servicos if s.categoria == categoria and s.ativo]
+        if not servs_categoria:
+            continue
+        nomes_serv = ", ".join(s.nome_servico for s in servs_categoria)
+        dias = b.dias_trabalho or "Consulte disponibilidade"
+        blocos.append(
+            f"👤 *{b.nome}*<br>"
+            f"📅 {dias}<br>"
+            f"✂️ {nomes_serv}"
+        )
+    return "<br><br>".join(blocos)
+
+
+def _enviar_servicos_categoria(db: Session, user: Usuario, categoria: str, texto_cliente_trigger: str) -> None:
+    """Resposta determinística com preços da categoria + botões [Agendar] [Voltar]."""
+    cabecalho = "💈 *Serviços de Barbearia:*" if categoria == "barbearia" else "💆‍♀️ *Serviços de Estética:*"
+    lista = _listar_servicos_categoria(db, categoria)
+
+    if not lista:
+        nome_cat = "barbearia" if categoria == "barbearia" else "estética"
+        resposta = (
+            f"No momento não há serviços de {nome_cat} cadastrados em nosso sistema.<br><br>"
+            "Posso te ajudar com algo mais?"
+        )
+    else:
+        resposta = f"{cabecalho}<br><br>{lista}"
+
+    body_botoes = "O que deseja fazer agora?"
+    buttons = _botoes_acao_pos_lista(incluir_voltar=True)
+    _registrar_envio_botoes(
+        db=db,
+        user=user,
+        mensagem_cliente=texto_cliente_trigger,
+        resposta_texto=resposta,
+        body_botoes=body_botoes,
+        buttons=buttons,
+        intencao=f"sub_servicos_{categoria}",
+    )
+
+
+def _enviar_equipe_categoria(db: Session, user: Usuario, categoria: str, texto_cliente_trigger: str) -> None:
+    """Resposta determinística com equipe da categoria + botões [Agendar] [Voltar]."""
+    cabecalho = "💈 *Nossos Barbeiros:*" if categoria == "barbearia" else "💆‍♀️ *Nossa Equipe de Estética:*"
+    lista = _listar_equipe_categoria(db, categoria)
+
+    if not lista:
+        nome_cat = "barbeiros" if categoria == "barbearia" else "profissionais de estética"
+        resposta = (
+            f"No momento não há {nome_cat} cadastrados em nosso sistema.<br><br>"
+            "Posso te ajudar com algo mais?"
+        )
+    else:
+        resposta = f"{cabecalho}<br><br>{lista}"
+
+    body_botoes = "O que deseja fazer agora?"
+    buttons = _botoes_acao_pos_lista(incluir_voltar=True)
+    _registrar_envio_botoes(
+        db=db,
+        user=user,
+        mensagem_cliente=texto_cliente_trigger,
+        resposta_texto=resposta,
+        body_botoes=body_botoes,
+        buttons=buttons,
+        intencao=f"sub_equipe_{categoria}",
+    )
+
+
+def _despachar_menu_principal(db: Session, user: Usuario, texto_cliente: str) -> bool:
+    """
+    Trata seleção de itens da Interactive List principal (MENU_*).
+    Retorna True se o item foi tratado aqui (não deve seguir o pipeline).
+    """
+    if texto_cliente == _MENU_ID_SERVICOS_PRECO:
+        _enviar_subflow_servicos(db, user, texto_cliente)
+        return True
+    if texto_cliente == _MENU_ID_EQUIPE:
+        _enviar_subflow_equipe(db, user, texto_cliente)
+        return True
+    if texto_cliente == _MENU_ID_AGENDAMENTO:
+        _enviar_agendamento_com_botao_recepcao(db, user, texto_cliente)
+        return True
+    if texto_cliente in _RESPOSTAS_DIRETAS_MENU:
+        resposta = _RESPOSTAS_DIRETAS_MENU[texto_cliente]
+        _enviar_e_registrar(db, user, texto_cliente, resposta, origem="bot", intencao="menu_resposta_direta")
+        return True
+    return False
+
+
+def _despachar_subfluxo(db: Session, user: Usuario, texto_cliente: str) -> bool:
+    """
+    Trata seleção de botões SUB_* (depois do primeiro nível).
+    Retorna True se o botão foi tratado aqui.
+    """
+    if texto_cliente == _SUB_ID_SERV_BARBEARIA:
+        _enviar_servicos_categoria(db, user, "barbearia", texto_cliente)
+        return True
+    if texto_cliente == _SUB_ID_SERV_ESTETICA:
+        _enviar_servicos_categoria(db, user, "estetica", texto_cliente)
+        return True
+    if texto_cliente == _SUB_ID_EQUIPE_BARBEIROS:
+        _enviar_equipe_categoria(db, user, "barbearia", texto_cliente)
+        return True
+    if texto_cliente == _SUB_ID_EQUIPE_ESTETICA:
+        _enviar_equipe_categoria(db, user, "estetica", texto_cliente)
+        return True
+    if texto_cliente == _SUB_ID_AGENDAR:
+        # Em híbrido, oferece texto + botão pra falar com atendente; em bot_only,
+        # apenas texto canônico puro (sem prometer atendente que não existe).
+        if MODO_HIBRIDO:
+            body_botoes = "Precisa de ajuda para usar o app?"
+            buttons = [
+                {"id": _SUB_ID_FALAR_ATENDENTE, "title": "🙋 Falar c/ Atendente"},
+            ]
+            _registrar_envio_botoes(
+                db=db,
+                user=user,
+                mensagem_cliente=texto_cliente,
+                resposta_texto=RESPOSTA_AGENDAMENTO_HIBRIDO,
+                body_botoes=body_botoes,
+                buttons=buttons,
+                intencao="sub_agendar",
+                header_text="📅 Agendamento",
+            )
+        else:
+            _enviar_e_registrar(db, user, texto_cliente, RESPOSTA_AGENDAMENTO, origem="bot", intencao="sub_agendar")
+        return True
+    if texto_cliente == _SUB_ID_VOLTAR_MENU:
+        _enviar_menu_lista(db, user, texto_cliente, primeiro_contato=False)
+        return True
+    return False
+
 
 # Detecta pedidos do menu de capacidades (sem usar a IA, garante padrão visual fixo).
 _PADROES_PEDIDO_MENU = re.compile(
@@ -263,10 +855,26 @@ def _desativar_bot(db: Session, user: Usuario):
 
 
 def _normalizar_texto_envio(texto: str) -> str:
-    """Converte <br> e \\n literais em quebra real, colapsa quebras seguidas."""
+    """
+    Prepara texto para envio à Meta API:
+      1. Converte qualquer variação de <br> (com/sem espaços, <br/>, <BR>) em \n.
+      2. Converte "\\n" literal (string escapada vinda da IA) em \n real.
+      3. Normaliza CRLF do Windows e CR isolado.
+      4. Remove espaços em branco no final de cada linha (causa principal de
+         "linhas emendadas" quando a fonte tinha trailing spaces).
+      5. Colapsa 3+ quebras consecutivas em apenas 2 (parágrafo simples).
+      6. Strip nas pontas.
+    Texto resultante tem quebras reais — WhatsApp renderiza corretamente.
+    """
+    if not texto:
+        return ""
     t = re.sub(r"<\s*br\s*/?\s*>", "\n", texto, flags=re.IGNORECASE)
     t = t.replace("\\n", "\n")
-    return re.sub(r"\n{3,}", "\n\n", t).strip()
+    t = t.replace("\r\n", "\n").replace("\r", "\n")
+    # Remove espaços/tabs no final de cada linha (preserva indentação intencional no início).
+    t = re.sub(r"[ \t]+\n", "\n", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
 
 
 def _enviar_e_registrar(
@@ -392,23 +1000,34 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 # Injeta na IA com \n para leitura limpa, não com <br>
                 contexto_mensagens.append({"role": "model", "content": h.resposta_bot.replace("<br>", "\n")})
 
-        # Primeiro contato (histórico vazio) → SEMPRE entrega o menu de onboarding,
+        # Seleção de item do menu interativo principal (list_reply: MENU_*).
+        # Itens com sub-fluxo (Serviços, Equipe) ou resposta canônica direta são
+        # tratados aqui sem chamar a IA. MENU_RECEPCAO já foi tratado em receive_message.
+        if _despachar_menu_principal(db, user, texto_cliente):
+            return
+
+        # Seleção de botão de sub-fluxo (button_reply: SUB_*).
+        # Categoria escolhida → lista determinística do DB; agendar → canônica;
+        # voltar ao menu → reabre lista interativa.
+        if _despachar_subfluxo(db, user, texto_cliente):
+            return
+
+        # Primeiro contato (histórico vazio) → SEMPRE entrega o menu interativo,
         # independentemente do que o cliente digitou. A IA só assume a partir da 2ª mensagem.
         if not historico:
-            _enviar_e_registrar(db, user, texto_cliente, MENSAGEM_BOAS_VINDAS.replace("\n", "<br>"), origem="bot")
+            _enviar_menu_lista(db, user, texto_cliente, primeiro_contato=True)
             return
 
-        # Cliente pedindo o menu/capacidades de novo → texto fixo (mesmo padrão visual da boas-vindas).
-        # Evita que a IA regenere o menu com emojis e palavras diferentes a cada pedido.
+        # Cliente pedindo o menu/capacidades de novo → lista interativa.
+        # Fallback automático para texto se a lista falhar.
         if _e_pedido_de_menu(texto_cliente):
-            _enviar_e_registrar(db, user, texto_cliente, MENSAGEM_MENU_REPETIDO.replace("\n", "<br>"), origem="bot")
+            _enviar_menu_lista(db, user, texto_cliente, primeiro_contato=False)
             return
 
-        # Saudação pura (oi, eai, bom dia…) sem pergunta acoplada → resposta fixa
+        # Saudação pura (oi, eai, bom dia…) sem pergunta acoplada → lista interativa
         # com primeiro nome do cliente. Evita que a IA gere variações casuais.
         if _e_saudacao_pura(texto_cliente):
-            mensagem_saudacao = _montar_saudacao(user.nome_cliente)
-            _enviar_e_registrar(db, user, texto_cliente, mensagem_saudacao.replace("\n", "<br>"), origem="bot")
+            _enviar_menu_lista(db, user, texto_cliente, primeiro_contato=False)
             return
 
         # FAQ canônico: horário, endereço, agendamento, pagamento, estrutura.
@@ -460,8 +1079,9 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 # Bot CONTINUA ativo — não há ninguém pra assumir.
                 if intencao == "transbordo_falha":
                     resposta_texto = (
-                        "Tive um problema técnico processando sua mensagem. 😕\n\n"
-                        "Pode tentar reformular sua dúvida? Posso te ajudar com:\n"
+                        "Tive uma instabilidade ao processar sua mensagem.\n\n"
+                        "Pode tentar reformular?\n\n"
+                        "*Posso te ajudar com:*\n\n"
                         "✂️ Serviços e preços\n"
                         "👨‍🎨 Equipe\n"
                         "📅 Agendamento\n"
@@ -469,9 +1089,10 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                     )
                 else:
                     resposta_texto = (
-                        "No momento o atendimento humano não está disponível por aqui. 🤖\n\n"
-                        "Mas posso te ajudar com dúvidas sobre serviços, equipe, horários e localização — é só me perguntar.\n\n"
-                        "Para agendar, use nosso app: https://sites.appbarber.com.br/bolshoi"
+                        "No momento o atendimento por aqui é feito apenas pelo assistente virtual.\n\n"
+                        "Posso te ajudar com dúvidas sobre *serviços*, *equipe*, *horários* e *localização* — é só me perguntar.\n\n"
+                        "Para agendar, acesse nosso app:\n"
+                        "https://sites.appbarber.com.br/bolshoi"
                     )
                 _enviar_e_registrar(db, user, texto_cliente, resposta_texto, origem="bot", intencao=intencao)
                 return
@@ -522,10 +1143,19 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         return {"status": "ok"}
 
     if str(texto_cliente).startswith("MÍDIA_"):
+        mensagem_midia = (
+            "Por aqui consigo ajudar apenas por *mensagens de texto* — não processo áudios, fotos ou documentos.\n\n"
+            "Pode me descrever sua dúvida em palavras?\n\n"
+            "Posso ajudar com:\n\n"
+            "✂️ Serviços e preços\n"
+            "👨‍🎨 Equipe\n"
+            "📅 Agendamento\n"
+            "📍 Localização e horários"
+        )
         background_tasks.add_task(
             whatsapp.enviar_mensagem_texto,
             telefone,
-            "🤖 Desculpe, mas eu ainda sou um bot aprendendo e não consigo ouvir áudios nem ler fotos. Em que posso te ajudar escrevendo?"
+            mensagem_midia,
         )
         return {"status": "ok"}
 
@@ -581,27 +1211,17 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
             log.info("Mensagem ignorada: bot desativado para %s (modo bot_only).", telefone)
         return {"status": "ok"}
 
-    if texto_cliente == "🙋 Falar c/ Recepção":
-        if MODO_HIBRIDO:
-            _desativar_bot(db, user)
-            user.aguardando_humano = True
-            user.transbordo_em = datetime.now(timezone.utc)
-            db.commit()
-            notificador.publicar({
-                "tipo": "novo_transbordo",
-                "telefone": telefone,
-                "nome": user.nome_cliente,
-                "motivo": "botao_recepcao",
-            })
-            whatsapp.enviar_mensagem_texto(telefone, "Tudo bem! Aguarde um momento, um atendente humano vai assumir e responder você em breve. 🙋")
-        else:
-            # Em bot_only, não há atendente. Bot continua ativo e orienta.
-            whatsapp.enviar_mensagem_texto(
-                telefone,
-                "No momento o atendimento humano não está disponível por aqui. 🤖\n\n"
-                "Mas posso te ajudar com dúvidas sobre serviços, equipe, horários e localização — é só me perguntar.\n\n"
-                "Para agendar, use nosso app: https://sites.appbarber.com.br/bolshoi"
-            )
+    # Solicitação de recepção/atendente: botões legados OU itens das listas/botões.
+    # Tratado síncrono (antes de enfileirar IA) — handoff é sensível a tempo.
+    # Aceita: botão legado, MENU_RECEPCAO (lista), SUB_FALAR_ATENDENTE (botão pós-categoria).
+    _GATILHOS_HANDOFF = {
+        "🙋 Falar c/ Recepção": "botao_recepcao_legado",
+        "🙋 Falar c/ Atendente": "botao_atendente_legado",
+        "MENU_RECEPCAO": "menu_recepcao",
+        _SUB_ID_FALAR_ATENDENTE: "botao_falar_atendente",
+    }
+    if texto_cliente in _GATILHOS_HANDOFF:
+        _executar_handoff_recepcao(db, user, _GATILHOS_HANDOFF[texto_cliente])
         return {"status": "ok"}
 
     log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])
@@ -610,10 +1230,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     # terminar e responder — pode levar segundos. Com esse evento, msg do cliente
     # aparece em tempo real e o atendente pode decidir assumir antes da IA agir.
     _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente")
-    try:
-        whatsapp.enviar_mensagem_texto(telefone, "⏳ Processando sua mensagem...")
-    except Exception:
-        pass
+
     background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
 
     return {"status": "ok"}

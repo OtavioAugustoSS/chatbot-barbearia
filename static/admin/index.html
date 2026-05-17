@@ -6,9 +6,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  .scrollbar::-webkit-scrollbar { width: 6px; }
-  .scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
-  .scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+  /* =============================================
+     Scrollbar — paleta Telegram Dark
+     ============================================= */
+  .scrollbar::-webkit-scrollbar { width: 5px; }
+  .scrollbar::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
+  .scrollbar::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+  .scrollbar::-webkit-scrollbar-track { background: transparent; }
 
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(8px); }
@@ -34,172 +38,384 @@
     max-height: 120px;
     overflow-y: auto;
   }
+
+  /* =============================================
+     Cores das bolhas — paleta Telegram Dark.
+     Definidas aqui porque Tailwind Play CDN não
+     scaneia bg-[#hex] em strings JS dinâmicas
+     (só lê HTML estático).
+     ============================================= */
+  .bolha-incoming        { background: #2b2b2b; }
+  .bolha-outgoing-bot    { background: #0d3875; }
+  .bolha-outgoing-humano { background: #2481cc; }
+  .bolha-falha           { background: rgba(180, 30, 30, 0.5); border: 2px solid #cc3333; }
+  /* Se a bolha vira "falha" em runtime, a cauda azul antiga não combina mais
+     com o fundo vermelho — esconde a cauda neste caso. */
+  .bolha-falha::before   { display: none; }
+
+  /* Texto dentro das bolhas */
+  .bolha-incoming span,
+  .bolha-outgoing-bot span,
+  .bolha-outgoing-humano span { color: #ffffff; }
+  .bolha-label { color: #aaaaaa !important; }
+
+  /* Hover sidebar — Tailwind não pega hover: em classes JS dinâmicas */
+  .conv-item { transition: background 0.12s; }
+  .conv-item:hover { background: #2f2f2f; }
+  .conv-item.ativo { background: #383838; }
+
+  /* =============================================
+     Painel lateral direito — info do cliente
+     Mostrado apenas quando uma conversa está aberta.
+     Desliza pelo lado quando colapsado.
+     ============================================= */
+  #info-panel {
+    transition: width 0.25s ease, transform 0.25s ease, opacity 0.2s ease;
+    overflow: hidden;
+  }
+  #info-panel.colapsado {
+    width: 0 !important;
+    border-left: 0 !important;
+    opacity: 0;
+  }
+  @media (max-width: 1023px) {
+    /* Em telas médias/pequenas, painel vira drawer absoluto sobre a thread. */
+    #info-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      z-index: 35;
+      box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4);
+      transform: translateX(0);
+    }
+    #info-panel.colapsado {
+      transform: translateX(100%);
+      width: 280px !important;
+      opacity: 1;
+      border-left: 1px solid #3a3a3a !important;
+    }
+  }
+
+  /* Cores do avatar do cliente — sincronizado com _CORES_AVATAR no JS */
+  .avatar-cliente {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 700;
+    user-select: none;
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* =============================================
+     Cauda das bolhas — estilo Telegram
+     ============================================= */
+  .bolha-incoming { position: relative; }
+  .bolha-incoming::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -8px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 0 9px 9px 0;
+    border-color: transparent #2b2b2b transparent transparent;
+  }
+
+  .bolha-outgoing-bot { position: relative; }
+  .bolha-outgoing-bot::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -8px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 9px 9px 0 0;
+    border-color: #0d3875 transparent transparent transparent;
+  }
+
+  .bolha-outgoing-humano { position: relative; }
+  .bolha-outgoing-humano::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -8px;
+    width: 0; height: 0;
+    border-style: solid;
+    border-width: 9px 9px 0 0;
+    border-color: #2481cc transparent transparent transparent;
+  }
 </style>
 </head>
-<body class="bg-gray-50 h-screen overflow-hidden text-gray-800">
+<body class="bg-[#212121] h-screen overflow-hidden text-[#ffffff]">
   <div class="flex h-screen">
 
-    <!-- TASK-018: sidebar overlay backdrop (mobile) -->
-    <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/30 z-30 sm:hidden"></div>
+    <!-- sidebar overlay backdrop (mobile) -->
+    <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/60 z-30 sm:hidden"></div>
 
     <!-- Sidebar conversas -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 bg-white border-r border-gray-200 flex flex-col transform transition-transform duration-300 -translate-x-full sm:translate-x-0 sm:static sm:z-auto sm:transform-none">
-      <header class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 bg-[#1c1c1c] border-r border-[#3a3a3a] flex flex-col transform transition-transform duration-300 -translate-x-full sm:translate-x-0 sm:static sm:z-auto sm:transform-none">
+      <header class="px-4 py-3 border-b border-[#3a3a3a] border-b-2 border-b-[#2481cc]/20 flex items-center justify-between bg-[#2b2b2b]">
         <div>
-          <h1 class="text-lg font-bold text-gray-900">Atendimentos</h1>
-          <p id="nome-atendente" class="text-xs text-gray-500"></p>
+          <h1 class="text-lg font-bold text-[#ffffff]">Atendimentos</h1>
+          <p id="nome-atendente" class="text-xs text-[#aaaaaa]"></p>
         </div>
         <button id="btn-sair" title="Sair"
-                class="text-gray-400 hover:text-red-600 transition p-1.5 rounded-lg hover:bg-red-50">
+                class="text-[#aaaaaa] hover:text-red-400 transition p-1.5 rounded-lg hover:bg-red-900/30">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
           </svg>
         </button>
       </header>
-      <!-- TASK-012: queue metrics bar -->
-      <div id="queue-metrics" class="px-3 py-2 border-b border-gray-200 flex gap-2">
-        <span class="flex-1 flex flex-col items-center bg-red-50 border border-red-100 rounded-lg py-1 px-1">
-          <span id="metric-aguardando" class="text-base font-bold text-red-700 leading-none">0</span>
-          <span class="text-[10px] text-red-500 mt-0.5">Aguardando</span>
+
+      <!-- Métricas de fila -->
+      <div id="queue-metrics" class="px-3 py-2 border-b border-[#3a3a3a] flex gap-2">
+        <span class="flex-1 flex flex-col items-center bg-red-900/30 rounded-lg py-1.5 px-1">
+          <span id="metric-aguardando" class="text-base font-bold text-red-400 leading-none">0</span>
+          <span class="text-[10px] text-[#aaaaaa] mt-0.5">Aguardando</span>
         </span>
-        <span class="flex-1 flex flex-col items-center bg-emerald-50 border border-emerald-100 rounded-lg py-1 px-1">
-          <span id="metric-atendimento" class="text-base font-bold text-emerald-700 leading-none">0</span>
-          <span class="text-[10px] text-emerald-500 mt-0.5">Em atendimento</span>
+        <span class="flex-1 flex flex-col items-center bg-emerald-900/30 rounded-lg py-1.5 px-1">
+          <span id="metric-atendimento" class="text-base font-bold text-emerald-400 leading-none">0</span>
+          <span class="text-[10px] text-[#aaaaaa] mt-0.5">Atendendo</span>
         </span>
-        <span class="flex-1 flex flex-col items-center bg-blue-50 border border-blue-100 rounded-lg py-1 px-1">
-          <span id="metric-bot" class="text-base font-bold text-blue-700 leading-none">0</span>
-          <span class="text-[10px] text-blue-500 mt-0.5">Com bot</span>
+        <span class="flex-1 flex flex-col items-center bg-[#2481cc]/20 rounded-lg py-1.5 px-1">
+          <span id="metric-bot" class="text-base font-bold text-[#2481cc] leading-none">0</span>
+          <span class="text-[10px] text-[#aaaaaa] mt-0.5">Com bot</span>
         </span>
       </div>
-      <div class="px-3 py-2 border-b border-gray-200">
+
+      <!-- Busca -->
+      <div class="px-3 py-2 border-b border-[#3a3a3a]">
         <div class="relative">
-          <svg class="w-4 h-4 absolute left-3 top-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="w-4 h-4 absolute left-3 top-2.5 text-[#aaaaaa]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"/>
           </svg>
           <input id="filtro" type="text" placeholder="Buscar por nome ou telefone…"
-                 class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-amber-400 focus:outline-none transition">
+                 class="w-full pl-9 pr-3 py-2 text-sm bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:outline-none focus:border-[#2481cc] transition">
         </div>
       </div>
+
       <ul id="lista-conversas" class="flex-1 overflow-y-auto scrollbar"></ul>
-      <footer class="px-3 py-2 border-t border-gray-200 text-[11px] text-gray-500">
+
+      <footer class="px-3 py-2 border-t border-[#3a3a3a] text-[11px] text-[#aaaaaa] bg-[#2b2b2b]">
         <div class="flex items-center justify-between mb-1.5">
           <a href="/static/admin/atendentes.html"
-             class="text-gray-400 hover:text-amber-600 transition flex items-center gap-1"
+             class="text-[#aaaaaa] hover:text-[#2481cc] transition flex items-center gap-1.5"
              title="Gerenciar atendentes">
-            <span>⚙</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z"/>
+            </svg>
             <span>Atendentes</span>
           </a>
         </div>
         <div class="flex items-center justify-between">
-          <span id="status-conexao" class="flex items-center gap-1.5">
+          <span id="status-conexao" class="flex items-center gap-1.5 text-[#aaaaaa]">
             <span class="w-2 h-2 rounded-full bg-green-500"></span> conectado
           </span>
-          <button id="btn-mute" title="Silenciar notificações" class="hover:text-gray-700 transition p-1 rounded">
+          <button id="btn-mute" title="Silenciar notificações" class="hover:text-[#ffffff] transition p-1 rounded text-[#aaaaaa]">
             <svg xmlns="http://www.w3.org/2000/svg" id="icone-som" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 8.25v7.5L12 18 9 15.75H6V8.25h3L12 6l3 2.25zM18 9.75a3.75 3.75 0 010 4.5M20.25 7.5a6.75 6.75 0 010 9"/>
             </svg>
           </button>
         </div>
-        <p id="ultimo-acesso" class="text-[10px] text-gray-400 mt-0.5 hidden"></p>
+        <p id="ultimo-acesso" class="text-[10px] text-[#aaaaaa]/70 mt-0.5 hidden"></p>
       </footer>
     </aside>
 
     <!-- Thread -->
-    <main class="flex-1 flex flex-col bg-gray-100">
-      <header id="thread-header" class="bg-white border-b border-gray-200 px-4 py-3 hidden">
+    <main class="flex-1 flex flex-col bg-[#212121]">
+      <header id="thread-header" class="bg-[#2b2b2b] border-b border-[#3a3a3a] px-4 py-3 hidden">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
-            <!-- TASK-018: hamburger visible only on mobile -->
+            <!-- hamburger visível só em mobile -->
             <button id="btn-hamburger" type="button"
-                    class="sm:hidden flex-shrink-0 text-gray-500 hover:text-gray-800 p-1 rounded-lg hover:bg-gray-100 transition">
+                    class="sm:hidden flex-shrink-0 text-[#aaaaaa] hover:text-[#ffffff] p-1 rounded-lg hover:bg-[#2f2f2f] transition">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
             </button>
             <div id="thread-avatar" class="flex-shrink-0"></div>
             <div class="min-w-0">
-              <h2 id="thread-nome" class="font-bold text-gray-900 truncate"></h2>
-              <p id="thread-telefone" class="text-xs text-gray-500"></p>
+              <h2 id="thread-nome" class="font-bold text-[#ffffff] truncate"></h2>
+              <p id="thread-telefone" class="text-xs text-[#aaaaaa]"></p>
             </div>
           </div>
-          <div class="flex gap-2 flex-shrink-0">
-            <button id="btn-assumir" class="hidden bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-medium px-3.5 py-1.5 rounded-lg shadow-sm transition">Assumir</button>
-            <button id="btn-devolver" class="hidden bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 text-sm font-medium px-3.5 py-1.5 rounded-lg border border-gray-200 transition">Devolver à IA</button>
-          </div>
-        </div>
-        <p id="thread-status" class="text-xs mt-1.5"></p>
-        <div id="tag-selector" class="flex items-center gap-1.5 mt-2 flex-wrap">
-          <span class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mr-0.5">Tag:</span>
-          <button type="button" data-tag="resolvido"
-                  class="text-[10px] font-bold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 px-2 py-0.5 rounded transition ring-green-400">
-            &#10003; Resolvido
-          </button>
-          <button type="button" data-tag="follow_up"
-                  class="text-[10px] font-bold text-yellow-700 bg-yellow-50 border border-yellow-200 hover:bg-yellow-100 px-2 py-0.5 rounded transition ring-yellow-400">
-            &#8617; Follow-up
-          </button>
-          <button type="button" data-tag=""
-                  class="text-[10px] font-bold text-gray-500 bg-gray-50 border border-gray-200 hover:bg-gray-100 px-2 py-0.5 rounded transition ring-gray-300">
-            Remover tag
-          </button>
-        </div>
-      </header>
-
-      <div id="thread-mensagens" class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar">
-        <!-- Empty state -->
-        <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center select-none">
-          <svg class="w-32 h-32 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.3">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
-          </svg>
-          <p class="text-base text-gray-500 font-medium">Selecione uma conversa</p>
-          <p class="text-xs text-gray-400 mt-1.5">Escolha alguém da lista pra ver o histórico e atender</p>
-        </div>
-      </div>
-
-      <!-- TASK-015: Notas internas — collapsible panel, hidden until a conversation is open -->
-      <div id="painel-notas" class="hidden bg-white border-t border-gray-200">
-        <button id="btn-toggle-notas" type="button"
-                class="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition select-none">
-          <span>📝 Notas Internas</span>
-          <svg id="icone-notas-chevron" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 transition-transform duration-200 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
-          </svg>
-        </button>
-        <div id="corpo-notas" class="hidden px-4 pb-3 space-y-2">
-          <ul id="lista-notas" class="space-y-1.5 max-h-40 overflow-y-auto scrollbar text-sm"></ul>
-          <div class="flex gap-2 pt-1">
-            <textarea id="textarea-nota" rows="2" placeholder="Escreva uma nota interna…"
-                      class="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none resize-none transition"></textarea>
-            <button id="btn-adicionar-nota" type="button"
-                    class="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 rounded-lg transition self-stretch">
-              Adicionar nota
+          <div class="flex gap-2 flex-shrink-0 items-center">
+            <div class="relative">
+              <button id="btn-toggle-tag" type="button" title="Marcar conversa"
+                      class="text-[#aaaaaa] hover:text-[#ffffff] hover:bg-[#2f2f2f] p-1.5 rounded-lg transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+              </button>
+              <div id="tag-selector" class="hidden absolute right-0 top-full mt-1 w-44 bg-[#1c1c1c] border border-[#3a3a3a] rounded-xl shadow-2xl z-30 overflow-hidden p-1">
+                <button type="button" data-tag="resolvido"
+                        class="w-full text-left text-xs font-medium text-emerald-400 hover:bg-emerald-900/30 px-2.5 py-1.5 rounded transition flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span>Resolvido</span>
+                </button>
+                <button type="button" data-tag="follow_up"
+                        class="w-full text-left text-xs font-medium text-yellow-400 hover:bg-yellow-900/30 px-2.5 py-1.5 rounded transition flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
+                  <span>Follow-up</span>
+                </button>
+                <div class="border-t border-[#3a3a3a] my-1"></div>
+                <button type="button" data-tag=""
+                        class="w-full text-left text-xs font-medium text-[#aaaaaa] hover:bg-[#2f2f2f] hover:text-[#ffffff] px-2.5 py-1.5 rounded transition">
+                  Remover marcação
+                </button>
+              </div>
+            </div>
+            <button id="btn-assumir" class="hidden bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] text-white text-sm font-medium px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 min-w-[90px] justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              Assumir
+            </button>
+            <button id="btn-devolver" class="hidden bg-[#2b2b2b] hover:bg-[#2f2f2f] text-[#aaaaaa] hover:text-[#ffffff] text-sm font-medium px-3 py-1.5 rounded-lg border border-[#3a3a3a] transition flex items-center gap-1.5 min-w-[110px] justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Devolver à IA
+            </button>
+            <button id="btn-toggle-info" type="button" title="Perfil do cliente"
+                    class="text-[#aaaaaa] hover:text-[#ffffff] hover:bg-[#2f2f2f] p-1.5 rounded-lg transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
             </button>
           </div>
         </div>
+        <p id="thread-status" class="text-xs mt-1.5 text-[#aaaaaa]"></p>
+      </header>
+
+      <div id="thread-mensagens" class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar bg-[#212121]">
+        <!-- Empty state -->
+        <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center select-none">
+          <svg class="w-20 h-20 mb-4 text-[#3a3a3a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4H9v-4z"/>
+          </svg>
+          <p class="text-lg font-bold text-[#3a3a3a] mb-1">Barbearia Bolshoi</p>
+          <p class="text-sm text-[#555555]">Selecione uma conversa para atender</p>
+        </div>
       </div>
 
-      <footer id="thread-footer" class="bg-white border-t border-gray-200 px-3 py-3 hidden">
-        <!-- TASK-013: canned responses popover -->
-        <div class="relative mb-2">
-          <div id="popover-rapidas" class="hidden absolute bottom-full left-0 mb-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-30 overflow-hidden">
-            <p class="px-3 py-1.5 text-[10px] uppercase font-bold text-gray-400 border-b border-gray-100">Respostas rápidas</p>
-            <div id="lista-rapidas" class="max-h-56 overflow-y-auto scrollbar"></div>
+      <footer id="thread-footer" class="bg-[#1c1c1c] border-t border-[#3a3a3a] px-3 py-2.5 hidden">
+        <div class="bg-[#2b2b2b] border border-[#3a3a3a] rounded-xl overflow-hidden">
+          <!-- Canned responses popover -->
+          <div class="relative px-3 pt-2.5 pb-1">
+            <div id="popover-rapidas" class="hidden absolute bottom-full left-3 mb-1 w-72 bg-[#1c1c1c] border border-[#3a3a3a] rounded-xl shadow-2xl z-30 overflow-hidden">
+              <p class="px-3 py-1.5 text-[10px] uppercase font-bold text-[#aaaaaa] border-b border-[#3a3a3a]">Respostas rápidas</p>
+              <div id="lista-rapidas" class="max-h-56 overflow-y-auto scrollbar"></div>
+            </div>
+            <button id="btn-rapidas" type="button"
+                    class="text-xs text-[#aaaaaa] hover:text-[#2481cc] transition flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+              <span>Respostas rápidas</span>
+            </button>
           </div>
-          <button id="btn-rapidas" type="button"
-                  class="text-xs text-gray-500 hover:text-amber-600 border border-gray-200 hover:border-amber-300 bg-gray-50 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
-            <span>💬</span> Rápidas
-          </button>
+          <form id="form-enviar" class="flex items-end gap-2 px-3 pb-2.5">
+            <textarea id="texto-msg" rows="1" required placeholder="Digite uma mensagem…"
+                      class="flex-1 bg-transparent border-none outline-none text-[#ffffff] placeholder-[#aaaaaa] resize-none text-sm max-h-32 overflow-y-auto leading-relaxed pt-1"></textarea>
+            <button id="btn-enviar" type="submit"
+                    class="w-9 h-9 rounded-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#3a3a3a] disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 transition-colors mb-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+              </svg>
+            </button>
+          </form>
         </div>
-        <form id="form-enviar" class="flex items-end gap-2">
-          <textarea id="texto-msg" rows="1" required placeholder="Digite uma mensagem… (Enter envia, Shift+Enter quebra linha)"
-                    class="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-amber-400 focus:border-amber-400 focus:outline-none resize-none text-sm transition"></textarea>
-          <button id="btn-enviar" type="submit"
-                  class="bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg shadow-sm transition flex-shrink-0 self-stretch">
-            Enviar
-          </button>
-        </form>
       </footer>
     </main>
+
+    <!-- Painel lateral direito — info do cliente -->
+    <aside id="info-panel" class="hidden colapsado w-72 bg-[#1c1c1c] border-l border-[#3a3a3a] flex flex-col">
+      <header class="px-4 py-3 border-b border-[#3a3a3a] flex items-center justify-between bg-[#2b2b2b] flex-shrink-0">
+        <h3 class="text-sm font-bold text-[#ffffff]">Informações do cliente</h3>
+        <button id="btn-fechar-info" type="button" title="Fechar"
+                class="text-[#aaaaaa] hover:text-[#ffffff] hover:bg-[#2f2f2f] p-1 rounded transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="flex-1 overflow-y-auto scrollbar">
+        <!-- Foto + nome + telefone -->
+        <div class="flex flex-col items-center px-4 py-5 border-b border-[#3a3a3a]">
+          <div id="info-avatar" class="w-[72px] h-[72px] rounded-full mb-3 avatar-cliente text-xl shadow-lg">?</div>
+          <h4 id="info-nome" class="text-base font-semibold text-[#ffffff] text-center truncate w-full">—</h4>
+          <p id="info-telefone" class="text-xs text-[#aaaaaa] mt-0.5 truncate w-full text-center">—</p>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="px-4 py-3 border-b border-[#3a3a3a]">
+          <p class="text-[10px] uppercase font-bold text-[#aaaaaa] mb-2 tracking-wide">Estatísticas</p>
+          <dl class="space-y-1.5 text-xs">
+            <div class="flex justify-between gap-2">
+              <dt class="text-[#aaaaaa]">Cliente desde</dt>
+              <dd id="info-criado-em" class="text-[#ffffff] text-right">—</dd>
+            </div>
+            <div class="flex justify-between gap-2">
+              <dt class="text-[#aaaaaa]">Última interação</dt>
+              <dd id="info-ultima-interacao" class="text-[#ffffff] text-right">—</dd>
+            </div>
+            <div class="flex justify-between gap-2">
+              <dt class="text-[#aaaaaa]">Total de mensagens</dt>
+              <dd id="info-total-mensagens" class="text-[#ffffff] text-right font-semibold">—</dd>
+            </div>
+            <div class="flex justify-between gap-2">
+              <dt class="text-[#aaaaaa]">Atendimentos humanos</dt>
+              <dd id="info-total-humanos" class="text-[#ffffff] text-right font-semibold">—</dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Status atual -->
+        <div class="px-4 py-3 border-b border-[#3a3a3a]">
+          <p class="text-[10px] uppercase font-bold text-[#aaaaaa] mb-2 tracking-wide">Status atual</p>
+          <div class="space-y-1.5 text-xs">
+            <div class="flex justify-between items-center gap-2">
+              <span class="text-[#aaaaaa]">Bot</span>
+              <span id="info-status-bot" class="font-semibold">—</span>
+            </div>
+            <div class="flex justify-between items-center gap-2">
+              <span class="text-[#aaaaaa]">Tag</span>
+              <span id="info-tag" class="text-right">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notas internas (movido de baixo da thread) -->
+        <div id="painel-notas" class="px-4 py-3">
+          <button id="btn-toggle-notas" type="button"
+                  class="w-full flex items-center justify-between text-[10px] uppercase font-bold text-[#aaaaaa] tracking-wide mb-2 hover:text-[#ffffff] transition select-none">
+            <span>Notas internas</span>
+            <svg id="icone-notas-chevron" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-[#aaaaaa] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="corpo-notas" class="space-y-2">
+            <ul id="lista-notas" class="space-y-1.5 max-h-48 overflow-y-auto scrollbar text-sm"></ul>
+            <div class="flex flex-col gap-2 pt-1">
+              <textarea id="textarea-nota" rows="2" placeholder="Escreva uma nota interna…"
+                        class="w-full px-2.5 py-1.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-sm text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none resize-none transition"></textarea>
+              <button id="btn-adicionar-nota" type="button"
+                      class="bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#2b2b2b] disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition w-full">
+                Adicionar nota
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Backdrop do info-panel (drawer mode em telas pequenas/médias) -->
+    <div id="info-panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-30 lg:hidden"></div>
   </div>
 
   <!-- Toast container -->
