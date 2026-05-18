@@ -1,8 +1,8 @@
 ---
 name: dev-agent
 description: "Desenvolvedor sênior do chatbot. Invoque para implementar features, corrigir bugs, refatorar código, ou quando precisar de orientação técnica sobre FastAPI, SQLAlchemy, webhook Meta, integração NVIDIA NIM, ou o dashboard híbrido. Especialista no stack do projeto."
-model: claude-sonnet-4-6
-tools:
+model: sonnet
+tools: 
   - Read
   - Edit
   - Write

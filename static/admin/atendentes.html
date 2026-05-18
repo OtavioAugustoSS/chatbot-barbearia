@@ -7,8 +7,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+  ::-webkit-scrollbar-thumb { background: #2a3942; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a4a52; }
   ::-webkit-scrollbar-track { background: transparent; }
 
   @keyframes slideIn {
@@ -24,13 +24,13 @@
   .fade-in { animation: fadeIn 0.2s ease-out; }
 </style>
 </head>
-<body class="bg-[#212121] min-h-screen text-[#ffffff]">
+<body class="bg-[#111b21] min-h-screen text-[#e9edef]">
 
   <!-- Topo -->
-  <header class="bg-[#2b2b2b] border-b border-[#3a3a3a] px-4 py-3 flex items-center justify-between">
+  <header class="bg-[#202c33] border-b border-[#2a3942] px-4 py-3 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <a href="/static/admin/index.html"
-         class="text-[#aaaaaa] hover:text-[#ffffff] transition flex items-center gap-1 text-sm px-2 py-1 rounded-lg hover:bg-[#2f2f2f]"
+         class="text-[#8696a0] hover:text-[#e9edef] transition flex items-center gap-1 text-sm px-2 py-1 rounded-lg hover:bg-[#2a3942]"
          title="Voltar ao painel">
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
@@ -38,8 +38,8 @@
         <span>Voltar</span>
       </a>
       <div>
-        <h1 class="text-lg font-bold text-[#ffffff]">Gerenciar Atendentes</h1>
-        <p class="text-xs text-[#aaaaaa]">Barbearia Bolshoi</p>
+        <h1 class="text-lg font-bold text-[#e9edef]">Gerenciar Atendentes</h1>
+        <p class="text-xs text-[#8696a0]">Barbearia Bolshoi</p>
       </div>
     </div>
     <button id="btn-novo"
@@ -51,11 +51,11 @@
     </button>
   </header>
 
-  <!-- Conteúdo -->
+  <!-- Conteudo -->
   <main class="max-w-4xl mx-auto px-4 py-6">
 
     <!-- Estado de carregamento -->
-    <div id="estado-carregando" class="flex items-center justify-center py-16 text-[#aaaaaa] text-sm gap-2">
+    <div id="estado-carregando" class="flex items-center justify-center py-16 text-[#8696a0] text-sm gap-2">
       <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
@@ -65,23 +65,23 @@
 
     <!-- Estado vazio -->
     <div id="estado-vazio" class="hidden flex-col items-center justify-center py-16 text-center">
-      <svg class="w-16 h-16 text-[#3a3a3a] mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.3">
+      <svg class="w-16 h-16 text-[#2a3942] mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.3">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z"/>
       </svg>
-      <p class="text-[#aaaaaa] font-medium">Nenhum atendente cadastrado</p>
-      <p class="text-xs text-[#aaaaaa]/60 mt-1">Clique em "Novo Atendente" para começar</p>
+      <p class="text-[#8696a0] font-medium">Nenhum atendente cadastrado</p>
+      <p class="text-xs text-[#667781] mt-1">Clique em "Novo Atendente" para comecar</p>
     </div>
 
     <!-- Tabela -->
-    <div id="container-tabela" class="hidden bg-[#1c1c1c] rounded-xl border border-[#3a3a3a] shadow-sm overflow-hidden fade-in">
+    <div id="container-tabela" class="hidden bg-[#202c33] rounded-xl border border-[#2a3942] shadow-sm overflow-hidden fade-in">
       <table class="w-full text-sm">
         <thead>
-          <tr class="border-b border-[#3a3a3a] bg-[#2b2b2b] text-xs uppercase tracking-wide text-[#aaaaaa] font-semibold sticky top-0 z-10">
+          <tr class="border-b border-[#2a3942] bg-[#202c33] text-xs uppercase tracking-wide text-[#8696a0] font-semibold sticky top-0 z-10">
             <th class="px-4 py-3 text-left">Nome</th>
             <th class="px-4 py-3 text-left">Login</th>
             <th class="px-4 py-3 text-left">Status</th>
-            <th class="px-4 py-3 text-left">Último login</th>
-            <th class="px-4 py-3 text-left">Ação</th>
+            <th class="px-4 py-3 text-left">Ultimo login</th>
+            <th class="px-4 py-3 text-left">Acao</th>
           </tr>
         </thead>
         <tbody id="corpo-tabela"></tbody>
@@ -92,11 +92,11 @@
 
   <!-- Modal: novo atendente -->
   <div id="modal-overlay" class="hidden fixed inset-0 bg-black/70 z-40 flex items-center justify-center p-4">
-    <div id="modal" class="bg-[#1c1c1c] border border-[#3a3a3a] rounded-2xl shadow-2xl w-full max-w-sm fade-in">
+    <div id="modal" class="bg-[#202c33] border border-[#2a3942] rounded-2xl shadow-2xl w-full max-w-sm fade-in">
       <div class="px-6 pt-6 pb-2 flex items-center justify-between">
-        <h2 class="text-base font-bold text-[#ffffff]">Novo Atendente</h2>
+        <h2 class="text-base font-bold text-[#e9edef]">Novo Atendente</h2>
         <button id="btn-fechar-modal"
-                class="text-[#aaaaaa] hover:text-[#ffffff] transition p-1 rounded-lg hover:bg-[#2f2f2f]">
+                class="text-[#8696a0] hover:text-[#e9edef] transition p-1 rounded-lg hover:bg-[#2a3942]">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -105,37 +105,37 @@
 
       <form id="form-criar" class="px-6 pb-6 pt-4 space-y-4">
         <div>
-          <label class="block text-sm font-medium text-[#ffffff] mb-1">Nome completo</label>
+          <label class="block text-sm font-medium text-[#e9edef] mb-1">Nome completo</label>
           <input id="input-nome" type="text" required autocomplete="off"
                  placeholder="Ex: Maria Silva"
-                 class="w-full px-3 py-2.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-sm text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
+                 class="w-full px-3 py-2.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-sm text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
         </div>
         <div>
-          <label class="block text-sm font-medium text-[#ffffff] mb-1">Login</label>
+          <label class="block text-sm font-medium text-[#e9edef] mb-1">Login</label>
           <input id="input-login" type="text" required autocomplete="off"
                  placeholder="Ex: maria_silva"
                  pattern="^[a-z0-9_]+$"
-                 title="Use apenas letras minúsculas, números e underscore"
-                 class="w-full px-3 py-2.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-sm text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
-          <p class="text-xs text-[#aaaaaa] mt-1">Letras minúsculas, números e underscore (_)</p>
+                 title="Use apenas letras minusculas, numeros e underscore"
+                 class="w-full px-3 py-2.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-sm text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
+          <p class="text-xs text-[#8696a0] mt-1">Letras minusculas, numeros e underscore (_)</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-[#ffffff] mb-1">Senha</label>
+          <label class="block text-sm font-medium text-[#e9edef] mb-1">Senha</label>
           <input id="input-senha" type="password" required autocomplete="new-password"
-                 minlength="8" placeholder="Mínimo 8 caracteres"
-                 class="w-full px-3 py-2.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-sm text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
+                 minlength="8" placeholder="Minimo 8 caracteres"
+                 class="w-full px-3 py-2.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-sm text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
         </div>
         <div>
-          <label class="block text-sm font-medium text-[#ffffff] mb-1">Confirmar senha</label>
+          <label class="block text-sm font-medium text-[#e9edef] mb-1">Confirmar senha</label>
           <input id="input-senha-confirmar" type="password" required autocomplete="new-password"
                  minlength="8" placeholder="Repita a senha"
-                 class="w-full px-3 py-2.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-sm text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
+                 class="w-full px-3 py-2.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-sm text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
         </div>
 
         <p id="erro-modal" class="hidden text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2"></p>
 
         <button id="btn-criar" type="submit"
-                class="w-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#3a3a3a] disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition">
+                class="w-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#2a3942] disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition">
           Criar
         </button>
       </form>
@@ -158,7 +158,7 @@ if (!TOKEN) {
 }
 
 // ============================================================
-// API helper (mesmo padrão de app.js)
+// API helper (mesmo padrao de app.js)
 // ============================================================
 
 async function api(url, opts = {}) {
@@ -216,7 +216,7 @@ function toast(texto, tipo = 'info') {
 }
 
 // ============================================================
-// Formatação de data
+// Formatacao de data
 // ============================================================
 
 function formatarDataRelativa(iso) {
@@ -225,8 +225,8 @@ function formatarDataRelativa(iso) {
   const agora = Date.now();
   const diff = (agora - d.getTime()) / 1000;
   if (diff < 60) return 'agora mesmo';
-  if (diff < 3600) return `${Math.floor(diff / 60)} min atrás`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} min atras`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h atras`;
   if (diff < 172800) return 'ontem';
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
@@ -256,20 +256,20 @@ function renderTabela(atendentes) {
 
   for (const a of atendentes) {
     const tr = document.createElement('tr');
-    tr.className = 'border-b border-[#3a3a3a] last:border-0 hover:bg-[#2f2f2f] transition';
+    tr.className = 'border-b border-[#2a3942] last:border-0 hover:bg-[#2a3942] transition';
 
     // Status badge
     const statusHtml = a.ativo
       ? '<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-300 bg-emerald-900/50 border border-emerald-700 px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>Ativo</span>'
-      : '<span class="inline-flex items-center gap-1 text-xs font-bold text-[#aaaaaa] bg-[#2b2b2b] border border-[#3a3a3a] px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-[#aaaaaa] inline-block"></span>Inativo</span>';
+      : '<span class="inline-flex items-center gap-1 text-xs font-bold text-[#8696a0] bg-[#2a3942] border border-[#2a3942] px-2 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-[#8696a0] inline-block"></span>Inativo</span>';
 
-    // Ação: desativar só para atendentes ativos que não sejam o usuário atual
+    // Acao: desativar so para atendentes ativos que nao sejam o usuario atual
     const ehEuMesmo = a.id === ATENDENTE_ID;
     let acaoHtml = '';
     if (!a.ativo) {
-      acaoHtml = '<span class="text-xs text-[#aaaaaa]">—</span>';
+      acaoHtml = '<span class="text-xs text-[#8696a0]">—</span>';
     } else if (ehEuMesmo) {
-      acaoHtml = '<span class="text-xs text-[#aaaaaa]" title="Não é possível desativar sua própria conta">Sua conta</span>';
+      acaoHtml = '<span class="text-xs text-[#8696a0]" title="Nao e possivel desativar sua propria conta">Sua conta</span>';
     } else {
       acaoHtml = `<button
         data-id="${a.id}"
@@ -280,21 +280,21 @@ function renderTabela(atendentes) {
     }
 
     tr.innerHTML = `
-      <td class="px-4 py-3 font-medium text-[#ffffff]"></td>
-      <td class="px-4 py-3 text-[#aaaaaa] font-mono text-xs"></td>
+      <td class="px-4 py-3 font-medium text-[#e9edef]"></td>
+      <td class="px-4 py-3 text-[#8696a0] font-mono text-xs"></td>
       <td class="px-4 py-3">${statusHtml}</td>
-      <td class="px-4 py-3 text-[#aaaaaa] text-xs"></td>
+      <td class="px-4 py-3 text-[#8696a0] text-xs"></td>
       <td class="px-4 py-3">${acaoHtml}</td>
     `;
 
-    // Inserção segura via textContent (XSS-safe)
+    // Insercao segura via textContent (XSS-safe)
     const nomeCell = tr.cells[0];
     const nomeSpan = document.createElement('span');
     nomeSpan.textContent = a.nome;
     nomeCell.appendChild(nomeSpan);
     if (ehEuMesmo) {
       const badge = document.createElement('span');
-      badge.textContent = 'Você';
+      badge.textContent = 'Voce';
       badge.className = 'ml-2 text-[10px] font-bold text-[#2481cc] bg-[#2481cc]/20 border border-[#2481cc]/60 px-1.5 py-0.5 rounded align-middle';
       nomeCell.appendChild(badge);
     }
@@ -304,7 +304,7 @@ function renderTabela(atendentes) {
     tbody.appendChild(tr);
   }
 
-  // Delegação de eventos: botões de desativar
+  // Delegacao de eventos: botoes de desativar
   tbody.querySelectorAll('.btn-desativar').forEach(btn => {
     btn.addEventListener('click', () => desativarAtendente(
       parseInt(btn.dataset.id),
@@ -338,7 +338,7 @@ async function carregarAtendentes() {
 // ============================================================
 
 async function desativarAtendente(id, nome, btn) {
-  if (!confirm(`Desativar a conta de "${nome}"? O atendente não conseguirá mais fazer login.`)) return;
+  if (!confirm(`Desativar a conta de "${nome}"? O atendente nao conseguira mais fazer login.`)) return;
   btn.disabled = true;
   btn.textContent = 'Aguarde…';
   try {
@@ -400,7 +400,7 @@ document.getElementById('form-criar').addEventListener('submit', async (e) => {
 
   erroEl.classList.add('hidden');
 
-  // Validação cliente
+  // Validacao cliente
   if (!nome) {
     erroEl.textContent = 'Informe o nome do atendente.';
     erroEl.classList.remove('hidden');
@@ -420,7 +420,7 @@ document.getElementById('form-criar').addEventListener('submit', async (e) => {
     return;
   }
   if (senha !== senhaConfirmar) {
-    erroEl.textContent = 'As senhas não conferem.';
+    erroEl.textContent = 'As senhas nao conferem.';
     erroEl.classList.remove('hidden');
     document.getElementById('input-senha-confirmar').focus();
     return;

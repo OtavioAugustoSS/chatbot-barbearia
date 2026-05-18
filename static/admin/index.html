@@ -7,11 +7,11 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   /* =============================================
-     Scrollbar — paleta Telegram Dark
+     Scrollbar — paleta WhatsApp Dark
      ============================================= */
   .scrollbar::-webkit-scrollbar { width: 5px; }
-  .scrollbar::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
-  .scrollbar::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+  .scrollbar::-webkit-scrollbar-thumb { background: #2a3942; border-radius: 3px; }
+  .scrollbar::-webkit-scrollbar-thumb:hover { background: #3a4a52; }
   .scrollbar::-webkit-scrollbar-track { background: transparent; }
 
   @keyframes fadeInUp {
@@ -33,36 +33,114 @@
   }
   .slide-in { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 
-  textarea#texto-msg {
-    field-sizing: content;
-    max-height: 120px;
-    overflow-y: auto;
-  }
-
   /* =============================================
-     Cores das bolhas — paleta Telegram Dark.
+     Cores das bolhas — paleta WhatsApp Dark.
      Definidas aqui porque Tailwind Play CDN não
      scaneia bg-[#hex] em strings JS dinâmicas
      (só lê HTML estático).
      ============================================= */
-  .bolha-incoming        { background: #2b2b2b; }
-  .bolha-outgoing-bot    { background: #0d3875; }
-  .bolha-outgoing-humano { background: #2481cc; }
+  .bolha-incoming        { background: #202c33; }
+  .bolha-outgoing-bot    { background: #04473b; }
+  .bolha-outgoing-humano { background: #1d3d5c; }
   .bolha-falha           { background: rgba(180, 30, 30, 0.5); border: 2px solid #cc3333; }
-  /* Se a bolha vira "falha" em runtime, a cauda azul antiga não combina mais
+  /* Se a bolha vira "falha" em runtime, a cauda não combina mais
      com o fundo vermelho — esconde a cauda neste caso. */
   .bolha-falha::before   { display: none; }
 
   /* Texto dentro das bolhas */
-  .bolha-incoming span,
-  .bolha-outgoing-bot span,
-  .bolha-outgoing-humano span { color: #ffffff; }
-  .bolha-label { color: #aaaaaa !important; }
+  .bolha-incoming > span,
+  .bolha-outgoing-bot > span,
+  .bolha-outgoing-humano > span { color: #ffffff; }
+  .bolha-label { color: #8696a0 !important; }
 
   /* Hover sidebar — Tailwind não pega hover: em classes JS dinâmicas */
-  .conv-item { transition: background 0.12s; }
-  .conv-item:hover { background: #2f2f2f; }
-  .conv-item.ativo { background: #383838; }
+  .conv-item { transition: background 0.12s; position: relative; border-bottom-color: #1a2329 !important; }
+  .conv-item:hover { background: rgba(255, 255, 255, 0.02); }
+  .conv-item.ativo { background: #2a3942; }
+  .conv-item.ativo::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: #2481cc;
+    border-radius: 0;
+  }
+  /* Conv-item urgent time — red for waiting clients */
+  .conv-item:has(.pulse-red) .flex.items-baseline.justify-between > span:last-child {
+    color: #ef4858 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Operator avatar gradient */
+  #avatar-atendente {
+    background: linear-gradient(135deg, #2481cc, #1a5a8f) !important;
+  }
+
+  /* Metrics — Claude Design style */
+  #queue-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #2a3942;
+  }
+  .metric-card {
+    background: #233138;
+    border: 1px solid #1a2329;
+    border-radius: 10px;
+    padding: 8px 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--mc-color, #2481cc);
+  }
+  .metric-num {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #e9edef;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .metric-lbl {
+    font-size: 10.5px;
+    color: #8696a0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  /* Filter chips — Claude Design style */
+  .filter-chip {
+    padding: 6px 12px !important;
+    background: #111b21 !important;
+    border-radius: 16px !important;
+    font-size: 12.5px !important;
+    color: #8696a0 !important;
+    border: none !important;
+    transition: background 0.12s ease, color 0.12s ease !important;
+  }
+  .filter-chip:hover { color: #e9edef !important; }
+  .filter-chip.active-chip {
+    background: rgba(36, 129, 204, 0.18) !important;
+    color: #2481cc !important;
+    border-color: transparent !important;
+  }
+
+  /* Sidebar footer connection dot */
+  .conn-dot-ok {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #00a884;
+    box-shadow: 0 0 6px rgba(0, 168, 132, 0.6);
+    flex-shrink: 0;
+  }
 
   /* =============================================
      Painel lateral direito — info do cliente
@@ -93,7 +171,7 @@
       transform: translateX(100%);
       width: 280px !important;
       opacity: 1;
-      border-left: 1px solid #3a3a3a !important;
+      border-left: 1px solid #2a3942 !important;
     }
   }
 
@@ -109,8 +187,21 @@
     background-position: center;
   }
 
+  /* Avatares da sidebar (conv-items) — 48px conforme Claude Design */
+  #lista-conversas .rounded-full.w-10.h-10 {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 15px !important;
+  }
+  /* Status dot reposicionado para novo tamanho */
+  #lista-conversas .relative > span.absolute.-bottom-0\.5.-right-0\.5 {
+    bottom: 0px !important;
+    right: 0px !important;
+  }
+
   /* =============================================
-     Cauda das bolhas — estilo Telegram
+     Cauda das bolhas — aparece apenas na primeira bolha de cada grupo (mesmo remetente)
+     Usando :has() — suportado em todos os navegadores modernos (Chrome 105+, Firefox 121+, Safari 15.4+)
      ============================================= */
   .bolha-incoming { position: relative; }
   .bolha-incoming::before {
@@ -121,8 +212,10 @@
     width: 0; height: 0;
     border-style: solid;
     border-width: 0 9px 9px 0;
-    border-color: transparent #2b2b2b transparent transparent;
+    border-color: transparent #202c33 transparent transparent;
   }
+  /* Esconde cauda em bolhas incoming precedidas por outra incoming */
+  .flex.justify-start:has(.bolha-incoming) + .flex.justify-start .bolha-incoming::before { display: none; }
 
   .bolha-outgoing-bot { position: relative; }
   .bolha-outgoing-bot::before {
@@ -133,8 +226,10 @@
     width: 0; height: 0;
     border-style: solid;
     border-width: 9px 9px 0 0;
-    border-color: #0d3875 transparent transparent transparent;
+    border-color: #04473b transparent transparent transparent;
   }
+  /* Esconde cauda em bolhas bot precedidas por outra bot */
+  .flex.justify-end:has(.bolha-outgoing-bot) + .flex.justify-end:has(.bolha-outgoing-bot) .bolha-outgoing-bot::before { display: none; }
 
   .bolha-outgoing-humano { position: relative; }
   .bolha-outgoing-humano::before {
@@ -145,64 +240,206 @@
     width: 0; height: 0;
     border-style: solid;
     border-width: 9px 9px 0 0;
-    border-color: #2481cc transparent transparent transparent;
+    border-color: #1d3d5c transparent transparent transparent;
   }
+  /* Esconde cauda em bolhas humano precedidas por outra humano */
+  .flex.justify-end:has(.bolha-outgoing-humano) + .flex.justify-end:has(.bolha-outgoing-humano) .bolha-outgoing-humano::before { display: none; }
+
+  /* Wallpaper — Claude Design exact pattern */
+  #thread-mensagens {
+    background-image: none !important;
+    position: relative;
+  }
+  /* Wallpaper as pseudo-element — survives app.js innerHTML='' on conversation load */
+  #thread-mensagens::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image:
+      radial-gradient(circle at 10% 20%, #ffffff 1.2px, transparent 1.5px),
+      radial-gradient(circle at 70% 60%, #ffffff 1.5px, transparent 1.8px),
+      radial-gradient(circle at 40% 80%, #ffffff 1px, transparent 1.5px),
+      radial-gradient(circle at 85% 30%, #ffffff 1.8px, transparent 2px),
+      radial-gradient(circle at 25% 50%, #ffffff 1.2px, transparent 1.5px);
+    background-size: 140px 140px, 160px 160px, 180px 180px, 200px 200px, 130px 130px;
+    z-index: 0;
+  }
+  /* Mensagens acima do wallpaper ::before; separador de data fica em flow normal */
+  #thread-mensagens > .flex.justify-start,
+  #thread-mensagens > .flex.justify-end,
+  #thread-mensagens > .event-separator,
+  #thread-mensagens > #empty-state,
+  #thread-mensagens > #thread-preview,
+  #thread-mensagens > .fade-in { position: relative; z-index: 1; }
+  /* Legacy div kept for QA backward-compat — invisible */
+  #thread-pattern { display: none; }
+
+  /* Separadores de evento inline — handoff bot↔humano */
+  .event-separator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px 0;
+    gap: 6px;
+    font-size: 11px;
+    color: #8696a0;
+    user-select: none;
+  }
+  .event-separator::before,
+  .event-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #2a3942;
+  }
+  .event-separator-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #8696a0;
+    flex-shrink: 0;
+  }
+
+  /* ============ BUBBLE REFACTOR — Claude Design proportions ============ */
+  /* Max-width menor, padding menor, border-radius menor, shadow sutil */
+  .bolha-incoming,
+  .bolha-outgoing-bot,
+  .bolha-outgoing-humano {
+    max-width: 72% !important;
+    padding: 6px 10px 8px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13) !important;
+    line-height: 1.42 !important;
+    font-size: 14.2px !important;
+  }
+
+  /* Corner mais quadrado na primeira bolha do grupo (tail side) */
+  .bolha-incoming.rounded-tl-sm { border-top-left-radius: 0 !important; }
+  .bolha-outgoing-bot.rounded-tr-sm,
+  .bolha-outgoing-humano.rounded-tr-sm { border-top-right-radius: 0 !important; }
+
+  /* Autor label — cores específicas por remetente */
+  .bolha-incoming > span.bolha-label:first-child { color: #e9b884 !important; }
+  .bolha-outgoing-bot > span.bolha-label:first-child { color: #7fe3c4 !important; }
+  .bolha-outgoing-humano > span.bolha-label:first-child { color: #d6e8fa !important; }
+
+  /* Horário — semi-transparente para outgoing, cinza para incoming */
+  .bolha-outgoing-bot > span.bolha-label:last-child,
+  .bolha-outgoing-humano > span.bolha-label:last-child { color: rgba(255, 255, 255, 0.5) !important; }
+  .bolha-incoming > span.bolha-label:last-child { color: #8696a0 !important; }
+
+  /* ============ SEND BUTTON — Claude Design style ============ */
+  #btn-enviar {
+    box-shadow: 0 2px 8px rgba(36, 129, 204, 0.35) !important;
+    transition: filter 0.1s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+  }
+  #btn-enviar:hover:not(:disabled) {
+    filter: brightness(1.12);
+    box-shadow: 0 3px 12px rgba(36, 129, 204, 0.48) !important;
+  }
+  #btn-enviar:active:not(:disabled) { transform: scale(0.94); }
+
+  /* ============ COMPOSITOR — estado inativo quando operador não é dono ============ */
+  #thread-footer.compositor-inativo { cursor: default; }
+  #thread-footer.compositor-inativo #texto-msg {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    color: #8696a0;
+  }
+  #thread-footer.compositor-inativo #btn-enviar {
+    background: #374248 !important;
+    box-shadow: none !important;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+  #thread-footer.compositor-inativo #btn-rapidas { opacity: 0.45; pointer-events: none; }
+
+  /* ============ THREAD HEADER STATUS DOT — colorido por estado ============ */
+  #thread-status[data-state="voce"] { color: #00a884 !important; }
+  #thread-status[data-state="aguardando"] { color: #ef4858 !important; }
+  #thread-status[data-state="bot"] { color: #2481cc !important; }
+  #thread-status[data-state="outro"] { color: #8696a0 !important; }
+
+  /* ============ THREAD INNER PADDING — Claude Design ============ */
+  #thread-mensagens {
+    padding: 16px 24px 20px !important;
+  }
+  /* Reduzir space-y do Tailwind — Claude Design usa gap 6px entre bolhas */
+  #thread-mensagens > .flex { margin-bottom: 6px; }
+  #thread-mensagens > .flex + .flex { margin-top: 0; }
 </style>
 </head>
-<body class="bg-[#212121] h-screen overflow-hidden text-[#ffffff]">
+<body class="bg-[#111b21] h-screen overflow-hidden text-[#e9edef]">
   <div class="flex h-screen">
 
     <!-- sidebar overlay backdrop (mobile) -->
     <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/60 z-30 sm:hidden"></div>
 
     <!-- Sidebar conversas -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 bg-[#1c1c1c] border-r border-[#3a3a3a] flex flex-col transform transition-transform duration-300 -translate-x-full sm:translate-x-0 sm:static sm:z-auto sm:transform-none">
-      <header class="px-4 py-3 border-b border-[#3a3a3a] border-b-2 border-b-[#2481cc]/20 flex items-center justify-between bg-[#2b2b2b]">
-        <div>
-          <h1 class="text-lg font-bold text-[#ffffff]">Atendimentos</h1>
-          <p id="nome-atendente" class="text-xs text-[#aaaaaa]"></p>
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-80 min-w-[320px] bg-[#202c33] border-r border-[#2a3942] flex flex-col transform transition-transform duration-300 -translate-x-full sm:translate-x-0 sm:static sm:z-auto sm:transform-none">
+      <header class="px-4 py-3 border-b border-[#2a3942] flex items-center justify-between bg-[#202c33]">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="avatar-atendente" class="w-10 h-10 rounded-full bg-[#2481cc] flex items-center justify-center flex-shrink-0 text-sm font-bold text-white select-none">
+            <!--initials injected by state-sync script-->
+            ?
+          </div>
+          <div class="min-w-0">
+            <p id="nome-atendente" class="font-semibold text-[#e9edef] truncate leading-tight" style="font-size:15px"></p>
+            <p class="text-xs text-[#8696a0] truncate mt-0.5">Atendente · Bolshoi</p>
+          </div>
         </div>
         <button id="btn-sair" title="Sair"
-                class="text-[#aaaaaa] hover:text-red-400 transition p-1.5 rounded-lg hover:bg-red-900/30">
+                class="text-[#8696a0] hover:text-red-400 transition p-1.5 rounded-lg hover:bg-red-900/30 flex-shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
           </svg>
         </button>
       </header>
 
-      <!-- Métricas de fila -->
-      <div id="queue-metrics" class="px-3 py-2 border-b border-[#3a3a3a] flex gap-2">
-        <span class="flex-1 flex flex-col items-center bg-red-900/30 rounded-lg py-1.5 px-1">
-          <span id="metric-aguardando" class="text-base font-bold text-red-400 leading-none">0</span>
-          <span class="text-[10px] text-[#aaaaaa] mt-0.5">Aguardando</span>
-        </span>
-        <span class="flex-1 flex flex-col items-center bg-emerald-900/30 rounded-lg py-1.5 px-1">
-          <span id="metric-atendimento" class="text-base font-bold text-emerald-400 leading-none">0</span>
-          <span class="text-[10px] text-[#aaaaaa] mt-0.5">Atendendo</span>
-        </span>
-        <span class="flex-1 flex flex-col items-center bg-[#2481cc]/20 rounded-lg py-1.5 px-1">
-          <span id="metric-bot" class="text-base font-bold text-[#2481cc] leading-none">0</span>
-          <span class="text-[10px] text-[#aaaaaa] mt-0.5">Com bot</span>
-        </span>
+      <!-- Metricas de fila -->
+      <div id="queue-metrics">
+        <div class="metric-card" style="--mc-color: #ef4858">
+          <div id="metric-aguardando" class="metric-num">0</div>
+          <div class="metric-lbl">Aguardando</div>
+        </div>
+        <div class="metric-card" style="--mc-color: #00a884">
+          <div id="metric-atendimento" class="metric-num">0</div>
+          <div class="metric-lbl">Atendendo</div>
+        </div>
+        <div class="metric-card" style="--mc-color: #2481cc">
+          <div id="metric-bot" class="metric-num">0</div>
+          <div class="metric-lbl">Com bot</div>
+        </div>
       </div>
 
       <!-- Busca -->
-      <div class="px-3 py-2 border-b border-[#3a3a3a]">
+      <div class="px-3 py-2 border-b border-[#2a3942]">
         <div class="relative">
-          <svg class="w-4 h-4 absolute left-3 top-2.5 text-[#aaaaaa]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="w-4 h-4 absolute left-3 top-2.5 text-[#8696a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"/>
           </svg>
           <input id="filtro" type="text" placeholder="Buscar por nome ou telefone…"
-                 class="w-full pl-9 pr-3 py-2 text-sm bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:outline-none focus:border-[#2481cc] transition">
+                 class="w-full pl-9 pr-3 py-2 text-sm bg-[#2a3942] border border-[#2a3942] rounded-lg text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:outline-none focus:border-[#2481cc] transition">
         </div>
+      </div>
+
+      <!-- Filter chips -->
+      <div class="px-3 py-1.5 border-b border-[#2a3942] flex gap-1.5 overflow-x-auto">
+        <button type="button" data-filter="" class="filter-chip active-chip flex-shrink-0">Todas</button>
+        <button type="button" data-filter="aguardando" class="filter-chip flex-shrink-0">Aguardando</button>
+        <button type="button" data-filter="meus" class="filter-chip flex-shrink-0">Meus</button>
+        <button type="button" data-filter="bot" class="filter-chip flex-shrink-0">Com bot</button>
       </div>
 
       <ul id="lista-conversas" class="flex-1 overflow-y-auto scrollbar"></ul>
 
-      <footer class="px-3 py-2 border-t border-[#3a3a3a] text-[11px] text-[#aaaaaa] bg-[#2b2b2b]">
+      <footer class="px-3 py-2 border-t border-[#2a3942] text-[11px] text-[#8696a0] bg-[#202c33]">
         <div class="flex items-center justify-between mb-1.5">
           <a href="/static/admin/atendentes.html"
-             class="text-[#aaaaaa] hover:text-[#2481cc] transition flex items-center gap-1.5"
+             class="text-[#8696a0] hover:text-[#2481cc] transition flex items-center gap-1.5"
              title="Gerenciar atendentes">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2h5M12 12a4 4 0 100-8 4 4 0 000 8z"/>
@@ -211,46 +448,54 @@
           </a>
         </div>
         <div class="flex items-center justify-between">
-          <span id="status-conexao" class="flex items-center gap-1.5 text-[#aaaaaa]">
-            <span class="w-2 h-2 rounded-full bg-green-500"></span> conectado
+          <span id="status-conexao" class="flex items-center gap-1.5 text-[#8696a0]">
+            <span class="conn-dot-ok"></span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>
+            </svg>
+            <span>Conectado · WhatsApp Cloud API</span>
           </span>
-          <button id="btn-mute" title="Silenciar notificações" class="hover:text-[#ffffff] transition p-1 rounded text-[#aaaaaa]">
+          <button id="btn-mute" title="Silenciar notificacoes" class="hover:text-[#e9edef] transition p-1 rounded text-[#8696a0]">
             <svg xmlns="http://www.w3.org/2000/svg" id="icone-som" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 8.25v7.5L12 18 9 15.75H6V8.25h3L12 6l3 2.25zM18 9.75a3.75 3.75 0 010 4.5M20.25 7.5a6.75 6.75 0 010 9"/>
             </svg>
           </button>
         </div>
-        <p id="ultimo-acesso" class="text-[10px] text-[#aaaaaa]/70 mt-0.5 hidden"></p>
+        <p id="ultimo-acesso" class="text-[10px] text-[#667781] mt-0.5 hidden"></p>
       </footer>
     </aside>
 
     <!-- Thread -->
-    <main class="flex-1 flex flex-col bg-[#212121]">
-      <header id="thread-header" class="bg-[#2b2b2b] border-b border-[#3a3a3a] px-4 py-3 hidden">
+    <main class="flex-1 flex flex-col bg-[#0b141a] relative">
+      <header id="thread-header" class="bg-[#202c33] border-b border-[#2a3942] px-4 py-3 hidden">
         <div class="flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <!-- hamburger visível só em mobile -->
+          <div id="thread-customer" class="flex items-center gap-3 min-w-0">
+            <!-- hamburger visivel so em mobile -->
             <button id="btn-hamburger" type="button"
-                    class="sm:hidden flex-shrink-0 text-[#aaaaaa] hover:text-[#ffffff] p-1 rounded-lg hover:bg-[#2f2f2f] transition">
+                    class="sm:hidden flex-shrink-0 text-[#8696a0] hover:text-[#e9edef] p-1 rounded-lg hover:bg-[#2a3942] transition">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
               </svg>
             </button>
             <div id="thread-avatar" class="flex-shrink-0"></div>
             <div class="min-w-0">
-              <h2 id="thread-nome" class="font-bold text-[#ffffff] truncate"></h2>
-              <p id="thread-telefone" class="text-xs text-[#aaaaaa]"></p>
+              <h2 id="thread-nome" class="font-semibold text-[#e9edef] truncate text-[15px]"></h2>
+              <div class="flex items-center gap-1.5">
+                <p id="thread-telefone" class="text-xs text-[#8696a0]"></p>
+                <span class="text-[#8696a0] text-xs" aria-hidden="true">·</span>
+                <p id="thread-status" class="text-xs text-[#8696a0] truncate"></p>
+              </div>
             </div>
           </div>
           <div class="flex gap-2 flex-shrink-0 items-center">
             <div class="relative">
               <button id="btn-toggle-tag" type="button" title="Marcar conversa"
-                      class="text-[#aaaaaa] hover:text-[#ffffff] hover:bg-[#2f2f2f] p-1.5 rounded-lg transition">
+                      class="text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] p-1.5 rounded-lg transition">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
                 </svg>
               </button>
-              <div id="tag-selector" class="hidden absolute right-0 top-full mt-1 w-44 bg-[#1c1c1c] border border-[#3a3a3a] rounded-xl shadow-2xl z-30 overflow-hidden p-1">
+              <div id="tag-selector" class="hidden absolute right-0 top-full mt-1 w-44 bg-[#202c33] border border-[#2a3942] rounded-xl shadow-2xl z-30 overflow-hidden p-1">
                 <button type="button" data-tag="resolvido"
                         class="w-full text-left text-xs font-medium text-emerald-400 hover:bg-emerald-900/30 px-2.5 py-1.5 rounded transition flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -261,10 +506,10 @@
                   <span class="w-2 h-2 rounded-full bg-yellow-400"></span>
                   <span>Follow-up</span>
                 </button>
-                <div class="border-t border-[#3a3a3a] my-1"></div>
+                <div class="border-t border-[#2a3942] my-1"></div>
                 <button type="button" data-tag=""
-                        class="w-full text-left text-xs font-medium text-[#aaaaaa] hover:bg-[#2f2f2f] hover:text-[#ffffff] px-2.5 py-1.5 rounded transition">
-                  Remover marcação
+                        class="w-full text-left text-xs font-medium text-[#8696a0] hover:bg-[#2a3942] hover:text-[#e9edef] px-2.5 py-1.5 rounded transition">
+                  Remover marcacao
                 </button>
               </div>
             </div>
@@ -274,55 +519,115 @@
               </svg>
               Assumir
             </button>
-            <button id="btn-devolver" class="hidden bg-[#2b2b2b] hover:bg-[#2f2f2f] text-[#aaaaaa] hover:text-[#ffffff] text-sm font-medium px-3 py-1.5 rounded-lg border border-[#3a3a3a] transition flex items-center gap-1.5 min-w-[110px] justify-center">
+            <button id="btn-interromper-bot" class="hidden bg-emerald-700 hover:bg-emerald-600 active:bg-emerald-800 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 min-w-[130px] justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+              </svg>
+              Interromper bot
+            </button>
+            <button id="btn-devolver" class="hidden bg-[#202c33] hover:bg-[#2a3942] text-[#8696a0] hover:text-[#e9edef] text-sm font-medium px-3 py-1.5 rounded-lg border border-[#2a3942] transition flex items-center gap-1.5 min-w-[110px] justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
               </svg>
-              Devolver à IA
+              Devolver a IA
             </button>
             <button id="btn-toggle-info" type="button" title="Perfil do cliente"
-                    class="text-[#aaaaaa] hover:text-[#ffffff] hover:bg-[#2f2f2f] p-1.5 rounded-lg transition">
+                    class="text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] p-1.5 rounded-lg transition">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
             </button>
           </div>
         </div>
-        <p id="thread-status" class="text-xs mt-1.5 text-[#aaaaaa]"></p>
       </header>
 
-      <div id="thread-mensagens" class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar bg-[#212121]">
+      <!-- Thread tag chips row — synced with info-tag via inline script MutationObserver -->
+      <div id="thread-tags-row" class="hidden bg-[#1a2530] border-b border-[#2a3942] px-4 py-1.5 flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] uppercase font-bold text-[#8696a0] tracking-wide flex-shrink-0">Tag:</span>
+        <div id="thread-tags-chips" class="flex items-center gap-1.5 flex-wrap"></div>
+      </div>
+
+      <div id="thread-mensagens" class="flex-1 overflow-y-auto p-4 space-y-2 scrollbar bg-[#0b141a]">
+        <div id="thread-pattern"></div>
         <!-- Empty state -->
         <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center select-none">
-          <svg class="w-20 h-20 mb-4 text-[#3a3a3a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4H9v-4z"/>
-          </svg>
-          <p class="text-lg font-bold text-[#3a3a3a] mb-1">Barbearia Bolshoi</p>
-          <p class="text-sm text-[#555555]">Selecione uma conversa para atender</p>
+          <span class="text-6xl mb-4 opacity-30" aria-hidden="true">💈</span>
+          <p class="text-lg font-bold text-[#2a3942] mb-1">Barbearia Bolshoi</p>
+          <p class="text-sm text-[#667781]">Selecione uma conversa para começar o atendimento</p>
+        </div>
+        <!-- Thread preview — shown before app.js loads a conversation; app.js clears cont.innerHTML on open -->
+        <div id="thread-preview" class="p-4 space-y-2 hidden">
+          <!-- Example: client message -->
+          <div class="flex justify-start fade-in">
+            <div class="relative max-w-[85%] px-3 py-2 rounded-2xl shadow-md bolha-incoming rounded-tl-sm">
+              <span class="block text-[10px] uppercase font-semibold bolha-label mb-1 tracking-wide">Cliente</span>
+              <span class="block text-sm whitespace-pre-wrap text-white leading-relaxed">Boa tarde! Quero agendar um corte.</span>
+              <span class="block text-[10px] bolha-label mt-1 text-right">14:32</span>
+            </div>
+          </div>
+          <!-- Example: bot message -->
+          <div class="flex justify-end fade-in">
+            <div class="relative max-w-[85%] px-3 py-2 rounded-2xl shadow-md bolha-outgoing-bot rounded-tr-sm">
+              <span class="block text-[10px] uppercase font-semibold bolha-label mb-1 tracking-wide">Bot</span>
+              <span class="block text-sm whitespace-pre-wrap text-white leading-relaxed">Ola! Para agendar, use o AppBarber. Posso ajudar em algo mais?</span>
+              <span class="block text-[10px] bolha-label mt-1 text-right">14:32 ✓</span>
+            </div>
+          </div>
+          <!-- Example: event separator -->
+          <div class="event-separator">
+            <span class="event-separator-dot"></span>
+            <span>Atendimento transferido para humano · Diego assumiu</span>
+            <span class="event-separator-dot"></span>
+          </div>
+          <!-- Example: human message -->
+          <div class="flex justify-end fade-in">
+            <div class="relative max-w-[85%] px-3 py-2 rounded-2xl shadow-md bolha-outgoing-humano rounded-tr-sm">
+              <span class="block text-[10px] uppercase font-semibold bolha-label mb-1 tracking-wide">Atendente</span>
+              <span class="block text-sm whitespace-pre-wrap text-white leading-relaxed">Ola! Sou Diego, do atendimento. Como posso te ajudar?</span>
+              <span class="block text-[10px] bolha-label mt-1 text-right">14:35 ✓</span>
+            </div>
+          </div>
+          <!-- Example: return-to-bot separator -->
+          <div class="event-separator">
+            <span class="event-separator-dot"></span>
+            <span>Conversa devolvida para o bot · Diego encerrou o atendimento</span>
+            <span class="event-separator-dot"></span>
+          </div>
         </div>
       </div>
 
-      <footer id="thread-footer" class="bg-[#1c1c1c] border-t border-[#3a3a3a] px-3 py-2.5 hidden">
-        <div class="bg-[#2b2b2b] border border-[#3a3a3a] rounded-xl overflow-hidden">
-          <!-- Canned responses popover -->
-          <div class="relative px-3 pt-2.5 pb-1">
-            <div id="popover-rapidas" class="hidden absolute bottom-full left-3 mb-1 w-72 bg-[#1c1c1c] border border-[#3a3a3a] rounded-xl shadow-2xl z-30 overflow-hidden">
-              <p class="px-3 py-1.5 text-[10px] uppercase font-bold text-[#aaaaaa] border-b border-[#3a3a3a]">Respostas rápidas</p>
-              <div id="lista-rapidas" class="max-h-56 overflow-y-auto scrollbar"></div>
-            </div>
-            <button id="btn-rapidas" type="button"
-                    class="text-xs text-[#aaaaaa] hover:text-[#2481cc] transition flex items-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <footer id="thread-footer" class="bg-[#202c33] border-t border-[#2a3942] px-3 py-2.5 hidden">
+        <!-- Compositor banner — contextual (bot ativo / aguardando / outro) -->
+        <div id="compositor-banner" class="hidden mb-2.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[#8696a0]" style="font-size:12.5px"></div>
+        <!-- Canned responses popover — anchored to the lightning button -->
+        <div id="popover-rapidas" class="hidden absolute bottom-16 left-4 w-72 bg-[#202c33] border border-[#2a3942] rounded-xl shadow-2xl z-30 overflow-hidden">
+          <p class="px-3 py-1.5 text-[10px] uppercase font-bold text-[#8696a0] border-b border-[#2a3942]">Respostas rapidas</p>
+          <div id="lista-rapidas" class="max-h-56 overflow-y-auto scrollbar"></div>
+        </div>
+        <div class="flex items-end gap-2 bg-[#2a3942] rounded-2xl px-3 py-2">
+          <!-- Left icons -->
+          <div class="flex items-center gap-1 flex-shrink-0 pb-0.5">
+            <button id="btn-rapidas" type="button" title="Respostas rapidas"
+                    class="w-8 h-8 flex items-center justify-center rounded-full text-[#8696a0] hover:text-[#2481cc] hover:bg-[#202c33] transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
               </svg>
-              <span>Respostas rápidas</span>
+            </button>
+            <button type="button" title="Emoji (em breve)" disabled
+                    class="w-8 h-8 flex items-center justify-center rounded-full text-[#8696a0] opacity-40 cursor-not-allowed">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M8.5 14s1 2 3.5 2 3.5-2 3.5-2M9 9h.01M15 9h.01"/>
+              </svg>
             </button>
           </div>
-          <form id="form-enviar" class="flex items-end gap-2 px-3 pb-2.5">
+          <!-- Textarea + send inside form -->
+          <form id="form-enviar" class="flex-1 flex items-end gap-2">
             <textarea id="texto-msg" rows="1" required placeholder="Digite uma mensagem…"
-                      class="flex-1 bg-transparent border-none outline-none text-[#ffffff] placeholder-[#aaaaaa] resize-none text-sm max-h-32 overflow-y-auto leading-relaxed pt-1"></textarea>
+                      class="flex-1 bg-transparent border-none outline-none text-[#e9edef] placeholder-[#8696a0] resize-none text-sm overflow-y-auto leading-relaxed"
+                      style="field-sizing: content; max-height: 120px;"></textarea>
+            <!-- Send button -->
             <button id="btn-enviar" type="submit"
-                    class="w-9 h-9 rounded-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#3a3a3a] disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 transition-colors mb-0.5">
+                    class="w-9 h-9 rounded-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#2a3942] disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
               </svg>
@@ -330,14 +635,17 @@
           </form>
         </div>
       </footer>
+
+      <!-- Footer banner — states B/C/D, controlled by inline state-sync script -->
+      <div id="footer-banner" class="hidden bg-[#202c33] border-t border-[#2a3942] px-4 py-3 text-sm text-center"></div>
     </main>
 
     <!-- Painel lateral direito — info do cliente -->
-    <aside id="info-panel" class="hidden colapsado w-72 bg-[#1c1c1c] border-l border-[#3a3a3a] flex flex-col">
-      <header class="px-4 py-3 border-b border-[#3a3a3a] flex items-center justify-between bg-[#2b2b2b] flex-shrink-0">
-        <h3 class="text-sm font-bold text-[#ffffff]">Informações do cliente</h3>
+    <aside id="info-panel" class="hidden colapsado w-72 bg-[#202c33] border-l border-[#2a3942] flex flex-col">
+      <header class="px-4 py-3 border-b border-[#2a3942] flex items-center justify-between bg-[#202c33] flex-shrink-0">
+        <h3 class="text-sm font-bold text-[#e9edef]">Informacoes do cliente</h3>
         <button id="btn-fechar-info" type="button" title="Fechar"
-                class="text-[#aaaaaa] hover:text-[#ffffff] hover:bg-[#2f2f2f] p-1 rounded transition">
+                class="text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] p-1 rounded transition">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
           </svg>
@@ -346,46 +654,80 @@
 
       <div class="flex-1 overflow-y-auto scrollbar">
         <!-- Foto + nome + telefone -->
-        <div class="flex flex-col items-center px-4 py-5 border-b border-[#3a3a3a]">
-          <div id="info-avatar" class="w-[72px] h-[72px] rounded-full mb-3 avatar-cliente text-xl shadow-lg">?</div>
-          <h4 id="info-nome" class="text-base font-semibold text-[#ffffff] text-center truncate w-full">—</h4>
-          <p id="info-telefone" class="text-xs text-[#aaaaaa] mt-0.5 truncate w-full text-center">—</p>
+        <div class="flex flex-col items-center px-4 pt-6 pb-4 border-b border-[#2a3942]"
+             style="background: linear-gradient(180deg, #1a2a35 0%, transparent 100%);">
+          <div id="info-avatar" class="w-[80px] h-[80px] rounded-full mb-3 avatar-cliente text-xl shadow-lg ring-2 ring-[#2a3942]">?</div>
+          <h4 id="info-nome" class="text-base font-semibold text-[#e9edef] text-center truncate w-full">—</h4>
+          <p id="info-telefone" class="text-xs text-[#8696a0] mt-0.5 truncate w-full text-center">—</p>
+
+          <!-- Quick actions -->
+          <div class="flex gap-2 mt-3 w-full">
+            <button type="button" title="Enviar mensagem"
+                    class="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg bg-[#111b21] hover:bg-[#2a3942] text-[10px] text-[#8696a0] hover:text-[#e9edef] transition select-none"
+                    onclick="document.getElementById('texto-msg') && document.getElementById('texto-msg').focus()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4H9v-4z"/>
+              </svg>
+              Mensagem
+            </button>
+            <button type="button" title="Favoritar cliente" id="btn-favoritar-cliente"
+                    class="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg bg-[#111b21] hover:bg-[#2a3942] text-[10px] text-[#8696a0] hover:text-[#e9edef] transition select-none">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+              </svg>
+              Favoritar
+            </button>
+            <button type="button" title="Etiquetar conversa"
+                    class="flex-1 flex flex-col items-center gap-1 py-2 rounded-lg bg-[#111b21] hover:bg-[#2a3942] text-[10px] text-[#8696a0] hover:text-[#e9edef] transition select-none"
+                    onclick="document.getElementById('btn-toggle-tag') && document.getElementById('btn-toggle-tag').click()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+              </svg>
+              Etiquetar
+            </button>
+          </div>
         </div>
 
-        <!-- Estatísticas -->
-        <div class="px-4 py-3 border-b border-[#3a3a3a]">
-          <p class="text-[10px] uppercase font-bold text-[#aaaaaa] mb-2 tracking-wide">Estatísticas</p>
-          <dl class="space-y-1.5 text-xs">
-            <div class="flex justify-between gap-2">
-              <dt class="text-[#aaaaaa]">Cliente desde</dt>
-              <dd id="info-criado-em" class="text-[#ffffff] text-right">—</dd>
+        <!-- Estatisticas -->
+        <div class="px-4 py-3 border-b border-[#2a3942]">
+          <p class="text-[10px] uppercase font-bold text-[#8696a0] mb-2 tracking-wide">Estatisticas</p>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="flex flex-col gap-0.5 bg-[#111b21] rounded-lg px-2.5 py-2">
+              <span class="text-[#8696a0]">Cliente desde</span>
+              <span id="info-criado-em" class="text-[#e9edef] font-medium">—</span>
             </div>
-            <div class="flex justify-between gap-2">
-              <dt class="text-[#aaaaaa]">Última interação</dt>
-              <dd id="info-ultima-interacao" class="text-[#ffffff] text-right">—</dd>
+            <div class="flex flex-col gap-0.5 bg-[#111b21] rounded-lg px-2.5 py-2">
+              <span class="text-[#8696a0]">Ultima interacao</span>
+              <span id="info-ultima-interacao" class="text-[#e9edef] font-medium">—</span>
             </div>
-            <div class="flex justify-between gap-2">
-              <dt class="text-[#aaaaaa]">Total de mensagens</dt>
-              <dd id="info-total-mensagens" class="text-[#ffffff] text-right font-semibold">—</dd>
+            <div class="flex flex-col gap-0.5 bg-[#111b21] rounded-lg px-2.5 py-2">
+              <span class="text-[#8696a0]">Total mensagens</span>
+              <span id="info-total-mensagens" class="text-[#e9edef] font-semibold">—</span>
             </div>
-            <div class="flex justify-between gap-2">
-              <dt class="text-[#aaaaaa]">Atendimentos humanos</dt>
-              <dd id="info-total-humanos" class="text-[#ffffff] text-right font-semibold">—</dd>
+            <div class="flex flex-col gap-0.5 bg-[#111b21] rounded-lg px-2.5 py-2">
+              <span class="text-[#8696a0]">Atend. humanos</span>
+              <span id="info-total-humanos" class="text-[#e9edef] font-semibold">—</span>
             </div>
-          </dl>
+          </div>
+        </div>
+
+        <!-- Serviços frequentes — populado via MutationObserver em info-tag -->
+        <div id="servicos-frequentes" class="hidden px-4 py-3 border-b border-[#2a3942]">
+          <p class="text-[10px] uppercase font-bold text-[#8696a0] mb-2 tracking-wide">Serviços frequentes</p>
+          <div id="servicos-chips" class="flex flex-wrap gap-1.5"></div>
         </div>
 
         <!-- Status atual -->
-        <div class="px-4 py-3 border-b border-[#3a3a3a]">
-          <p class="text-[10px] uppercase font-bold text-[#aaaaaa] mb-2 tracking-wide">Status atual</p>
+        <div class="px-4 py-3 border-b border-[#2a3942]">
+          <p class="text-[10px] uppercase font-bold text-[#8696a0] mb-2 tracking-wide">Status atual</p>
           <div class="space-y-1.5 text-xs">
             <div class="flex justify-between items-center gap-2">
-              <span class="text-[#aaaaaa]">Bot</span>
+              <span class="text-[#8696a0]">Bot</span>
               <span id="info-status-bot" class="font-semibold">—</span>
             </div>
             <div class="flex justify-between items-center gap-2">
-              <span class="text-[#aaaaaa]">Tag</span>
-              <span id="info-tag" class="text-right">—</span>
+              <span class="text-[#8696a0]">Tag</span>
+              <span id="info-tag" class="text-right text-[#e9edef]">—</span>
             </div>
           </div>
         </div>
@@ -393,9 +735,9 @@
         <!-- Notas internas (movido de baixo da thread) -->
         <div id="painel-notas" class="px-4 py-3">
           <button id="btn-toggle-notas" type="button"
-                  class="w-full flex items-center justify-between text-[10px] uppercase font-bold text-[#aaaaaa] tracking-wide mb-2 hover:text-[#ffffff] transition select-none">
+                  class="w-full flex items-center justify-between text-[10px] uppercase font-bold text-[#8696a0] tracking-wide mb-2 hover:text-[#e9edef] transition select-none">
             <span>Notas internas</span>
-            <svg id="icone-notas-chevron" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-[#aaaaaa] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg id="icone-notas-chevron" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-[#8696a0] transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
             </svg>
           </button>
@@ -403,9 +745,9 @@
             <ul id="lista-notas" class="space-y-1.5 max-h-48 overflow-y-auto scrollbar text-sm"></ul>
             <div class="flex flex-col gap-2 pt-1">
               <textarea id="textarea-nota" rows="2" placeholder="Escreva uma nota interna…"
-                        class="w-full px-2.5 py-1.5 bg-[#2b2b2b] border border-[#3a3a3a] rounded-lg text-sm text-[#ffffff] placeholder-[#aaaaaa] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none resize-none transition"></textarea>
+                        class="w-full px-2.5 py-1.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-sm text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none resize-none transition"></textarea>
               <button id="btn-adicionar-nota" type="button"
-                      class="bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#2b2b2b] disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition w-full">
+                      class="bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] disabled:bg-[#2a3942] disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition w-full">
                 Adicionar nota
               </button>
             </div>
@@ -414,7 +756,7 @@
       </div>
     </aside>
 
-    <!-- Backdrop do info-panel (drawer mode em telas pequenas/médias) -->
+    <!-- Backdrop do info-panel (drawer mode em telas pequenas/medias) -->
     <div id="info-panel-backdrop" class="hidden fixed inset-0 bg-black/50 z-30 lg:hidden"></div>
   </div>
 
@@ -422,5 +764,284 @@
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <script src="/static/admin/app.js"></script>
+  <script>
+// State sync: derives thread state from DOM observations (app.js untouched)
+(function() {
+  // Override to block auto-open from abrirConversa.
+  // abrirConversa calls abrirInfoPanel() automatically — we want manual-only open.
+  let _blockInfoPanelAutoOpen = false;
+  const _origAbrirInfoPanel = window.abrirInfoPanel;
+  window.abrirInfoPanel = function() {
+    if (_blockInfoPanelAutoOpen) {
+      // Remove 'hidden' so btn-toggle-info works (it checks for hidden),
+      // but keep 'colapsado' so panel stays visually closed.
+      const p = document.getElementById('info-panel');
+      if (p) { p.classList.remove('hidden'); p.classList.add('colapsado'); }
+      return;
+    }
+    _origAbrirInfoPanel.call(this);
+  };
+  const _origAbrirConversa = window.abrirConversa;
+  window.abrirConversa = async function(tel) {
+    _blockInfoPanelAutoOpen = true;
+    try { await _origAbrirConversa.call(this, tel); }
+    finally { _blockInfoPanelAutoOpen = false; }
+  };
+
+  const NOMES_ATENDENTES = {};
+
+  // Cache operator names from API for separator rendering
+  fetch('/admin/atendentes', { headers: { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || '') } })
+    .then(r => r.ok ? r.json() : [])
+    .then(list => { (list || []).forEach(a => { NOMES_ATENDENTES[a.id] = a.nome; }); })
+    .catch(() => {});
+
+  function getThreadState() {
+    const header = document.getElementById('thread-header');
+    if (!header || header.classList.contains('hidden')) return 'none';
+    const btnD = document.getElementById('btn-devolver');
+    const btnA = document.getElementById('btn-assumir');
+    const status = document.getElementById('thread-status');
+    const txt = (status && status.textContent) || '';
+    if (btnD && !btnD.classList.contains('hidden')) return 'voce'; // state A
+    if (btnA && !btnA.classList.contains('hidden')) {
+      if (txt.includes('aguardando')) return 'aguardando'; // state B
+      return 'bot_ativo'; // state C
+    }
+    if (txt.includes('outro operador') || txt.includes('outro')) return 'outro'; // state D
+    return 'none';
+  }
+
+  function syncThreadTagsRow() {
+    const infoTag = document.getElementById('info-tag');
+    const row = document.getElementById('thread-tags-row');
+    const chips = document.getElementById('thread-tags-chips');
+    if (!infoTag || !row || !chips) return;
+    const txt = infoTag.textContent.trim();
+    if (!txt || txt === '—' || txt === 'sem marcação') {
+      row.classList.add('hidden');
+      chips.innerHTML = '';
+    } else {
+      chips.innerHTML = infoTag.innerHTML;
+      row.classList.remove('hidden');
+    }
+  }
+
+  function syncServicosFrequentes() {
+    const infoTag = document.getElementById('info-tag');
+    const section = document.getElementById('servicos-frequentes');
+    const chips = document.getElementById('servicos-chips');
+    if (!infoTag || !section || !chips) return;
+    const txt = infoTag.textContent.trim();
+    if (!txt || txt === '—' || txt === 'sem marcação') {
+      section.classList.add('hidden');
+      chips.innerHTML = '';
+    } else {
+      chips.innerHTML = infoTag.innerHTML;
+      section.classList.remove('hidden');
+    }
+  }
+
+  function syncBannerAndButtons() {
+    const state = getThreadState();
+    const footer = document.getElementById('thread-footer');
+    const banner = document.getElementById('compositor-banner'); // banner DENTRO do footer
+    const footerBannerLegacy = document.getElementById('footer-banner'); // banner externo (deprecated)
+    const btnInterromper = document.getElementById('btn-interromper-bot');
+    const btnAssumir = document.getElementById('btn-assumir');
+    const textoMsg = document.getElementById('texto-msg');
+
+    // Esconder banner legado (substituído pelo compositor-banner interno)
+    if (footerBannerLegacy) footerBannerLegacy.classList.add('hidden');
+
+    // Controlar estado do compositor
+    if (footer) {
+      if (state === 'none') {
+        // Nenhuma conversa aberta — manter footer oculto normalmente
+      } else if (state === 'voce') {
+        // Operador é o dono — compositor ativo
+        footer.classList.remove('compositor-inativo');
+        if (banner) banner.classList.add('hidden');
+        if (textoMsg) textoMsg.placeholder = 'Digite uma mensagem…';
+      } else if (state === 'aguardando') {
+        // Cliente aguardando — mostrar aviso vermelho
+        footer.classList.add('compositor-inativo');
+        if (textoMsg) textoMsg.placeholder = 'Assuma a conversa para responder…';
+        if (banner) {
+          banner.className = 'mb-2.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs';
+          banner.style.background = 'rgba(239, 72, 88, 0.07)';
+          banner.style.border = '1px solid rgba(239, 72, 88, 0.22)';
+          banner.style.color = '#8696a0';
+          banner.innerHTML = '<span style="width:8px;height:8px;border-radius:50%;background:#ef4858;flex-shrink:0;display:inline-block"></span> Cliente aguardando atendente. <a href="#" id="link-assumir-comp" style="color:#e9edef;font-weight:500;text-decoration:underline">Assumir agora</a>';
+        }
+      } else if (state === 'bot_ativo') {
+        // Bot ativo — mostrar aviso verde
+        footer.classList.add('compositor-inativo');
+        if (textoMsg) textoMsg.placeholder = 'Assuma a conversa para responder…';
+        if (banner) {
+          banner.className = 'mb-2.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs';
+          banner.style.background = 'rgba(127, 227, 196, 0.06)';
+          banner.style.border = '1px solid rgba(127, 227, 196, 0.15)';
+          banner.style.color = '#8696a0';
+          banner.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" style="width:14px;height:14px;flex-shrink:0;stroke:#00a884" fill="none" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg> O bot está ativo. Para responder, <a href="#" id="link-assumir-comp" style="color:#e9edef;font-weight:500;text-decoration:underline">interrompa o bot</a> primeiro.';
+        }
+      } else if (state === 'outro') {
+        // Outro operador
+        footer.classList.add('compositor-inativo');
+        if (textoMsg) textoMsg.placeholder = 'Conversa com outro operador…';
+        if (banner) {
+          banner.className = 'mb-2.5 flex items-center gap-2 px-3 py-2 rounded-lg text-xs';
+          banner.style.background = 'rgba(36, 129, 204, 0.07)';
+          banner.style.border = '1px solid rgba(36, 129, 204, 0.18)';
+          banner.style.color = '#8696a0';
+          banner.innerHTML = 'Esta conversa está sendo atendida por outro operador.';
+          banner.classList.remove('hidden');
+        }
+      }
+      // Wire banner link to btn-assumir (para estados aguardando e bot_ativo)
+      const linkAssumirComp = document.getElementById('link-assumir-comp');
+      if (linkAssumirComp) {
+        linkAssumirComp.onclick = (e) => {
+          e.preventDefault();
+          const btnA = document.getElementById('btn-assumir');
+          if (btnA) btnA.click();
+        };
+      }
+    }
+
+    // Interromper bot button: mostra para bot_ativo, esconde para outros
+    if (btnInterromper && btnAssumir) {
+      if (state === 'bot_ativo') {
+        btnInterromper.classList.remove('hidden');
+        btnAssumir.classList.add('hidden');
+      } else {
+        btnInterromper.classList.add('hidden');
+      }
+    }
+
+    syncThreadTagsRow();
+    syncServicosFrequentes();
+
+    // Sincronizar data-state do thread-status para CSS de cor
+    const statusEl = document.getElementById('thread-status');
+    if (statusEl) {
+      if (state === 'voce') statusEl.dataset.state = 'voce';
+      else if (state === 'aguardando') statusEl.dataset.state = 'aguardando';
+      else if (state === 'bot_ativo') statusEl.dataset.state = 'bot';
+      else if (state === 'outro') statusEl.dataset.state = 'outro';
+      else delete statusEl.dataset.state;
+    }
+  }
+
+  // Mantém #thread-footer sempre visível quando conversa está aberta.
+  // app.js adiciona 'hidden' ao footer em atualizarHeaderThread();
+  // removemos imediatamente e controlamos o estado via compositor-inativo.
+  (function setupCompositorSempre() {
+    const footerEl = document.getElementById('thread-footer');
+    if (!footerEl) return;
+    let _blocking = false;
+    const footerObs = new MutationObserver(() => {
+      if (_blocking) return;
+      const headerEl = document.getElementById('thread-header');
+      const conversaAberta = headerEl && !headerEl.classList.contains('hidden');
+      if (footerEl.classList.contains('hidden') && conversaAberta) {
+        _blocking = true;
+        footerEl.classList.remove('hidden');
+        _blocking = false;
+        setTimeout(syncBannerAndButtons, 0); // Aguarda app.js terminar DOM updates
+      }
+    });
+    footerObs.observe(footerEl, { attributes: true, attributeFilter: ['class'] });
+  })();
+
+  // Observe thread-status for text changes
+  const observer = new MutationObserver(syncBannerAndButtons);
+  function startObserving() {
+    const statusEl = document.getElementById('thread-status');
+    const headerEl = document.getElementById('thread-header');
+    const tagEl = document.getElementById('info-tag');
+    if (statusEl) observer.observe(statusEl, { childList: true, subtree: true, characterData: true });
+    if (headerEl) observer.observe(headerEl, { attributes: true, attributeFilter: ['class'] });
+    if (tagEl) observer.observe(tagEl, { childList: true, subtree: true, characterData: true });
+  }
+  function startObservingButtons() {
+    const bA = document.getElementById('btn-assumir');
+    const bD = document.getElementById('btn-devolver');
+    if (bA) observer.observe(bA, { attributes: true, attributeFilter: ['class'] });
+    if (bD) observer.observe(bD, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // Operator avatar initials
+  function updateOperatorAvatar() {
+    const nome = localStorage.getItem('atendente_nome') || '';
+    const parts = nome.trim().split(/\s+/);
+    const initials = parts.length >= 2
+      ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      : (nome.slice(0, 2).toUpperCase() || '?');
+    const el = document.getElementById('avatar-atendente');
+    if (el) el.textContent = initials;
+  }
+
+  // Wire btn-interromper-bot
+  document.addEventListener('DOMContentLoaded', () => {
+    startObserving();
+    startObservingButtons();
+    updateOperatorAvatar();
+    syncThreadTagsRow();
+    syncServicosFrequentes();
+    const bi = document.getElementById('btn-interromper-bot');
+    if (bi) bi.addEventListener('click', () => document.getElementById('btn-assumir').click());
+
+    // Bloquear envio quando compositor está inativo (operador não é dono)
+    const formEnviar = document.getElementById('form-enviar');
+    if (formEnviar) {
+      formEnviar.addEventListener('submit', (e) => {
+        const footer = document.getElementById('thread-footer');
+        if (footer && footer.classList.contains('compositor-inativo')) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true); // capture phase — executa antes do listener do app.js
+    }
+
+    // Make the thread customer area (avatar + name) clickable to toggle info panel
+    const threadCustomer = document.getElementById('thread-customer');
+    if (threadCustomer) {
+      threadCustomer.style.cursor = 'pointer';
+      threadCustomer.addEventListener('click', () => {
+        const panel = document.getElementById('info-panel');
+        if (!panel) return;
+        if (panel.classList.contains('colapsado')) {
+          window.abrirInfoPanel();
+        }
+      });
+    }
+
+    // Sincronização defensiva: dispara sync imediatamente e após 500ms
+    // para cobrir casos onde app.js atualiza o DOM logo após DOMContentLoaded
+    syncBannerAndButtons();
+    setTimeout(syncBannerAndButtons, 500);
+  });
+
+  // Also run sync on SSE or page events if app.js fires custom events (defensive)
+  document.addEventListener('thread-loaded', syncBannerAndButtons);
+  document.addEventListener('thread-updated', syncBannerAndButtons);
+})();
+
+// Filter chips
+document.addEventListener('DOMContentLoaded', () => {
+  const filtroInput = document.getElementById('filtro');
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active-chip'));
+      chip.classList.add('active-chip');
+      if (filtroInput) {
+        filtroInput.value = chip.dataset.filter || '';
+        filtroInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  });
+});
+  </script>
 </body>
 </html>
