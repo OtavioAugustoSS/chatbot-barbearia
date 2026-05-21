@@ -1174,6 +1174,26 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         user.nome_cliente = nome_cliente
         db.commit()
 
+    # Reabertura automática: conversas marcadas como snoozed/resolved precisam
+    # voltar para a fila do dashboard assim que o cliente mandar nova mensagem.
+    # Sem isso, cliente VIP pode ficar invisível ao atendente por horas (PO).
+    # Mudança silenciosa para o cliente — apenas estado interno + SSE para o painel.
+    if user.status_conversa in ("snoozed", "resolved"):
+        user.status_conversa = "open"
+        user.snoozed_until = None
+        db.commit()
+        if MODO_HIBRIDO:
+            try:
+                notificador.publicar({
+                    "tipo": "status_alterado",
+                    "telefone": user.telefone,
+                    "status": "open",
+                    "snoozed_until": None,
+                    "por_atendente_id": None,  # None = reabertura automática pelo sistema
+                })
+            except Exception:
+                log.exception("Falha ao publicar status_alterado (reabertura automática) para %s", telefone)
+
     # !reiniciar: comando de admin. Cliente comum não pode limpar próprio histórico.
     if str(texto_cliente).strip().lower() == "!reiniciar":
         if telefone not in ADMIN_PHONES:

@@ -1,75 +1,184 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Login — Barbearia Bolshoi</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Barbearia Bolshoi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #0f1117;
+      color: #ffffff;
+      min-height: 100vh;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-text-fill-color: #ffffff;
+      -webkit-box-shadow: 0 0 0px 1000px #20232f inset;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    .field {
+      background-color: #20232f;
+      border: 1px solid #2a2d3a;
+      color: #ffffff;
+    }
+    .field::placeholder { color: #6b7280; }
+    .field:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+    .btn-primary {
+      background-color: #6366f1;
+      transition: background-color 0.15s ease;
+    }
+    .btn-primary:hover:not(:disabled) { background-color: #4f52d4; }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .card {
+      background-color: #1a1d27;
+      border: 1px solid #2a2d3a;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    }
+  </style>
 </head>
-<body class="bg-[#111b21] flex items-center justify-center min-h-screen">
-  <div class="bg-[#202c33] border border-[#2a3942] shadow-2xl rounded-2xl p-8 w-full max-w-sm">
-    <div class="mb-6">
-      <div class="w-16 h-16 bg-[#2481cc] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
-        <span class="text-2xl font-black text-white tracking-tight">BB</span>
-      </div>
-      <h1 class="text-2xl font-bold text-[#e9edef]">Barbearia Bolshoi</h1>
-      <p class="text-sm text-[#8696a0] mt-1">Painel de Atendimento</p>
-    </div>
+<body class="min-h-screen flex items-center justify-center px-4" style="background-color:#0f1117;">
 
-    <form id="form-login" class="space-y-4">
+  <main class="card w-full max-w-sm rounded-2xl" style="padding:40px;">
+
+    <header class="text-center mb-8">
+      <h1 class="text-2xl font-bold text-white tracking-tight">Barbearia Bolshoi</h1>
+      <p class="text-sm text-gray-400 mt-1">Painel de Atendimento</p>
+    </header>
+
+    <form id="form-login" class="space-y-5" autocomplete="on">
+
       <div>
-        <label class="block text-sm font-medium text-[#e9edef] mb-1">Usuario</label>
-        <input id="usuario" type="text" required autocomplete="username"
-               class="w-full px-3 py-2.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
+        <label for="usuario_login" class="block text-sm font-medium text-gray-300 mb-1.5">Usuário</label>
+        <input
+          type="text"
+          id="usuario_login"
+          name="usuario_login"
+          class="field w-full rounded-lg px-3.5 py-2.5 text-sm"
+          placeholder="seu.usuario"
+          autocomplete="username"
+          required
+          autofocus
+        >
       </div>
+
       <div>
-        <label class="block text-sm font-medium text-[#e9edef] mb-1">Senha</label>
-        <input id="senha" type="password" required autocomplete="current-password"
-               class="w-full px-3 py-2.5 bg-[#2a3942] border border-[#2a3942] rounded-lg text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#2481cc] focus:border-[#2481cc] focus:outline-none transition">
+        <label for="senha" class="block text-sm font-medium text-gray-300 mb-1.5">Senha</label>
+        <input
+          type="password"
+          id="senha"
+          name="senha"
+          class="field w-full rounded-lg px-3.5 py-2.5 text-sm"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          required
+        >
       </div>
-      <button type="submit"
-              class="w-full bg-[#2481cc] hover:bg-[#1a6eb0] active:bg-[#1560a0] text-white font-semibold py-2.5 rounded-lg transition">
+
+      <button
+        type="submit"
+        id="btn-entrar"
+        class="btn-primary w-full text-white font-semibold rounded-lg py-2.5 text-sm"
+      >
         Entrar
       </button>
-      <p id="erro" class="text-sm text-red-400 bg-red-900/30 border border-red-800 rounded-lg px-3 py-2 hidden"></p>
-    </form>
-  </div>
 
-<script>
-document.getElementById('form-login').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const erro = document.getElementById('erro');
-  erro.classList.add('hidden');
-  try {
-    const res = await fetch('/admin/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        usuario_login: document.getElementById('usuario').value.trim().toLowerCase(),
-        senha: document.getElementById('senha').value,
-      }),
+      <div
+        id="erro-msg"
+        class="hidden text-sm text-red-200 bg-red-900/40 border border-red-800/60 rounded-lg px-3 py-2"
+      ></div>
+
+    </form>
+
+  </main>
+
+  <script>
+    // Redirect se já está logado
+    if (localStorage.getItem('token')) {
+      location.href = '/static/admin/index.html';
+    }
+
+    const form     = document.getElementById('form-login');
+    const inputUsr = document.getElementById('usuario_login');
+    const inputPwd = document.getElementById('senha');
+    const btn      = document.getElementById('btn-entrar');
+    const erroEl   = document.getElementById('erro-msg');
+
+    function mostrarErro(msg) {
+      erroEl.textContent = msg;
+      erroEl.classList.remove('hidden');
+    }
+
+    function ocultarErro() {
+      erroEl.classList.add('hidden');
+      erroEl.textContent = '';
+    }
+
+    // Enter no campo senha submete (já é default em form, mas garantia explícita)
+    inputPwd.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        form.requestSubmit();
+      }
     });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      erro.textContent = data.detail || 'Erro ao entrar.';
-      erro.classList.remove('hidden');
-      return;
-    }
-    const data = await res.json();
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('atendente_nome', data.nome);
-    localStorage.setItem('atendente_id', data.atendente_id);
-    if (data.ultimo_login) {
-      localStorage.setItem('ultimo_login', data.ultimo_login);
-    } else {
-      localStorage.removeItem('ultimo_login');
-    }
-    window.location.href = '/static/admin/index.html';
-  } catch (err) {
-    erro.textContent = 'Falha de conexao.';
-    erro.classList.remove('hidden');
-  }
-});
-</script>
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      ocultarErro();
+
+      const usuario_login = inputUsr.value.trim();
+      const senha         = inputPwd.value;
+
+      if (!usuario_login || !senha) {
+        mostrarErro('Preencha usuário e senha.');
+        return;
+      }
+
+      btn.disabled = true;
+      const labelOriginal = btn.textContent;
+      btn.textContent = 'Entrando…';
+
+      try {
+        const res = await fetch('/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario_login, senha })
+        });
+
+        if (!res.ok) {
+          let detalhe = 'Usuário ou senha inválidos.';
+          try {
+            const errJson = await res.json();
+            if (errJson && errJson.detail) detalhe = errJson.detail;
+          } catch(_) {}
+          mostrarErro(detalhe);
+          btn.textContent = labelOriginal;
+          setTimeout(() => { btn.disabled = false; }, 3000);
+          return;
+        }
+
+        const data = await res.json();
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('atendente_id', data.atendente_id);
+        localStorage.setItem('atendente_nome', data.nome);
+        location.href = '/static/admin/index.html';
+
+      } catch (err) {
+        mostrarErro('Erro de conexão. Tente novamente.');
+        btn.textContent = labelOriginal;
+        setTimeout(() => { btn.disabled = false; }, 3000);
+      }
+    });
+  </script>
+
 </body>
 </html>

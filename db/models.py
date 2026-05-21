@@ -28,11 +28,18 @@ class Usuario(Base):
     # NULL = nunca buscado, privacidade fechada ou última tentativa falhou.
     foto_url = Column(String(500), nullable=True, default=None)
     foto_atualizada_em = Column(DateTime, nullable=True, default=None)
+    # Máquina de estados Chatwoot-style. Ortogonal a bot_ativo/aguardando_humano.
+    # Valores: 'open' (default), 'pending', 'resolved', 'snoozed'
+    status_conversa = Column(String(20), nullable=False, default="open")
+    snoozed_until = Column(DateTime, nullable=True, default=None)
+    resolved_em = Column(DateTime, nullable=True, default=None)
+    resolved_por = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     historico = relationship("HistoricoConversa", back_populates="usuario", cascade="all, delete-orphan")
     atendente = relationship("Atendente", foreign_keys=[atendente_id])
+    labels = relationship("Label", secondary="usuario_labels", lazy="select")
 
 
 class HistoricoConversa(Base):
@@ -136,5 +143,81 @@ class NotaInterna(Base):
     atendente_id = Column(Integer, ForeignKey("atendentes.id", ondelete="SET NULL"), nullable=True)
     texto = Column(Text, nullable=False)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    editado_em = Column(DateTime, nullable=True, default=None)
+    editado_por = Column(Integer, ForeignKey("atendentes.id", ondelete="SET NULL"), nullable=True)
 
     __table_args__ = (Index("idx_notas_telefone", "telefone_usuario"),)
+
+
+# Tabela associativa entre usuarios e labels (M2M)
+usuario_labels = Table(
+    'usuario_labels', Base.metadata,
+    Column('telefone_usuario', String(20), ForeignKey('usuarios.telefone', ondelete='CASCADE'), primary_key=True),
+    Column('label_id', Integer, ForeignKey('labels.id', ondelete='CASCADE'), primary_key=True),
+    Column('atribuido_em', DateTime, default=lambda: datetime.now(timezone.utc)),
+    Column('atribuido_por', Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True),
+    Index('idx_ul_label', 'label_id'),
+)
+
+
+class Label(Base):
+    """Label colorida atribuível a múltiplas conversas (substitui o tag string único)."""
+    __tablename__ = 'labels'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nome = Column(String(50), nullable=False, unique=True)
+    cor = Column(String(7), nullable=False)
+    descricao = Column(String(200), nullable=True)
+    ativo = Column(Boolean, nullable=False, default=True)
+    criado_em = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (Index("idx_labels_ativo", "ativo"),)
+
+
+class CannedResponse(Base):
+    """Resposta rápida invocável por atalho no composer (ex.: /horario).
+    atendente_id NULL = global (visível a todos), !=NULL = pessoal."""
+    __tablename__ = 'canned_responses'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    atalho = Column(String(30), nullable=False)
+    texto = Column(Text, nullable=False)
+    atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='CASCADE'), nullable=True)
+    criado_em = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    atualizado_em = Column(DateTime, nullable=True, default=None)
+
+    __table_args__ = (Index("idx_canned_atalho", "atalho"),)
+
+
+class FiltroSalvo(Base):
+    """Filtro/view salvo por atendente — atalho na sidebar para combinações de filtros."""
+    __tablename__ = 'filtros_salvos'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='CASCADE'), nullable=False)
+    nome = Column(String(50), nullable=False)
+    # JSON em texto (SQLAlchemy JSON type funciona em MySQL 5.7+, mas usamos Text por compat)
+    criterios = Column(Text, nullable=False)
+    ordem = Column(Integer, nullable=False, default=0)
+    criado_em = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (Index("idx_fs_atendente", "atendente_id", "ordem"),)
+
+
+class MentionNotificacao(Base):
+    """Notificação gerada quando um atendente é @mencionado em nota interna."""
+    __tablename__ = 'mention_notificacoes'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='CASCADE'), nullable=False)
+    nota_id = Column(Integer, ForeignKey('notas_internas.id', ondelete='CASCADE'), nullable=False)
+    telefone_usuario = Column(String(20), ForeignKey('usuarios.telefone', ondelete='CASCADE'), nullable=False)
+    mencionado_por = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
+    lida = Column(Boolean, nullable=False, default=False)
+    criado_em = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    lida_em = Column(DateTime, nullable=True, default=None)
+
+    __table_args__ = (
+        Index("idx_mn_atendente_lida", "atendente_id", "lida"),
+        Index("idx_mn_nota", "nota_id"),
+    )

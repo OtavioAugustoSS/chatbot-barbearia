@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurações — Barbearia Bolshoi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root, :root[data-theme="dark"] {
+      --bg-base: #0f1117;
+      --bg-surface: #1a1d27;
+      --bg-card: #20232f;
+      --bg-card-hover: #272a38;
+      --accent: #6366f1;
+      --accent-hover: #4f52d4;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text-primary: #e8eaf0;
+      --text-secondary: #8b90a0;
+      --text-muted: #555a6a;
+      --border: #2a2d3a;
+    }
+    :root[data-theme="light"] {
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #f1f5f9;
+      --bg-card-hover: #e2e8f0;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --success: #059669;
+      --danger: #dc2626;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+  </style>
+  <script>
+    // Aplica tema antes do render para evitar flash
+    (function() {
+      const t = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body class="flex h-screen overflow-hidden" style="background:var(--bg-base);font-family:'Inter',sans-serif;color:var(--text-primary);">
+
+  <!-- ICON SIDEBAR -->
+  <nav class="flex flex-col items-center py-4 gap-2 flex-shrink-0" style="width:64px;background:var(--bg-base);border-right:1px solid var(--border);">
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm text-white mb-2" style="background:var(--accent);">BB</div>
+
+    <!-- Conversas -->
+    <button onclick="location.href='/static/admin/index.html'" class="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-white/5" style="color:var(--text-secondary);" title="Conversas">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+      </svg>
+    </button>
+
+    <!-- Settings (ativo) -->
+    <button class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#6366f120;color:var(--accent);" title="Configurações">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+      </svg>
+    </button>
+
+    <div class="flex-1"></div>
+    <div id="my-avatar" class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white cursor-pointer" style="background:#6c5ce7;"></div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 flex flex-col overflow-hidden" style="background:var(--bg-surface);">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-8 pt-6 pb-3 flex-shrink-0">
+      <div>
+        <h1 class="text-lg font-semibold" style="color:var(--text-primary);">Configurações</h1>
+        <p class="text-sm mt-0.5" style="color:var(--text-secondary);">Gerencie atendentes, etiquetas e respostas rápidas</p>
+      </div>
+      <button id="btn-acao-primaria" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background:var(--accent);" onmouseover="this.style.background='var(--accent-hover)'" onmouseout="this.style.background='var(--accent)'">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        <span id="btn-acao-label">Novo Atendente</span>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="px-8 flex gap-1 flex-shrink-0" style="border-bottom:1px solid var(--border);">
+      <button data-tab="atendentes" class="tab-btn px-4 py-3 text-sm font-medium border-b-2" style="color:var(--accent);border-color:var(--accent);">Atendentes</button>
+      <button data-tab="etiquetas" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent transition-colors" style="color:var(--text-secondary);">Etiquetas</button>
+      <button data-tab="canned" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent transition-colors" style="color:var(--text-secondary);">Respostas rápidas</button>
+      <button data-tab="aparencia" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent transition-colors" style="color:var(--text-secondary);">Aparência</button>
+    </div>
+
+    <!-- Tab content area -->
+    <div class="flex-1 overflow-auto px-8 py-6">
+
+      <!-- Tab: Atendentes -->
+      <div id="tab-content-atendentes" class="tab-content">
+        <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border);background:var(--bg-card);">
+          <table class="w-full">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);background:var(--bg-base);">
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Nome</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Login</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Último acesso</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-atendentes">
+              <tr><td colspan="5" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Etiquetas -->
+      <div id="tab-content-etiquetas" class="tab-content hidden">
+        <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border);background:var(--bg-card);">
+          <table class="w-full">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);background:var(--bg-base);">
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Etiqueta</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Descrição</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Status</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-labels">
+              <tr><td colspan="4" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab: Canned responses -->
+      <div id="tab-content-canned" class="tab-content hidden">
+        <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border);background:var(--bg-card);">
+          <table class="w-full">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);background:var(--bg-base);">
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Atalho</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Texto</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Escopo</th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color:var(--text-muted);">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-canned">
+              <tr><td colspan="4" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs mt-3" style="color:var(--text-muted);">
+          Placeholders disponíveis no texto: <code style="color:var(--accent);">{nome_cliente}</code>, <code style="color:var(--accent);">{primeiro_nome}</code>, <code style="color:var(--accent);">{atendente}</code>, <code style="color:var(--accent);">{barbearia}</code>
+        </p>
+      </div>
+
+      <!-- Tab: Aparência -->
+      <div id="tab-content-aparencia" class="tab-content hidden">
+        <div class="rounded-xl p-6" style="border:1px solid var(--border);background:var(--bg-card);">
+          <h3 class="text-sm font-semibold mb-4" style="color:var(--text-primary);">Tema</h3>
+          <p class="text-xs mb-4" style="color:var(--text-secondary);">Escolha entre tema escuro (padrão) e claro. A preferência é salva localmente neste navegador.</p>
+          <div class="flex gap-3">
+            <button data-theme-choice="dark" class="theme-choice flex-1 px-4 py-6 rounded-lg text-sm font-medium transition-all" style="background:#0f1117;color:#e8eaf0;border:2px solid var(--border);">
+              🌙 Escuro
+            </button>
+            <button data-theme-choice="light" class="theme-choice flex-1 px-4 py-6 rounded-lg text-sm font-medium transition-all" style="background:#f8fafc;color:#0f172a;border:2px solid var(--border);">
+              ☀️ Claro
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- MODAL: Novo Atendente -->
+  <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+    <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-semibold" style="color:var(--text-primary);">Novo Atendente</h2>
+        <button onclick="fecharModal()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
+      </div>
+
+      <form id="form-criar" class="flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Nome completo</label>
+          <input id="modal-nome" type="text" required class="w-full px-3 py-2 rounded-lg text-sm outline-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="Ex: Maria Silva">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Login (apenas letras, números, _)</label>
+          <input id="modal-login" type="text" required pattern="[a-z0-9_]+" minlength="3" maxlength="50" class="w-full px-3 py-2 rounded-lg text-sm outline-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="Ex: maria_silva">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Senha (mín. 8 caracteres)</label>
+          <input id="modal-senha" type="password" required minlength="8" class="w-full px-3 py-2 rounded-lg text-sm outline-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="••••••••">
+        </div>
+
+        <div id="modal-erro" class="hidden px-3 py-2 rounded-lg text-sm" style="background:#450a0a;color:#ef4444;border:1px solid #7f1d1d;"></div>
+
+        <div class="flex gap-3 mt-2">
+          <button type="button" onclick="fecharModal()" class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors" style="background:var(--bg-base);color:var(--text-secondary);border:1px solid var(--border);">Cancelar</button>
+          <button type="submit" class="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background:var(--accent);">Criar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Nova/Editar Label -->
+  <div id="modal-label" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+    <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
+      <div class="flex items-center justify-between mb-5">
+        <h2 id="modal-label-titulo" class="font-semibold" style="color:var(--text-primary);">Nova Etiqueta</h2>
+        <button onclick="fecharModalLabel()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
+      </div>
+
+      <form id="form-label" class="flex flex-col gap-4">
+        <input type="hidden" id="label-id-edit">
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Nome (apenas letras minúsculas, números, _, -)</label>
+          <input id="label-nome" type="text" required pattern="[a-z0-9_\-]+" minlength="1" maxlength="50" class="w-full px-3 py-2 rounded-lg text-sm outline-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="ex: vip, urgente, fidelidade">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Cor</label>
+          <div class="flex items-center gap-2">
+            <input id="label-cor" type="color" value="#6366f1" required class="w-12 h-9 rounded cursor-pointer" style="background:var(--bg-base);border:1px solid var(--border);">
+            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#6366f1" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none font-mono" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Descrição (opcional)</label>
+          <input id="label-descricao" type="text" maxlength="200" class="w-full px-3 py-2 rounded-lg text-sm outline-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="Para que serve esta etiqueta?">
+        </div>
+
+        <div id="modal-label-erro" class="hidden px-3 py-2 rounded-lg text-sm" style="background:#450a0a;color:#ef4444;border:1px solid #7f1d1d;"></div>
+
+        <div class="flex gap-3 mt-2">
+          <button type="button" onclick="fecharModalLabel()" class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors" style="background:var(--bg-base);color:var(--text-secondary);border:1px solid var(--border);">Cancelar</button>
+          <button type="submit" class="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background:var(--accent);">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Nova/Editar Canned Response -->
+  <div id="modal-canned" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+    <div class="w-full max-w-md rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
+      <div class="flex items-center justify-between mb-5">
+        <h2 id="modal-canned-titulo" class="font-semibold" style="color:var(--text-primary);">Nova Resposta</h2>
+        <button onclick="fecharModalCanned()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
+      </div>
+
+      <form id="form-canned" class="flex flex-col gap-4">
+        <input type="hidden" id="canned-id-edit">
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Atalho (começa com /, sem espaços)</label>
+          <input id="canned-atalho" type="text" required pattern="/[a-z0-9_\-]+" minlength="2" maxlength="30" class="w-full px-3 py-2 rounded-lg text-sm outline-none font-mono" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="/saudacao">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Texto</label>
+          <textarea id="canned-texto" required rows="4" maxlength="4096" class="w-full px-3 py-2 rounded-lg text-sm outline-none resize-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" placeholder="Olá {primeiro_nome}! Como posso ajudar?"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Escopo</label>
+          <select id="canned-escopo" class="w-full px-3 py-2 rounded-lg text-sm outline-none" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);">
+            <option value="pessoal">Pessoal (apenas você)</option>
+            <option value="global">Global (todos os atendentes)</option>
+          </select>
+        </div>
+
+        <div id="modal-canned-erro" class="hidden px-3 py-2 rounded-lg text-sm" style="background:#450a0a;color:#ef4444;border:1px solid #7f1d1d;"></div>
+
+        <div class="flex gap-3 mt-2">
+          <button type="button" onclick="fecharModalCanned()" class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors" style="background:var(--bg-base);color:var(--text-secondary);border:1px solid var(--border);">Cancelar</button>
+          <button type="submit" class="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-colors" style="background:var(--accent);">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Auth guard
+    if (!localStorage.getItem('token')) location.href = '/static/admin/login.html';
+
+    const EU_ID = parseInt(localStorage.getItem('atendente_id') || '0');
+    const EU_NOME = localStorage.getItem('atendente_nome') || '';
+    const TOKEN = localStorage.getItem('token');
+
+    function authHeaders() {
+      return { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
+    }
+
+    async function req(url, opts = {}) {
+      const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers||{}) } });
+      if (res.status === 401) { localStorage.clear(); location.href = '/static/admin/login.html'; return null; }
+      if (!res.ok) throw new Error(await res.text());
+      if (res.status === 204) return null;
+      return res.json();
+    }
+
+    // Carregar e renderizar atendentes
+    async function carregarAtendentes() {
+      try {
+        const lista = await req('/admin/atendentes');
+        if (!lista) return;
+        renderTabela(lista);
+      } catch(e) { showMsg('Erro ao carregar atendentes', 'error'); }
+    }
+
+    function renderTabela(atendentes) {
+      const tbody = document.getElementById('tbody-atendentes');
+      if (!tbody) return;
+
+      if (atendentes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Nenhum atendente</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = atendentes.map(a => {
+        const isEu = a.id === EU_ID;
+        const statusBadge = a.ativo
+          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#052e16;color:#10b981;">Ativo</span>'
+          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#1c1917;color:#78716c;">Inativo</span>';
+        const ultimoLogin = a.ultimo_login ? new Date(a.ultimo_login).toLocaleString('pt-BR') : '—';
+
+        const acoes = isEu
+          ? '<span class="text-xs" style="color:var(--text-muted);">(você)</span>'
+          : a.ativo
+            ? `<button onclick="desativar(${a.id})" class="text-xs px-2 py-1 rounded transition-colors hover:bg-red-900/30" style="color:var(--danger);">Desativar</button>`
+            : `<button onclick="ativar(${a.id})" class="text-xs px-2 py-1 rounded transition-colors hover:bg-emerald-900/30" style="color:var(--success);">Reativar</button>`;
+
+        return `
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style="background: var(--accent);">
+                  ${(a.nome||'?')[0].toUpperCase()}
+                </div>
+                <div>
+                  <p class="text-sm font-medium" style="color:var(--text-primary);">${escapeHtml(a.nome)} ${isEu ? '<span class="text-xs" style="color:var(--text-muted);">(você)</span>' : ''}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-sm" style="color:var(--text-secondary);">${escapeHtml(a.usuario_login)}</td>
+            <td class="px-6 py-4">${statusBadge}</td>
+            <td class="px-6 py-4 text-sm" style="color:var(--text-secondary);">${ultimoLogin}</td>
+            <td class="px-6 py-4">${acoes}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function desativar(id) {
+      if (!confirm('Desativar este atendente?')) return;
+      try {
+        await req(`/admin/atendentes/${id}/desativar`, { method:'PATCH' });
+        showMsg('Atendente desativado', 'success');
+        carregarAtendentes();
+      } catch(e) { showMsg('Erro ao desativar', 'error'); }
+    }
+
+    async function ativar(id) {
+      try {
+        await req(`/admin/atendentes/${id}/ativar`, { method:'PATCH' });
+        showMsg('Atendente reativado', 'success');
+        carregarAtendentes();
+      } catch(e) { showMsg('Erro ao reativar', 'error'); }
+    }
+
+    function escapeHtml(s) {
+      return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Toast simples
+    function showMsg(txt, tipo = 'info') {
+      const cores = { info:'#2481cc', success:'#10b981', error:'#ef4444' };
+      const el = document.createElement('div');
+      el.className = 'fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-lg shadow-lg text-sm text-white';
+      el.style.background = cores[tipo] || cores.info;
+      el.textContent = txt;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }
+
+    // Modal criar atendente
+    function abrirModal() {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal-nome').focus();
+    }
+    function fecharModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('form-criar').reset();
+      document.getElementById('modal-erro').classList.add('hidden');
+    }
+
+    // ============================================================
+    // TABS
+    // ============================================================
+    let tabAtual = 'atendentes';
+
+    function trocarTab(tabName) {
+      tabAtual = tabName;
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        if (b.dataset.tab === tabName) {
+          b.style.color = 'var(--accent)';
+          b.style.borderColor = 'var(--accent)';
+        } else {
+          b.style.color = 'var(--text-secondary)';
+          b.style.borderColor = 'transparent';
+        }
+      });
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.getElementById(`tab-content-${tabName}`)?.classList.remove('hidden');
+
+      const btnAcao = document.getElementById('btn-acao-label');
+      if (btnAcao) {
+        btnAcao.textContent = tabName === 'atendentes' ? 'Novo Atendente'
+          : tabName === 'etiquetas' ? 'Nova Etiqueta'
+          : 'Nova Resposta';
+      }
+
+      if (tabName === 'etiquetas') carregarLabels();
+      else if (tabName === 'canned') carregarCanned();
+      else if (tabName === 'aparencia') aplicarThemeSelecionado();
+
+      // Esconde botão de ação primária na tab aparência (não há "novo")
+      const btnAcao = document.getElementById('btn-acao-primaria');
+      if (btnAcao) btnAcao.style.display = tabName === 'aparencia' ? 'none' : '';
+    }
+
+    function aplicarThemeSelecionado() {
+      const atual = document.documentElement.getAttribute('data-theme') || 'dark';
+      document.querySelectorAll('.theme-choice').forEach(b => {
+        const ativo = b.dataset.themeChoice === atual;
+        b.style.borderColor = ativo ? 'var(--accent)' : 'var(--border)';
+        b.style.boxShadow = ativo ? '0 0 0 3px rgba(99, 102, 241, 0.2)' : 'none';
+      });
+    }
+
+    function trocarTema(tema) {
+      document.documentElement.setAttribute('data-theme', tema);
+      localStorage.setItem('theme', tema);
+      aplicarThemeSelecionado();
+    }
+
+    // ============================================================
+    // LABELS (tab Etiquetas)
+    // ============================================================
+    async function carregarLabels() {
+      try {
+        const lista = await req('/admin/labels?incluir_inativas=true');
+        if (!lista) return;
+        renderLabels(lista);
+      } catch(e) { showMsg('Erro ao carregar etiquetas', 'error'); }
+    }
+
+    function renderLabels(labels) {
+      const tbody = document.getElementById('tbody-labels');
+      if (!tbody) return;
+      if (labels.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Nenhuma etiqueta. Crie a primeira!</td></tr>';
+        return;
+      }
+      tbody.innerHTML = labels.map(l => {
+        const statusBadge = l.ativo
+          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#052e16;color:#10b981;">Ativa</span>'
+          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#1c1917;color:#78716c;">Inativa</span>';
+        const cor = l.cor || '#6366f1';
+        const acoes = `
+          <button onclick='editarLabel(${JSON.stringify(l)})' class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--accent);">Editar</button>
+          ${l.ativo
+            ? `<button onclick="desativarLabel(${l.id})" class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--danger);">Desativar</button>`
+            : `<button onclick="ativarLabel(${l.id})" class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--success);">Reativar</button>`}
+        `;
+        return `
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td class="px-6 py-4">
+              <span class="text-xs font-medium px-2 py-0.5 rounded-full" style="background:${cor}20;color:${cor};">${escapeHtml(l.nome)}</span>
+            </td>
+            <td class="px-6 py-4 text-sm" style="color:var(--text-secondary);">${escapeHtml(l.descricao||'—')}</td>
+            <td class="px-6 py-4">${statusBadge}</td>
+            <td class="px-6 py-4">${acoes}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function abrirModalLabel() {
+      document.getElementById('modal-label').classList.remove('hidden');
+      document.getElementById('modal-label-titulo').textContent = 'Nova Etiqueta';
+      document.getElementById('label-id-edit').value = '';
+      document.getElementById('label-nome').value = '';
+      document.getElementById('label-cor').value = '#6366f1';
+      document.getElementById('label-cor-hex').value = '#6366f1';
+      document.getElementById('label-descricao').value = '';
+      document.getElementById('modal-label-erro').classList.add('hidden');
+      document.getElementById('label-nome').focus();
+    }
+    function fecharModalLabel() {
+      document.getElementById('modal-label').classList.add('hidden');
+    }
+
+    function editarLabel(l) {
+      abrirModalLabel();
+      document.getElementById('modal-label-titulo').textContent = 'Editar Etiqueta';
+      document.getElementById('label-id-edit').value = l.id;
+      document.getElementById('label-nome').value = l.nome;
+      document.getElementById('label-cor').value = l.cor;
+      document.getElementById('label-cor-hex').value = l.cor;
+      document.getElementById('label-descricao').value = l.descricao || '';
+    }
+
+    async function desativarLabel(id) {
+      if (!confirm('Desativar etiqueta? Conversas mantêm a associação até serem editadas.')) return;
+      try {
+        await req(`/admin/labels/${id}`, { method: 'DELETE' });
+        showMsg('Etiqueta desativada', 'success');
+        carregarLabels();
+      } catch(e) { showMsg('Erro ao desativar', 'error'); }
+    }
+
+    async function ativarLabel(id) {
+      try {
+        await req(`/admin/labels/${id}`, { method: 'PATCH', body: JSON.stringify({ ativo: true }) });
+        showMsg('Etiqueta reativada', 'success');
+        carregarLabels();
+      } catch(e) { showMsg('Erro ao reativar', 'error'); }
+    }
+
+    // ============================================================
+    // CANNED RESPONSES (tab Respostas rápidas)
+    // ============================================================
+    async function carregarCanned() {
+      try {
+        const lista = await req('/admin/canned');
+        if (!lista) return;
+        renderCanned(lista);
+      } catch(e) {
+        // Endpoint pode não existir ainda em fases iniciais
+        const tbody = document.getElementById('tbody-canned');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Funcionalidade em implementação</td></tr>';
+      }
+    }
+
+    function renderCanned(items) {
+      const tbody = document.getElementById('tbody-canned');
+      if (!tbody) return;
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Nenhuma resposta rápida</td></tr>';
+        return;
+      }
+      tbody.innerHTML = items.map(c => {
+        const escopoBadge = c.atendente_id
+          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#1e3a8a;color:#60a5fa;">Pessoal</span>'
+          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#052e16;color:#10b981;">Global</span>';
+        const podeEditar = !c.atendente_id || c.atendente_id === EU_ID;
+        const acoes = podeEditar ? `
+          <button onclick='editarCanned(${JSON.stringify(c)})' class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--accent);">Editar</button>
+          <button onclick="deletarCanned(${c.id})" class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--danger);">Excluir</button>
+        ` : '<span class="text-xs" style="color:var(--text-muted);">—</span>';
+        return `
+          <tr style="border-bottom: 1px solid var(--border);">
+            <td class="px-6 py-4">
+              <code class="text-xs font-mono px-2 py-1 rounded" style="background:var(--bg-base);color:var(--accent);">${escapeHtml(c.atalho)}</code>
+            </td>
+            <td class="px-6 py-4 text-sm max-w-md truncate" style="color:var(--text-secondary);">${escapeHtml(c.texto)}</td>
+            <td class="px-6 py-4">${escopoBadge}</td>
+            <td class="px-6 py-4">${acoes}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function abrirModalCanned() {
+      document.getElementById('modal-canned').classList.remove('hidden');
+      document.getElementById('modal-canned-titulo').textContent = 'Nova Resposta';
+      document.getElementById('canned-id-edit').value = '';
+      document.getElementById('canned-atalho').value = '/';
+      document.getElementById('canned-texto').value = '';
+      document.getElementById('canned-escopo').value = 'pessoal';
+      document.getElementById('modal-canned-erro').classList.add('hidden');
+      document.getElementById('canned-atalho').focus();
+    }
+    function fecharModalCanned() {
+      document.getElementById('modal-canned').classList.add('hidden');
+    }
+
+    function editarCanned(c) {
+      abrirModalCanned();
+      document.getElementById('modal-canned-titulo').textContent = 'Editar Resposta';
+      document.getElementById('canned-id-edit').value = c.id;
+      document.getElementById('canned-atalho').value = c.atalho;
+      document.getElementById('canned-texto').value = c.texto;
+      document.getElementById('canned-escopo').value = c.atendente_id ? 'pessoal' : 'global';
+    }
+
+    async function deletarCanned(id) {
+      if (!confirm('Excluir esta resposta rápida?')) return;
+      try {
+        await req(`/admin/canned/${id}`, { method: 'DELETE' });
+        showMsg('Resposta excluída', 'success');
+        carregarCanned();
+      } catch(e) { showMsg('Erro ao excluir', 'error'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Avatar
+      const av = document.getElementById('my-avatar');
+      if (av) { av.textContent = (EU_NOME||'?')[0].toUpperCase(); av.title = EU_NOME; }
+
+      // Tabs
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.addEventListener('click', () => trocarTab(b.dataset.tab));
+      });
+
+      // Botão de ação primária (depende da tab)
+      document.getElementById('btn-acao-primaria')?.addEventListener('click', () => {
+        if (tabAtual === 'atendentes') abrirModal();
+        else if (tabAtual === 'etiquetas') abrirModalLabel();
+        else if (tabAtual === 'canned') abrirModalCanned();
+      });
+
+      // Fechar modais clicando fora
+      ['modal', 'modal-label', 'modal-canned'].forEach(id => {
+        const m = document.getElementById(id);
+        m?.addEventListener('click', (e) => {
+          if (e.target === m) m.classList.add('hidden');
+        });
+      });
+
+      // Sync cor picker <-> hex
+      document.getElementById('label-cor')?.addEventListener('input', (e) => {
+        document.getElementById('label-cor-hex').value = e.target.value;
+      });
+      document.getElementById('label-cor-hex')?.addEventListener('input', (e) => {
+        const v = e.target.value;
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+          document.getElementById('label-cor').value = v;
+        }
+      });
+
+      // Form criar atendente
+      document.getElementById('form-criar')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('modal-nome').value.trim();
+        const login = document.getElementById('modal-login').value.trim();
+        const senha = document.getElementById('modal-senha').value;
+        const erroEl = document.getElementById('modal-erro');
+
+        try {
+          erroEl.classList.add('hidden');
+          await req('/admin/atendentes', { method:'POST', body: JSON.stringify({nome, usuario_login: login, senha}) });
+          showMsg('Atendente criado com sucesso!', 'success');
+          fecharModal();
+          carregarAtendentes();
+        } catch(e) {
+          erroEl.textContent = e.message?.includes('409') ? 'Login já existe' : 'Erro ao criar atendente';
+          erroEl.classList.remove('hidden');
+        }
+      });
+
+      // Form criar/editar label
+      document.getElementById('form-label')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('label-id-edit').value;
+        const nome = document.getElementById('label-nome').value.trim();
+        const cor = document.getElementById('label-cor-hex').value;
+        const descricao = document.getElementById('label-descricao').value.trim() || null;
+        const erroEl = document.getElementById('modal-label-erro');
+
+        try {
+          erroEl.classList.add('hidden');
+          if (id) {
+            await req(`/admin/labels/${id}`, { method: 'PATCH', body: JSON.stringify({nome, cor, descricao}) });
+            showMsg('Etiqueta atualizada', 'success');
+          } else {
+            await req('/admin/labels', { method: 'POST', body: JSON.stringify({nome, cor, descricao}) });
+            showMsg('Etiqueta criada', 'success');
+          }
+          fecharModalLabel();
+          carregarLabels();
+        } catch(e) {
+          erroEl.textContent = e.message?.includes('409') ? 'Já existe etiqueta com esse nome' : 'Erro ao salvar';
+          erroEl.classList.remove('hidden');
+        }
+      });
+
+      // Form criar/editar canned
+      document.getElementById('form-canned')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('canned-id-edit').value;
+        const atalho = document.getElementById('canned-atalho').value.trim();
+        const texto = document.getElementById('canned-texto').value;
+        const escopo = document.getElementById('canned-escopo').value;
+        const erroEl = document.getElementById('modal-canned-erro');
+
+        try {
+          erroEl.classList.add('hidden');
+          const body = { atalho, texto, escopo };
+          if (id) {
+            await req(`/admin/canned/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+            showMsg('Resposta atualizada', 'success');
+          } else {
+            await req('/admin/canned', { method: 'POST', body: JSON.stringify(body) });
+            showMsg('Resposta criada', 'success');
+          }
+          fecharModalCanned();
+          carregarCanned();
+        } catch(e) {
+          erroEl.textContent = e.message?.includes('409') ? 'Atalho já existe' : 'Erro ao salvar';
+          erroEl.classList.remove('hidden');
+        }
+      });
+
+      // Theme choice buttons
+      document.querySelectorAll('.theme-choice').forEach(b => {
+        b.addEventListener('click', () => trocarTema(b.dataset.themeChoice));
+      });
+
+      carregarAtendentes();
+    });
+  </script>
+</body>
+</html>
