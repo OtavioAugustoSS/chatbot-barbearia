@@ -225,7 +225,7 @@
     <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
         <h2 class="font-semibold" style="color:var(--text-primary);">Novo Atendente</h2>
-        <button onclick="fecharModal()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
+        <button onclick="fecharModal()" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
       </div>
 
       <form id="form-criar" class="flex flex-col gap-4">
@@ -257,7 +257,7 @@
     <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
         <h2 id="modal-label-titulo" class="font-semibold" style="color:var(--text-primary);">Nova Etiqueta</h2>
-        <button onclick="fecharModalLabel()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
+        <button onclick="fecharModalLabel()" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
       </div>
 
       <form id="form-label" class="flex flex-col gap-4">
@@ -269,8 +269,8 @@
         <div>
           <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Cor</label>
           <div class="flex items-center gap-2">
-            <input id="label-cor" type="color" value="#6366f1" required class="w-12 h-9 rounded cursor-pointer" style="background:var(--bg-base);border:1px solid var(--border);">
-            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#6366f1" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none font-mono" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);">
+            <input id="label-cor" type="color" value="#2481cc" required class="w-12 h-9 rounded cursor-pointer" style="background:var(--bg-base);border:1px solid var(--border);">
+            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#2481cc" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none font-mono" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);">
           </div>
         </div>
         <div>
@@ -293,7 +293,7 @@
     <div class="w-full max-w-md rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
         <h2 id="modal-canned-titulo" class="font-semibold" style="color:var(--text-primary);">Nova Resposta</h2>
-        <button onclick="fecharModalCanned()" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
+        <button onclick="fecharModalCanned()" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
       </div>
 
       <form id="form-canned" class="flex flex-col gap-4">
@@ -331,7 +331,7 @@
       <p id="modal-confirm-settings-body" class="text-xs mb-5" style="color:var(--text-secondary);"></p>
       <div class="flex gap-2 justify-end">
         <button id="modal-confirm-settings-cancel" class="px-4 py-2 rounded-lg text-xs font-medium" style="background:var(--bg-base);color:var(--text-secondary);border:1px solid var(--border);">Cancelar</button>
-        <button id="modal-confirm-settings-ok" class="px-4 py-2 rounded-lg text-xs font-medium text-white" style="background:var(--danger-text,#f85149);">Confirmar</button>
+        <button id="modal-confirm-settings-ok" class="px-4 py-2 rounded-lg text-xs font-medium text-white" style="background:var(--accent);">Confirmar</button>
       </div>
     </div>
   </div>
@@ -344,23 +344,23 @@
     const EU_NOME = localStorage.getItem('atendente_nome') || '';
     const TOKEN = localStorage.getItem('token');
 
-    function customConfirm(mensagem) {
+    function customConfirm(mensagem, titulo) {
       return new Promise(resolve => {
-        document.getElementById('modal-confirm-settings-body').textContent = mensagem;
         const modal = document.getElementById('modal-confirm-settings');
+        document.getElementById('modal-confirm-settings-body').textContent = mensagem;
+        if (titulo) document.getElementById('modal-confirm-settings-title').textContent = titulo;
         modal.classList.remove('hidden');
-        const onOk = () => { cleanup(); resolve(true); };
-        const onCancel = () => { cleanup(); resolve(false); };
-        const onOverlay = (e) => { if (e.target === modal) { cleanup(); resolve(false); } };
-        function cleanup() {
+        const okBtn = document.getElementById('modal-confirm-settings-ok');
+        const cancelBtn = document.getElementById('modal-confirm-settings-cancel');
+        function cleanup(result) {
           modal.classList.add('hidden');
-          document.getElementById('modal-confirm-settings-ok').removeEventListener('click', onOk);
-          document.getElementById('modal-confirm-settings-cancel').removeEventListener('click', onCancel);
-          modal.removeEventListener('click', onOverlay);
+          okBtn.onclick = null;
+          cancelBtn.onclick = null;
+          resolve(result);
         }
-        document.getElementById('modal-confirm-settings-ok').addEventListener('click', onOk);
-        document.getElementById('modal-confirm-settings-cancel').addEventListener('click', onCancel);
-        modal.addEventListener('click', onOverlay);
+        okBtn.onclick = () => cleanup(true);
+        cancelBtn.onclick = () => cleanup(false);
+        modal.addEventListener('click', e => { if (e.target === modal) cleanup(false); }, { once: true });
       });
     }
 
@@ -429,7 +429,7 @@
     }
 
     async function desativar(id) {
-      if (!await customConfirm('Desativar este atendente?')) return;
+      if (!await customConfirm('Desativar este atendente?', 'Desativar Atendente')) return;
       try {
         await req(`/admin/atendentes/${id}/desativar`, { method:'PATCH' });
         showMsg('Atendente desativado', 'success');
@@ -544,7 +544,7 @@
         const statusBadge = l.ativo
           ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Ativa</span>'
           : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--bg-card);color:var(--text-muted);">Inativa</span>';
-        const cor = l.cor || '#6366f1';
+        const cor = l.cor || '#2481cc';
         const acoes = `
           <button onclick='editarLabel(${JSON.stringify(l)})' class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--accent);">Editar</button>
           ${l.ativo
@@ -569,8 +569,8 @@
       document.getElementById('modal-label-titulo').textContent = 'Nova Etiqueta';
       document.getElementById('label-id-edit').value = '';
       document.getElementById('label-nome').value = '';
-      document.getElementById('label-cor').value = '#6366f1';
-      document.getElementById('label-cor-hex').value = '#6366f1';
+      document.getElementById('label-cor').value = '#2481cc';
+      document.getElementById('label-cor-hex').value = '#2481cc';
       document.getElementById('label-descricao').value = '';
       document.getElementById('modal-label-erro').classList.add('hidden');
       document.getElementById('label-nome').focus();
@@ -590,7 +590,7 @@
     }
 
     async function desativarLabel(id) {
-      if (!await customConfirm('Desativar etiqueta? Conversas mantêm a associação até serem editadas.')) return;
+      if (!await customConfirm('Desativar etiqueta? Conversas mantêm a associação até serem editadas.', 'Desativar Etiqueta')) return;
       try {
         await req(`/admin/labels/${id}`, { method: 'DELETE' });
         showMsg('Etiqueta desativada', 'success');
@@ -630,8 +630,8 @@
       }
       tbody.innerHTML = items.map(c => {
         const escopoBadge = c.atendente_id
-          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#1e3a8a;color:#60a5fa;">Pessoal</span>'
-          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#052e16;color:#10b981;">Global</span>';
+          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--accent-subtle);color:var(--accent);">Pessoal</span>'
+          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Global</span>';
         const podeEditar = !c.atendente_id || c.atendente_id === EU_ID;
         const acoes = podeEditar ? `
           <button onclick='editarCanned(${JSON.stringify(c)})' class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--accent);">Editar</button>
@@ -674,7 +674,7 @@
     }
 
     async function deletarCanned(id) {
-      if (!await customConfirm('Excluir esta resposta rápida?')) return;
+      if (!await customConfirm('Excluir esta resposta rápida?', 'Excluir Resposta')) return;
       try {
         await req(`/admin/canned/${id}`, { method: 'DELETE' });
         showMsg('Resposta excluída', 'success');
