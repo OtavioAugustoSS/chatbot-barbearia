@@ -1,15 +1,39 @@
 (function() {
   let _conectando = false;
+  let _retryDelay = 1000;   // ms — começa em 1s, dobra até 30s
+  let _retryCount = 0;
+  const _MAX_DELAY = 30000; // 30s
 
-  function _setStatus(ok) {
+  function _setStatus(ok, failed) {
     const dot   = document.getElementById('conn-status-dot');
     const label = document.getElementById('conn-status-label');
+    const headerDot = document.getElementById('sse-status-dot');
     if (dot) {
-      dot.className = ok
-        ? 'w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0'
-        : 'w-2 h-2 rounded-full bg-gray-500 animate-pulse flex-shrink-0';
+      dot.className = ok ? 'connected' : '';
+      dot.style.background = ok ? '' : '#6b7280';
     }
     if (label) label.textContent = ok ? 'Conectado' : 'Reconectando…';
+    if (headerDot) {
+      headerDot.classList.remove('reconnecting', 'failed');
+      headerDot.style.background = '';
+      if (ok) {
+        headerDot.style.background = 'var(--success-text)';
+      } else if (failed) {
+        headerDot.classList.add('failed');
+      } else {
+        headerDot.classList.add('reconnecting');
+      }
+    }
+  }
+
+  function _agendarReconexao() {
+    // Jitter ±20% para evitar thundering herd com múltiplos atendentes
+    const jitter = (_retryDelay * 0.2) * (Math.random() * 2 - 1);
+    const delay = Math.round(_retryDelay + jitter);
+    _retryCount++;
+    console.log(`[SSE] Reconectando em ${delay}ms (tentativa ${_retryCount})`);
+    _retryDelay = Math.min(_retryDelay * 2, _MAX_DELAY);
+    setTimeout(conectar, delay);
   }
 
   async function conectar() {
@@ -27,10 +51,14 @@
       }
       if (!res.ok || !res.body) {
         _conectando = false;
-        setTimeout(conectar, 3000);
+        _agendarReconexao();
         return;
       }
+      // Conexão bem-sucedida: reset backoff
       _setStatus(true);
+      _retryDelay = 1000;
+      _retryCount = 0;
+
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -52,9 +80,10 @@
     } catch(e) {
       console.warn('[SSE] caiu:', e);
     }
-    _setStatus(false);
+    const permanentlyFailed = _retryDelay >= _MAX_DELAY;
+    _setStatus(false, permanentlyFailed);
     _conectando = false;
-    setTimeout(conectar, 3000);
+    _agendarReconexao();
   }
 
   window.sse = { conectar };

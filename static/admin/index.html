@@ -970,7 +970,7 @@
     /* ===== RD-2: Metric cards (spec :92-117) ===== */
     #metric-cards { background: var(--bg-surface); }
     .metric-card {
-      background: #233138;
+      background: var(--bg-card);
       border: 1px solid var(--border-soft, #1a2329);
       border-radius: 10px;
       padding: 8px 10px;
@@ -999,15 +999,73 @@
       letter-spacing: 0.05em;
       font-weight: 500;
     }
-    #metric-aguardando { --metric-color: #ef4858; }
+    #metric-aguardando { --metric-color: var(--danger-text); }
     #metric-atendendo { --metric-color: #00a884; }
     #metric-bot { --metric-color: #2481cc; }
+
+    /* Gap 1: prefers-reduced-motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Gap 2: Toast slide animations */
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateX(100%); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toastSlideOut {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(100%); }
+    }
+    .toast-item {
+      animation: toastSlideIn 0.22s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .toast-item.toast-exit {
+      animation: toastSlideOut 0.18s ease-in both;
+    }
+
+    /* Gap 4: Skeleton messages */
+    .skeleton-msg { display: flex; gap: 8px; padding: 4px 16px; }
+    .skeleton-msg-bubble {
+      height: 40px; border-radius: 8px;
+      background: var(--bg-surface);
+      animation: skeletonPulse 1.4s ease-in-out infinite;
+    }
+    .skeleton-msg.incoming .skeleton-msg-bubble { width: 60%; }
+    .skeleton-msg.outgoing { flex-direction: row-reverse; }
+    .skeleton-msg.outgoing .skeleton-msg-bubble { width: 45%; }
+
+    /* Gap 5: cursor pointer on clickable non-button elements */
+    .conv-card { cursor: pointer; }
+    .filter-tab { cursor: pointer; }
+    .status-filter { cursor: pointer; }
+    .tag-option { cursor: pointer; }
+    .status-option { cursor: pointer; }
+    .snooze-preset { cursor: pointer; }
+
+    /* Gap 6: SSE status dot pulse states */
+    @keyframes ssePulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    #sse-status-dot.reconnecting {
+      background: var(--warning-text, #e9b884) !important;
+      animation: ssePulse 1s ease-in-out infinite;
+    }
+    #sse-status-dot.failed {
+      background: var(--danger-text, #f85149) !important;
+      animation: none;
+    }
   </style>
 </head>
 <body id="app-body" style="display:grid; grid-template-columns: 360px 1fr; height:100vh; overflow:hidden; background: var(--bg-base); font-family: 'Inter', sans-serif; color: var(--text-primary);">
 
   <!-- TOAST CONTAINER (fixo, canto inferior direito) -->
-  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <div id="toast-container" aria-live="polite" role="region" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- Mentions popover (floating, posicionado via JS) -->
   <div id="mentions-popover" class="hidden fixed z-50 rounded-lg shadow-xl w-80 max-h-96 overflow-y-auto custom-scrollbar" style="background: var(--bg-card); border: 1px solid var(--border); bottom: 64px; left: 16px;">
@@ -1050,7 +1108,10 @@
       <!-- Avatar do atendente (gradiente azul como no mockup) -->
       <div id="my-avatar" class="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white cursor-pointer" style="width:40px; height:40px; font-size:14px; background: linear-gradient(135deg, #2481cc, #1a5a8f);" title="Minha conta"></div>
       <div style="flex:1; min-width:0;">
-        <div id="sidebar-nome-operador" style="font-weight:600; font-size:15px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <div id="sidebar-nome-operador" style="font-weight:600; font-size:15px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+          <span id="sse-status-dot" title="Conexão em tempo real" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);display:inline-block;margin-left:4px;flex-shrink:0;"></span>
+        </div>
         <div style="font-size:12px; color:var(--text-secondary);">Atendente · Bolshoi</div>
       </div>
       <div style="display:flex; gap:4px;">
@@ -1138,8 +1199,14 @@
     <div id="bulk-bar" class="hidden flex items-center gap-2 px-3 py-2 text-xs" style="background: var(--accent); color: white;">
       <span id="bulk-count" class="font-semibold">0 selecionadas</span>
       <div class="flex-1"></div>
-      <button id="bulk-resolver" class="px-2 py-1 rounded hover:bg-white/20 transition-colors" title="Marcar como resolvidas">✓ Resolver</button>
-      <button id="bulk-snooze" class="px-2 py-1 rounded hover:bg-white/20 transition-colors" title="Adiar 24h">⏰ Adiar</button>
+      <button id="bulk-resolver" class="px-2 py-1 rounded hover:bg-white/20 transition-colors flex items-center gap-1" title="Marcar como resolvidas">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>
+        Resolver
+      </button>
+      <button id="bulk-snooze" class="px-2 py-1 rounded hover:bg-white/20 transition-colors flex items-center gap-1" title="Adiar 24h">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16 14"/></svg>
+        Adiar
+      </button>
       <!-- G7: Bulk Atribuir -->
       <div class="relative">
         <button id="bulk-atribuir-btn" class="text-xs px-3 py-1.5 rounded-lg font-medium hover:opacity-80" style="background:var(--bg-card);color:var(--text-secondary);border:1px solid var(--border);">Atribuir →</button>
@@ -1150,7 +1217,9 @@
         <button id="bulk-label-btn" class="text-xs px-3 py-1.5 rounded-lg font-medium hover:opacity-80" style="background:var(--bg-card);color:var(--text-secondary);border:1px solid var(--border);">Label →</button>
         <div id="bulk-label-dropdown" class="hidden absolute z-30 rounded-lg shadow-lg py-1 min-w-32" style="background:var(--bg-surface);border:1px solid var(--border);bottom:calc(100% + 4px);right:0;"></div>
       </div>
-      <button id="bulk-cancelar" class="px-2 py-1 rounded hover:bg-white/20 transition-colors" title="Cancelar seleção">✕</button>
+      <button id="bulk-cancelar" class="px-2 py-1 rounded hover:bg-white/20 transition-colors flex items-center justify-center" title="Cancelar seleção">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+      </button>
     </div>
 
     <!-- Conversation list -->
@@ -1264,9 +1333,18 @@
             </svg>
           </button>
           <div id="tag-popover" class="hidden absolute right-0 top-full mt-1 z-20 py-1 rounded-lg shadow-xl min-w-max" style="background: var(--bg-card); border: 1px solid var(--border);">
-            <button class="tag-option w-full px-4 py-2 text-left text-sm hover:bg-white/5 transition-colors" data-tag="resolvido" style="color: var(--success);">✓ Resolvido</button>
-            <button class="tag-option w-full px-4 py-2 text-left text-sm hover:bg-white/5 transition-colors" data-tag="follow_up" style="color: var(--warning);">↩ Follow-up</button>
-            <button class="tag-option w-full px-4 py-2 text-left text-sm hover:bg-white/5 transition-colors" data-tag="" style="color: var(--text-secondary);">✕ Remover tag</button>
+            <button class="tag-option w-full px-4 py-2 text-left text-sm hover:bg-white/5 transition-colors flex items-center gap-2" data-tag="resolvido" style="color: var(--success);">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>
+              Resolvido
+            </button>
+            <button class="tag-option w-full px-4 py-2 text-left text-sm hover:bg-white/5 transition-colors flex items-center gap-2" data-tag="follow_up" style="color: var(--warning);">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"/></svg>
+              Follow-up
+            </button>
+            <button class="tag-option w-full px-4 py-2 text-left text-sm hover:bg-white/5 transition-colors flex items-center gap-2" data-tag="" style="color: var(--text-secondary);">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+              Remover tag
+            </button>
           </div>
         </div>
 
