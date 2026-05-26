@@ -456,8 +456,8 @@ function _initInfoAccordion() {
 // Tag helpers
 // ============================================================
 function tagBadgeHTML(tag) {
-  if (tag === 'resolvido') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">✓ Resolvido</span>';
-  if (tag === 'follow_up') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#451a03;color:#f59e0b;">↩ Follow-up</span>';
+  if (tag === 'resolvido') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Resolvido</span>';
+  if (tag === 'follow_up') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#451a03;color:#f59e0b;">Follow-up</span>';
   return '';
 }
 
@@ -1013,7 +1013,7 @@ function resolverBolhaPendente(tempId, ok) {
   }
   // Atualiza ícone de entrega
   const statusSpan = el.querySelector('.entregue-status');
-  if (statusSpan) statusSpan.textContent = ok ? ' ✓' : ' ⚠';
+  if (statusSpan) statusSpan.innerHTML = ok ? _SVG_TICK_OK : _SVG_TICK_FAIL;
 }
 
 // ============================================================
@@ -2219,7 +2219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (val.startsWith('?')) {
       const q = val.substring(1).trim();
       state.searchMode = 'mensagem';
-      document.getElementById('btn-search-mode').textContent = '🔍 msg';
+      document.getElementById('btn-search-mode').textContent = 'msg';
       _searchTimer = setTimeout(() => executarSearchMensagem(q), 300);
     } else {
       state.searchMode = 'contato';
@@ -2380,7 +2380,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.remove();
       // Atualiza ícone de entrega para sucesso
       const statusSpan = bolha?.querySelector('.entregue-status');
-      if (statusSpan) statusSpan.textContent = ' ✓';
+      if (statusSpan) statusSpan.innerHTML = _SVG_TICK_OK;
       // Remove temp-id para não duplicar em SSE
       bolha?.removeAttribute('data-temp-id');
       carregarConversas();
@@ -2834,16 +2834,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // ============================================================
   // FE-2b: Command Palette (Ctrl+K / Cmd+K)
   // ============================================================
+  const _SVG = {
+    search:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    edit:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    check:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
+    clock:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    note:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    info:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    user:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    bot:      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/><line x1="9" y1="16" x2="9.01" y2="16"/><line x1="15" y1="16" x2="15.01" y2="16"/></svg>',
+    keyboard: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>',
+    chat:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  };
+
   const _paletteActions = [
-    { label: 'Buscar conversas', icon: '🔍', shortcut: '/', action: () => { document.getElementById('search-input')?.focus(); } },
-    { label: 'Focar compositor', icon: '✏️', shortcut: 'c', action: () => { document.getElementById('msg-input')?.focus(); } },
-    { label: 'Resolver conversa', icon: '✓', shortcut: 'e', action: () => alterarStatus('resolved') },
-    { label: 'Adiar conversa (snooze)', icon: '⏰', shortcut: 's', action: () => alterarStatus('snoozed') },
-    { label: 'Nova nota interna', icon: '📝', shortcut: 'n', action: () => { if (!state.infoAberto) abrirInfoPanel(); setTimeout(() => document.getElementById('note-input')?.focus(), 100); } },
-    { label: 'Painel de informações', icon: 'ℹ️', shortcut: 'i', action: () => { state.infoAberto ? fecharInfoPanel() : abrirInfoPanel(); } },
-    { label: 'Assumir conversa', icon: '👤', shortcut: '', action: () => { if (state.conversaAtual) assumirConversa(state.conversaAtual); } },
-    { label: 'Devolver ao bot', icon: '🤖', shortcut: '', action: () => { if (state.conversaAtual) devolverAoBot(state.conversaAtual); } },
-    { label: 'Atalhos de teclado', icon: '⌨️', shortcut: '?', action: () => document.getElementById('modal-shortcuts')?.classList.remove('hidden') },
+    { label: 'Buscar conversas', icon: _SVG.search, shortcut: '/', action: () => { document.getElementById('search-input')?.focus(); } },
+    { label: 'Focar compositor', icon: _SVG.edit, shortcut: 'c', action: () => { document.getElementById('msg-input')?.focus(); } },
+    { label: 'Resolver conversa', icon: _SVG.check, shortcut: 'e', action: () => alterarStatus('resolved') },
+    { label: 'Adiar conversa (snooze)', icon: _SVG.clock, shortcut: 's', action: () => alterarStatus('snoozed') },
+    { label: 'Nova nota interna', icon: _SVG.note, shortcut: 'n', action: () => { if (!state.infoAberto) abrirInfoPanel(); setTimeout(() => document.getElementById('note-input')?.focus(), 100); } },
+    { label: 'Painel de informações', icon: _SVG.info, shortcut: 'i', action: () => { state.infoAberto ? fecharInfoPanel() : abrirInfoPanel(); } },
+    { label: 'Assumir conversa', icon: _SVG.user, shortcut: '', action: () => { if (state.conversaAtual) assumirConversa(state.conversaAtual); } },
+    { label: 'Devolver ao bot', icon: _SVG.bot, shortcut: '', action: () => { if (state.conversaAtual) devolverAoBot(state.conversaAtual); } },
+    { label: 'Atalhos de teclado', icon: _SVG.keyboard, shortcut: '?', action: () => document.getElementById('modal-shortcuts')?.classList.remove('hidden') },
   ];
 
   let _paletteOpen = false;
@@ -2879,7 +2892,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const isAction = item.type === 'action';
       const label = isAction ? item.label : escapeHtml(item.nome);
-      const icon = isAction ? item.icon : '💬';
+      const icon = isAction ? item.icon : _SVG.chat;
       const shortcut = isAction && item.shortcut ? `<span class="cmd-item-shortcut">${item.shortcut}</span>` : '';
       const dataIdx = `data-pidx="${i}"`;
       return `<div class="cmd-item" ${dataIdx} role="option">${icon ? `<span class="cmd-item-icon">${icon}</span>` : ''}<span class="cmd-item-label">${label}</span>${shortcut}</div>`;

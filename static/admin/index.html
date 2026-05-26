@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bolshoi — Atendimento</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   <script>
     // Aplica tema antes do render para evitar flash
     (function() {
@@ -14,18 +16,22 @@
     })();
   </script>
   <style>
-    /* Tema escuro — paleta WhatsApp-dark do mockup Bolshoi */
+    /* Tema escuro — paleta OLED Bolshoi */
     :root, :root[data-theme="dark"] {
+      /* Tipografia */
+      --font-heading: 'Fira Code', monospace;
+      --font-body: 'Fira Sans', sans-serif;
+
       /* Estrutura de painéis */
-      --bg-base: #111b21;
-      --bg-surface: #202c33;
-      --bg-card: #2a3942;
-      --bg-card-hover: #3b4a54;
-      --bg-chat: #0b141a;
-      --bg-composer: #2a3942;
+      --bg-base: #0d1117;
+      --bg-surface: #13171e;
+      --bg-card: #1a2332;
+      --bg-card-hover: #21304a;
+      --bg-chat: #090e13;
+      --bg-composer: #1a2332;
 
       /* Bolhas */
-      --bg-bubble-client: #202c33;
+      --bg-bubble-client: #13171e;
       --bg-bubble-bot: #04473b;
       --bg-bubble-human: #2481cc;
 
@@ -50,9 +56,9 @@
       --text-primary: #e9edef;
       --text-secondary: #8696a0;
       --text-muted: #4a5568;
-      --border: #2a3942;
-      --border-soft: #1a2329;
-      --border-muted: #3b4a54;
+      --border: #1e2d42;
+      --border-soft: #0d1117;
+      --border-muted: #243450;
 
       /* Tokens semânticos de bolha (mockup) */
       --bubble-label-nome: #e9b884;
@@ -141,6 +147,14 @@
 
     * { box-sizing: border-box; }
 
+    /* Tipografia global */
+    body { font-family: var(--font-body, 'Fira Sans', sans-serif); }
+    h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading, 'Fira Code', monospace); }
+    kbd, code, .font-mono { font-family: var(--font-heading, 'Fira Code', monospace); }
+    .bolha-label, .filter-tab, .sidebar-nav-btn,
+    .waiting-badge, .conv-time, #thread-telefone,
+    .badge-count, [class*="badge"] { font-family: var(--font-heading, 'Fira Code', monospace); }
+
     /* Scrollbar customizado */
     .custom-scrollbar::-webkit-scrollbar { width: 5px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -166,6 +180,58 @@
       to   { transform: translateX(0); opacity: 1; }
     }
     .slide-in { animation: slideIn 0.3s cubic-bezier(0.16,1,0.3,1); }
+
+    /* === Animações aprimoradas === */
+    @keyframes modalEnter {
+      from { opacity: 0; transform: scale(0.95) translateY(-6px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes panelSlideIn {
+      from { opacity: 0; transform: translateX(14px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes staggerReveal {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes accentGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(36,129,204,0); }
+      50%       { box-shadow: 0 0 14px 3px rgba(36,129,204,0.18); }
+    }
+    @keyframes shimmerSlide {
+      from { background-position: -400px 0; }
+      to   { background-position: 400px 0; }
+    }
+
+    .modal-enter > div, .modal-enter > form { animation: modalEnter 0.22s var(--ease-out) both; }
+    .panel-slide-in { animation: panelSlideIn 0.22s var(--ease-out) both; }
+    .stagger-item { animation: staggerReveal 0.24s var(--ease-out) both; }
+    .stagger-item:nth-child(1) { animation-delay: 0ms; }
+    .stagger-item:nth-child(2) { animation-delay: 30ms; }
+    .stagger-item:nth-child(3) { animation-delay: 60ms; }
+    .stagger-item:nth-child(4) { animation-delay: 90ms; }
+    .stagger-item:nth-child(5) { animation-delay: 120ms; }
+
+    /* Active conv card: accent glow */
+    .conv-card.active-conv { animation: accentGlow 3s ease-in-out infinite; }
+
+    /* Skeleton shimmer */
+    .skeleton-shimmer {
+      background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
+      background-size: 800px 100%;
+      animation: shimmerSlide 1.4s ease-in-out infinite;
+    }
+
+    /* Botão micro-interaction */
+    button:not(:disabled):active { transform: scale(0.96); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
 
     /* Bolhas de mensagem — cores, direção, raios e labels */
     .bolha-incoming {
@@ -203,6 +269,8 @@
     #mobile-drawer-toggle { display: none; }
     /* Botão drawer no empty-state — oculto em desktop */
     #empty-state-drawer-toggle { display: none; }
+    /* SVG mobile-only icons: ocultos em desktop */
+    .btn-mobile-icon { display: none; }
 
     /* <1024px: conv-panel vira drawer overlay; grid colapsa para 1fr */
     @media (max-width: 1023px) {
@@ -243,9 +311,9 @@
       #thread-status { display: none; }
       /* Esconde labels de texto em botões de ação do header em mobile */
       #btn-devolver { font-size: 0; min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
-      #btn-devolver::after { content: "↩"; font-size: 14px; }
+      #btn-devolver .btn-mobile-icon { display: inline-block !important; width: 16px; height: 16px; font-size: initial; }
       #btn-interromper { font-size: 0; min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
-      #btn-interromper::after { content: "⏸"; font-size: 14px; }
+      #btn-interromper .btn-mobile-icon { display: inline-block !important; width: 16px; height: 16px; font-size: initial; }
       /* Composer area: padding menor */
       #composer-area { padding: var(--space-2) var(--space-3); }
       /* Touch targets mínimos 44px */
@@ -873,11 +941,60 @@
       display: block;
       font-size: 10px;
       font-weight: 700;
+      font-family: 'Fira Code', monospace;
       color: var(--text-secondary);
       text-align: center;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       margin-top: 2px;
+    }
+
+    /* === Design polish: OLED depth + Fira Code accent === */
+    /* Subtle gradient on sidebar */
+    #conv-panel-header {
+      background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-base) 100%) !important;
+    }
+    /* Stronger border contrast for panel dividers */
+    #thread-header {
+      border-bottom-color: var(--border) !important;
+      box-shadow: 0 1px 0 rgba(36,129,204,0.06);
+    }
+    /* Active conv: glowing left border + background */
+    .conv-card.active-conv {
+      border-left-color: var(--accent) !important;
+      background: linear-gradient(90deg, var(--accent-subtle) 0%, transparent 60%) !important;
+    }
+    /* Metric cards: subtle accent glow on hover */
+    [id^="metric-"] {
+      transition: transform var(--duration-fast) var(--ease-out),
+                  box-shadow var(--duration-fast) var(--ease-out);
+      cursor: pointer;
+    }
+    [id^="metric-"]:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(36,129,204,0.12);
+    }
+    /* Button hover glow for primary accent buttons */
+    button[style*="var(--accent)"]:not(:disabled):hover {
+      box-shadow: 0 0 0 3px rgba(36,129,204,0.2);
+    }
+    /* SSE status dot enhanced */
+    #sse-status-dot {
+      transition: background var(--duration-normal), box-shadow var(--duration-normal);
+    }
+    /* Kbd: Fira Code */
+    kbd {
+      font-family: 'Fira Code', monospace;
+      font-size: 10px;
+    }
+    /* Thread nome: Fira Code */
+    #thread-nome {
+      font-family: 'Fira Code', monospace;
+    }
+    /* Conv name */
+    .conv-name {
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
     }
 
     /* ===== FE-2b: Command Palette ===== */
@@ -897,14 +1014,16 @@
     .cmd-item-icon {
       width: 16px; height: 16px; flex-shrink: 0;
       color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center;
     }
+    .cmd-item-icon svg { width: 14px; height: 14px; }
     .cmd-item:hover .cmd-item-icon,
     .cmd-item.cmd-active .cmd-item-icon { color: var(--accent); }
     .cmd-item-label { flex: 1; }
     .cmd-item-shortcut {
       font-size: 11px;
       color: var(--text-muted);
-      font-family: monospace;
+      font-family: 'Fira Code', monospace;
     }
     .cmd-section-header {
       padding: 4px 16px 2px;
@@ -1081,7 +1200,7 @@
     <div class="w-full max-w-md rounded-xl p-6" style="background: var(--bg-card); border: 1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
         <h2 id="modal-shortcuts-title" class="font-semibold" style="color: var(--text-primary);">Atalhos de Teclado</h2>
-        <button id="close-shortcuts" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color: var(--text-secondary);">✕</button>
+        <button id="close-shortcuts" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5" style="color: var(--text-secondary);" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
       <div class="grid grid-cols-1 gap-2 text-sm" style="color: var(--text-primary);">
         <div class="flex items-center justify-between py-1.5 border-b" style="border-color: var(--border);"><span>Navegar conversas</span><div class="flex gap-1"><kbd class="px-2 py-0.5 rounded text-xs font-mono" style="background: var(--bg-base); border: 1px solid var(--border);">j</kbd><kbd class="px-2 py-0.5 rounded text-xs font-mono" style="background: var(--bg-base); border: 1px solid var(--border);">k</kbd></div></div>
@@ -1289,8 +1408,8 @@
       <div class="flex items-center gap-2 flex-shrink-0">
         <span id="thread-status" class="text-xs" style="color: var(--text-secondary);"></span>
         <button id="btn-assumir" data-tooltip="Assumir conversa" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--accent); color: white;">Assumir</button>
-        <button id="btn-interromper" data-tooltip="Interromper bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--warning-text, #d29922); color: #1a1a1a;">Interromper bot</button>
-        <button id="btn-devolver" data-tooltip="Devolver ao bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border);">Devolver ao bot</button>
+        <button id="btn-interromper" data-tooltip="Interromper bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--warning-text, #d29922); color: #1a1a1a;"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Interromper bot</button>
+        <button id="btn-devolver" data-tooltip="Devolver ao bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border);"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Devolver ao bot</button>
 
         <!-- Transferir dropdown -->
         <div class="relative">
