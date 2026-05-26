@@ -1216,9 +1216,10 @@ async function enviarMensagem() {
     return;
   }
 
-  // Auto-assume se esta conversa não estiver atribuída a mim
+  // Auto-assume se esta conversa não estiver atribuída a mim.
+  // Pular para mídia: backend /enviar-midia já faz auto-assume + saudação (evita dupla saudação US-AD-004).
   const naoAssumido = !state.usuarioAtual?.atendente_id || state.usuarioAtual.atendente_id !== state.eu?.id;
-  if (naoAssumido) {
+  if (naoAssumido && !state.attachedFile) {
     try {
       await api.assumir(state.conversaAtual);
       const data = await api.getConversa(state.conversaAtual);
@@ -2392,7 +2393,14 @@ document.addEventListener('DOMContentLoaded', () => {
   renderCannedPopover();
   document.getElementById('canned-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    document.getElementById('canned-popover')?.classList.toggle('hidden');
+    const popover = document.getElementById('canned-popover');
+    if (!popover) return;
+    popover.classList.toggle('hidden');
+    if (!popover.classList.contains('hidden')) {
+      const btnRect = document.getElementById('canned-btn').getBoundingClientRect();
+      popover.style.bottom = (window.innerHeight - btnRect.top + 8) + 'px';
+      popover.style.left = btnRect.left + 'px';
+    }
   });
 
   // G2/V14/US-093: mobile drawer toggle com hamburger animado e backdrop
