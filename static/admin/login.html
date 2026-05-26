@@ -3,103 +3,346 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — Barbearia Bolshoi</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Bolshoi — Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* === Design Tokens === */
+    :root {
+      --bg-base: #0d1117;
+      --bg-surface: #161b22;
+      --bg-card: #1c2128;
+      --bg-card-hover: #21262d;
+      --accent: #2481cc;
+      --accent-hover: #1a6fad;
+      --accent-subtle: rgba(36,129,204,0.12);
+      --accent-border: rgba(36,129,204,0.35);
+      --danger-text: #f85149;
+      --danger-subtle: rgba(248,81,73,0.12);
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #484f58;
+      --border: #21262d;
+      --border-muted: #30363d;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px;
+      --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+      --text-sm: 13px; --text-base: 14px; --text-xl: 18px;
+      --font-weight-medium: 500; --font-weight-semibold: 600;
+      --space-5: 20px; --space-6: 24px; --space-8: 32px;
+      --text-xs: 11px; --text-lg: 16px;
+      --radius-full: 9999px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.18);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.2);
+      --shadow-lg: 0 8px 28px rgba(0,0,0,0.38), 0 4px 8px rgba(0,0,0,0.22);
+      --duration-fast: 120ms; --duration-normal: 200ms; --duration-slow: 320ms;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     html, body {
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background-color: #0f1117;
-      color: #ffffff;
       min-height: 100vh;
     }
+
+    body {
+      background: var(--bg-base);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+    }
+
+    /* Autofill override */
     input:-webkit-autofill,
     input:-webkit-autofill:hover,
     input:-webkit-autofill:focus {
-      -webkit-text-fill-color: #ffffff;
-      -webkit-box-shadow: 0 0 0px 1000px #20232f inset;
+      -webkit-text-fill-color: var(--text-primary);
+      -webkit-box-shadow: 0 0 0px 1000px #1c2128 inset;
       transition: background-color 5000s ease-in-out 0s;
     }
-    .field {
-      background-color: #20232f;
-      border: 1px solid #2a2d3a;
-      color: #ffffff;
+
+    /* Split layout */
+    .login-left {
+      width: 42%;
+      background: linear-gradient(135deg, var(--accent-subtle) 0%, rgba(36,129,204,0.04) 100%);
+      border-right: 1px solid var(--border-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+      gap: 0;
     }
-    .field::placeholder { color: #6b7280; }
-    .field:focus {
+
+    .login-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px;
+    }
+
+    /* Form card */
+    .login-card {
+      width: 100%;
+      max-width: 360px;
+      animation: fadeSlideIn 0.4s var(--ease-out) both;
+    }
+    .login-card h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-semibold);
+      color: var(--text-primary);
+      margin-bottom: 8px;
+    }
+    .login-card p {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+
+    /* Input com ícone */
+    .input-group { position: relative; margin-bottom: 16px; }
+    .input-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); pointer-events: none;
+      width: 16px; height: 16px;
+    }
+    .input-field {
+      width: 100%; padding: 10px 12px 10px 38px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: var(--text-base);
+      font-family: inherit;
+      transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
       outline: none;
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
     }
-    .btn-primary {
-      background-color: #6366f1;
-      transition: background-color 0.15s ease;
+    .input-field::placeholder { color: var(--text-muted); }
+    .input-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-subtle);
     }
-    .btn-primary:hover:not(:disabled) { background-color: #4f52d4; }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-    .card {
-      background-color: #1a1d27;
-      border: 1px solid #2a2d3a;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+
+    /* Botão full-width */
+    .login-btn {
+      width: 100%; padding: 11px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      font-family: inherit;
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 8px;
+    }
+    .login-btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
+    .login-btn:active { transform: scale(0.98); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Spinner */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .login-btn.loading .spinner { display: block; }
+    .login-btn.loading .btn-text { display: none; }
+
+    /* Error */
+    .login-error {
+      font-size: var(--text-sm); color: var(--danger-text);
+      background: var(--danger-subtle);
+      border: 1px solid rgba(248,81,73,0.2);
+      border-radius: var(--radius-md);
+      padding: 10px 14px; margin-bottom: 16px;
+      display: none;
+    }
+    .login-error.show { display: block; }
+
+    /* Logo / Branding */
+    .brand-icon {
+      width: 72px; height: 72px;
+      border-radius: 20px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--accent-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      margin: 0 auto 20px;
+    }
+    .brand-name {
+      font-size: 24px; font-weight: 700;
+      color: var(--text-primary);
+      text-align: center; margin: 0 0 8px;
+    }
+    .brand-sub {
+      font-size: var(--text-base);
+      color: var(--text-secondary);
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.5;
+    }
+
+    /* Features list */
+    .features-list {
+      margin-top: 40px;
+      display: flex; flex-direction: column; gap: 16px;
+      max-width: 280px;
+    }
+    .feature-item {
+      display: flex; align-items: center; gap: 12px;
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    .feature-icon {
+      width: 32px; height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-subtle);
+      border: 1px solid var(--accent-border);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+
+    /* F2: Screen-reader only labels */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    /* Mobile: empilhado */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .login-left {
+        width: 100%;
+        padding: 40px 24px 32px;
+        border-right: none;
+        border-bottom: 1px solid var(--border-muted);
+      }
+      .login-right { padding: 32px 24px; }
+      .features-list { display: none; }
+      .brand-icon { width: 56px; height: 56px; border-radius: 14px; margin-bottom: 12px; }
+      .brand-name { font-size: 20px; }
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center px-4" style="background-color:#0f1117;">
+<body>
 
-  <main class="card w-full max-w-sm rounded-2xl" style="padding:40px;">
+  <!-- Painel esquerdo — branding -->
+  <div class="login-left">
+    <!-- LOGO PLACEHOLDER LOGIN: Substitua pelo seu logo real.
+         Exemplo: <img src="/static/admin/logo.svg" alt="Bolshoi" style="width:72px;height:72px;"> -->
+    <div class="brand-icon" id="logo-placeholder-login">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:36px;height:36px;">
+        <path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+        <path d="M12 7V5a2 2 0 00-4 0v2"/>
+        <circle cx="8.5" cy="12" r="1.5"/>
+        <path d="M15 10h2M15 14h2"/>
+      </svg>
+    </div>
+    <h1 class="brand-name">Barbearia Bolshoi</h1>
+    <p class="brand-sub">Painel de Atendimento WhatsApp</p>
 
-    <header class="text-center mb-8">
-      <h1 class="text-2xl font-bold text-white tracking-tight">Barbearia Bolshoi</h1>
-      <p class="text-sm text-gray-400 mt-1">Painel de Atendimento</p>
-    </header>
+    <ul class="features-list">
+      <li class="feature-item">
+        <div class="feature-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        </div>
+        Atendimento em tempo real via WhatsApp
+      </li>
+      <li class="feature-item">
+        <div class="feature-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        Handoff seguro entre bot e atendentes
+      </li>
+      <li class="feature-item">
+        <div class="feature-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        Histórico completo de conversas
+      </li>
+    </ul>
+  </div>
 
-    <form id="form-login" class="space-y-5" autocomplete="on">
+  <!-- Painel direito — formulário -->
+  <div class="login-right">
+    <div class="login-card">
+      <h2>Entrar</h2>
+      <p>Acesse o painel de atendimento</p>
 
-      <div>
-        <label for="usuario_login" class="block text-sm font-medium text-gray-300 mb-1.5">Usuário</label>
-        <input
-          type="text"
-          id="usuario_login"
-          name="usuario_login"
-          class="field w-full rounded-lg px-3.5 py-2.5 text-sm"
-          placeholder="seu.usuario"
-          autocomplete="username"
-          required
-          autofocus
-        >
-      </div>
+      <div id="login-error" class="login-error"></div>
 
-      <div>
-        <label for="senha" class="block text-sm font-medium text-gray-300 mb-1.5">Senha</label>
-        <input
-          type="password"
-          id="senha"
-          name="senha"
-          class="field w-full rounded-lg px-3.5 py-2.5 text-sm"
-          placeholder="••••••••"
-          autocomplete="current-password"
-          required
-        >
-      </div>
+      <form id="form-login" autocomplete="on">
+        <div class="input-group">
+          <label for="usuario_login" class="sr-only">Usuário</label>
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <input
+            id="usuario_login"
+            name="usuario_login"
+            type="text"
+            class="input-field"
+            placeholder="Usuário"
+            autocomplete="username"
+            required
+            autofocus
+          >
+        </div>
 
-      <button
-        type="submit"
-        id="btn-entrar"
-        class="btn-primary w-full text-white font-semibold rounded-lg py-2.5 text-sm"
-      >
-        Entrar
-      </button>
+        <div class="input-group">
+          <label for="senha" class="sr-only">Senha</label>
+          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <input
+            id="senha"
+            name="senha"
+            type="password"
+            class="input-field"
+            placeholder="Senha"
+            autocomplete="current-password"
+            required
+            style="padding-right: 40px;"
+          >
+          <button type="button" id="toggle-senha" aria-label="Mostrar senha"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-muted); padding:4px; display:flex; align-items:center; justify-content:center;">
+            <svg id="eye-show" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            <svg id="eye-hide" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+            </svg>
+          </button>
+        </div>
 
-      <div
-        id="erro-msg"
-        class="hidden text-sm text-red-200 bg-red-900/40 border border-red-800/60 rounded-lg px-3 py-2"
-      ></div>
-
-    </form>
-
-  </main>
+        <button type="submit" id="btn-entrar" class="login-btn">
+          <div class="spinner"></div>
+          <span class="btn-text">Entrar</span>
+        </button>
+      </form>
+    </div>
+  </div>
 
   <script>
     // Redirect se já está logado
@@ -111,19 +354,19 @@
     const inputUsr = document.getElementById('usuario_login');
     const inputPwd = document.getElementById('senha');
     const btn      = document.getElementById('btn-entrar');
-    const erroEl   = document.getElementById('erro-msg');
+    const erroEl   = document.getElementById('login-error');
 
     function mostrarErro(msg) {
       erroEl.textContent = msg;
-      erroEl.classList.remove('hidden');
+      erroEl.classList.add('show');
     }
 
     function ocultarErro() {
-      erroEl.classList.add('hidden');
+      erroEl.classList.remove('show');
       erroEl.textContent = '';
     }
 
-    // Enter no campo senha submete (já é default em form, mas garantia explícita)
+    // Enter no campo senha submete
     inputPwd.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -144,8 +387,7 @@
       }
 
       btn.disabled = true;
-      const labelOriginal = btn.textContent;
-      btn.textContent = 'Entrando…';
+      btn.classList.add('loading');
 
       try {
         const res = await fetch('/admin/login', {
@@ -161,7 +403,7 @@
             if (errJson && errJson.detail) detalhe = errJson.detail;
           } catch(_) {}
           mostrarErro(detalhe);
-          btn.textContent = labelOriginal;
+          btn.classList.remove('loading');
           setTimeout(() => { btn.disabled = false; }, 3000);
           return;
         }
@@ -174,8 +416,26 @@
 
       } catch (err) {
         mostrarErro('Erro de conexão. Tente novamente.');
-        btn.textContent = labelOriginal;
+        btn.classList.remove('loading');
         setTimeout(() => { btn.disabled = false; }, 3000);
+      }
+    });
+
+    // F6: Password show/hide toggle
+    document.getElementById('toggle-senha')?.addEventListener('click', () => {
+      const input = document.getElementById('senha');
+      const eyeShow = document.getElementById('eye-show');
+      const eyeHide = document.getElementById('eye-hide');
+      if (input.type === 'password') {
+        input.type = 'text';
+        eyeShow.style.display = 'none';
+        eyeHide.style.display = 'block';
+        document.getElementById('toggle-senha').setAttribute('aria-label', 'Esconder senha');
+      } else {
+        input.type = 'password';
+        eyeShow.style.display = 'block';
+        eyeHide.style.display = 'none';
+        document.getElementById('toggle-senha').setAttribute('aria-label', 'Mostrar senha');
       }
     });
   </script>

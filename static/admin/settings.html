@@ -8,34 +8,79 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root, :root[data-theme="dark"] {
-      --bg-base: #0f1117;
-      --bg-surface: #1a1d27;
-      --bg-card: #20232f;
-      --bg-card-hover: #272a38;
-      --accent: #6366f1;
-      --accent-hover: #4f52d4;
-      --success: #10b981;
-      --danger: #ef4444;
-      --text-primary: #e8eaf0;
-      --text-secondary: #8b90a0;
-      --text-muted: #555a6a;
-      --border: #2a2d3a;
+      --bg-base: #0d1117;
+      --bg-surface: #161b22;
+      --bg-card: #1c2128;
+      --bg-card-hover: #21262d;
+      --accent: #2481cc;
+      --accent-hover: #1a6fad;
+      --accent-subtle: rgba(36,129,204,0.12);
+      --accent-border: rgba(36,129,204,0.35);
+      --success: #238636;
+      --success-text: #3fb950;
+      --success-subtle: rgba(0,168,132,0.15);
+      --danger: #6e1c1c;
+      --danger-text: #f85149;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #484f58;
+      --border: #21262d;
+      --border-muted: #30363d;
+
+      /* Design System Tokens */
+      --space-1: 4px; --space-2: 8px; --space-3: 12px;
+      --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
+      --text-xs: 11px; --text-sm: 13px; --text-base: 14px; --text-lg: 16px; --text-xl: 18px;
+      --leading-tight: 1.3; --leading-normal: 1.5; --leading-relaxed: 1.62;
+      --font-weight-normal: 400; --font-weight-medium: 500; --font-weight-semibold: 600;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-full: 9999px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.18);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.2);
+      --shadow-lg: 0 8px 28px rgba(0,0,0,0.38), 0 4px 8px rgba(0,0,0,0.22);
+      --duration-fast: 120ms; --duration-normal: 200ms; --duration-slow: 320ms;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     :root[data-theme="light"] {
       --bg-base: #f8fafc;
       --bg-surface: #ffffff;
       --bg-card: #f1f5f9;
       --bg-card-hover: #e2e8f0;
-      --accent: #4f46e5;
-      --accent-hover: #4338ca;
+      --accent: #1a6fad;
+      --accent-hover: #145a9e;
+      --accent-subtle: rgba(26,111,173,0.10);
+      --accent-border: rgba(26,111,173,0.30);
       --success: #059669;
+      --success-text: #059669;
+      --success-subtle: rgba(5,150,105,0.15);
       --danger: #dc2626;
+      --danger-text: #dc2626;
       --text-primary: #0f172a;
       --text-secondary: #475569;
       --text-muted: #94a3b8;
       --border: #e2e8f0;
+      --border-muted: #cbd5e1;
+
+      --space-1: 4px; --space-2: 8px; --space-3: 12px;
+      --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
+      --text-xs: 11px; --text-sm: 13px; --text-base: 14px; --text-lg: 16px; --text-xl: 18px;
+      --leading-tight: 1.3; --leading-normal: 1.5; --leading-relaxed: 1.62;
+      --font-weight-normal: 400; --font-weight-medium: 500; --font-weight-semibold: 600;
+      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-full: 9999px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+      --duration-fast: 120ms; --duration-normal: 200ms;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     * { box-sizing: border-box; }
+
+    /* F4: Theme active state using CSS variables */
+    .theme-choice.theme-active {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-subtle);
+    }
   </style>
   <script>
     // Aplica tema antes do render para evitar flash
@@ -45,30 +90,21 @@
     })();
   </script>
 </head>
-<body class="flex h-screen overflow-hidden" style="background:var(--bg-base);font-family:'Inter',sans-serif;color:var(--text-primary);">
+<body class="flex flex-col h-screen overflow-hidden" style="background:var(--bg-base);font-family:'Inter',sans-serif;color:var(--text-primary);">
 
-  <!-- ICON SIDEBAR -->
-  <nav class="flex flex-col items-center py-4 gap-2 flex-shrink-0" style="width:64px;background:var(--bg-base);border-right:1px solid var(--border);">
-    <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm text-white mb-2" style="background:var(--accent);">BB</div>
-
-    <!-- Conversas -->
-    <button onclick="location.href='/static/admin/index.html'" class="w-10 h-10 rounded-xl flex items-center justify-center transition-colors hover:bg-white/5" style="color:var(--text-secondary);" title="Conversas">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 0 1-.825-.242m9.345-8.334a2.126 2.126 0 0 0-.476-.095 48.64 48.64 0 0 0-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0 0 11.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+  <!-- Top navigation bar replacing icon-rail (F3) -->
+  <div style="display:flex; align-items:center; gap:12px; padding:12px 24px; background:var(--bg-surface); border-bottom:1px solid var(--border); flex-shrink:0; position:sticky; top:0; z-index:10;">
+    <button onclick="location.href='/static/admin/index.html'"
+      style="display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:var(--radius-md); background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-size:13px; cursor:pointer; transition:background 0.12s;"
+      onmouseover="this.style.background='var(--bg-card)'" onmouseout="this.style.background='transparent'">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
       </svg>
+      Atendimento
     </button>
-
-    <!-- Settings (ativo) -->
-    <button class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#6366f120;color:var(--accent);" title="Configurações">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-      </svg>
-    </button>
-
-    <div class="flex-1"></div>
-    <div id="my-avatar" class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white cursor-pointer" style="background:#6c5ce7;"></div>
-  </nav>
+    <h1 style="font-size:15px; font-weight:600; color:var(--text-primary); flex:1;">Configurações</h1>
+    <div id="my-avatar-nav" style="width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, var(--accent), var(--accent-hover, #1a6fad)); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:white; flex-shrink:0; cursor:pointer;"></div>
+  </div>
 
   <!-- MAIN CONTENT -->
   <main class="flex-1 flex flex-col overflow-hidden" style="background:var(--bg-surface);">
@@ -165,11 +201,17 @@
           <h3 class="text-sm font-semibold mb-4" style="color:var(--text-primary);">Tema</h3>
           <p class="text-xs mb-4" style="color:var(--text-secondary);">Escolha entre tema escuro (padrão) e claro. A preferência é salva localmente neste navegador.</p>
           <div class="flex gap-3">
-            <button data-theme-choice="dark" class="theme-choice flex-1 px-4 py-6 rounded-lg text-sm font-medium transition-all" style="background:#0f1117;color:#e8eaf0;border:2px solid var(--border);">
-              🌙 Escuro
+            <button data-theme-choice="dark" class="theme-choice flex-1 px-4 py-6 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" style="background:#0f1117;color:#e8eaf0;border:2px solid var(--border);">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
+              </svg>
+              Escuro
             </button>
-            <button data-theme-choice="light" class="theme-choice flex-1 px-4 py-6 rounded-lg text-sm font-medium transition-all" style="background:#f8fafc;color:#0f172a;border:2px solid var(--border);">
-              ☀️ Claro
+            <button data-theme-choice="light" class="theme-choice flex-1 px-4 py-6 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2" style="background:#f8fafc;color:#0f172a;border:2px solid var(--border);">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+              </svg>
+              Claro
             </button>
           </div>
         </div>
@@ -282,6 +324,18 @@
     </div>
   </div>
 
+  <!-- MODAL: Confirmação genérica (F8) -->
+  <div id="modal-confirm-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-settings-title" style="background:rgba(0,0,0,0.7);">
+    <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
+      <h3 id="modal-confirm-settings-title" class="font-semibold text-sm mb-2" style="color:var(--text-primary);">Confirmar</h3>
+      <p id="modal-confirm-settings-body" class="text-xs mb-5" style="color:var(--text-secondary);"></p>
+      <div class="flex gap-2 justify-end">
+        <button id="modal-confirm-settings-cancel" class="px-4 py-2 rounded-lg text-xs font-medium" style="background:var(--bg-base);color:var(--text-secondary);border:1px solid var(--border);">Cancelar</button>
+        <button id="modal-confirm-settings-ok" class="px-4 py-2 rounded-lg text-xs font-medium text-white" style="background:var(--danger-text,#f85149);">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Auth guard
     if (!localStorage.getItem('token')) location.href = '/static/admin/login.html';
@@ -289,6 +343,26 @@
     const EU_ID = parseInt(localStorage.getItem('atendente_id') || '0');
     const EU_NOME = localStorage.getItem('atendente_nome') || '';
     const TOKEN = localStorage.getItem('token');
+
+    function customConfirm(mensagem) {
+      return new Promise(resolve => {
+        document.getElementById('modal-confirm-settings-body').textContent = mensagem;
+        const modal = document.getElementById('modal-confirm-settings');
+        modal.classList.remove('hidden');
+        const onOk = () => { cleanup(); resolve(true); };
+        const onCancel = () => { cleanup(); resolve(false); };
+        const onOverlay = (e) => { if (e.target === modal) { cleanup(); resolve(false); } };
+        function cleanup() {
+          modal.classList.add('hidden');
+          document.getElementById('modal-confirm-settings-ok').removeEventListener('click', onOk);
+          document.getElementById('modal-confirm-settings-cancel').removeEventListener('click', onCancel);
+          modal.removeEventListener('click', onOverlay);
+        }
+        document.getElementById('modal-confirm-settings-ok').addEventListener('click', onOk);
+        document.getElementById('modal-confirm-settings-cancel').addEventListener('click', onCancel);
+        modal.addEventListener('click', onOverlay);
+      });
+    }
 
     function authHeaders() {
       return { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
@@ -323,8 +397,8 @@
       tbody.innerHTML = atendentes.map(a => {
         const isEu = a.id === EU_ID;
         const statusBadge = a.ativo
-          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#052e16;color:#10b981;">Ativo</span>'
-          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#1c1917;color:#78716c;">Inativo</span>';
+          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Ativo</span>'
+          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--bg-card);color:var(--text-muted);">Inativo</span>';
         const ultimoLogin = a.ultimo_login ? new Date(a.ultimo_login).toLocaleString('pt-BR') : '—';
 
         const acoes = isEu
@@ -355,7 +429,7 @@
     }
 
     async function desativar(id) {
-      if (!confirm('Desativar este atendente?')) return;
+      if (!await customConfirm('Desativar este atendente?')) return;
       try {
         await req(`/admin/atendentes/${id}/desativar`, { method:'PATCH' });
         showMsg('Atendente desativado', 'success');
@@ -416,9 +490,9 @@
       document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
       document.getElementById(`tab-content-${tabName}`)?.classList.remove('hidden');
 
-      const btnAcao = document.getElementById('btn-acao-label');
-      if (btnAcao) {
-        btnAcao.textContent = tabName === 'atendentes' ? 'Novo Atendente'
+      const btnAcaoLabel = document.getElementById('btn-acao-label');
+      if (btnAcaoLabel) {
+        btnAcaoLabel.textContent = tabName === 'atendentes' ? 'Novo Atendente'
           : tabName === 'etiquetas' ? 'Nova Etiqueta'
           : 'Nova Resposta';
       }
@@ -436,8 +510,9 @@
       const atual = document.documentElement.getAttribute('data-theme') || 'dark';
       document.querySelectorAll('.theme-choice').forEach(b => {
         const ativo = b.dataset.themeChoice === atual;
-        b.style.borderColor = ativo ? 'var(--accent)' : 'var(--border)';
-        b.style.boxShadow = ativo ? '0 0 0 3px rgba(99, 102, 241, 0.2)' : 'none';
+        b.classList.toggle('theme-active', ativo);
+        b.style.borderColor = ativo ? '' : 'var(--border)';
+        b.style.boxShadow = ativo ? '' : 'none';
       });
     }
 
@@ -467,8 +542,8 @@
       }
       tbody.innerHTML = labels.map(l => {
         const statusBadge = l.ativo
-          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#052e16;color:#10b981;">Ativa</span>'
-          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:#1c1917;color:#78716c;">Inativa</span>';
+          ? '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Ativa</span>'
+          : '<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:var(--bg-card);color:var(--text-muted);">Inativa</span>';
         const cor = l.cor || '#6366f1';
         const acoes = `
           <button onclick='editarLabel(${JSON.stringify(l)})' class="text-xs px-2 py-1 rounded transition-colors hover:opacity-80" style="color:var(--accent);">Editar</button>
@@ -515,7 +590,7 @@
     }
 
     async function desativarLabel(id) {
-      if (!confirm('Desativar etiqueta? Conversas mantêm a associação até serem editadas.')) return;
+      if (!await customConfirm('Desativar etiqueta? Conversas mantêm a associação até serem editadas.')) return;
       try {
         await req(`/admin/labels/${id}`, { method: 'DELETE' });
         showMsg('Etiqueta desativada', 'success');
@@ -599,7 +674,7 @@
     }
 
     async function deletarCanned(id) {
-      if (!confirm('Excluir esta resposta rápida?')) return;
+      if (!await customConfirm('Excluir esta resposta rápida?')) return;
       try {
         await req(`/admin/canned/${id}`, { method: 'DELETE' });
         showMsg('Resposta excluída', 'success');
@@ -609,7 +684,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       // Avatar
-      const av = document.getElementById('my-avatar');
+      const av = document.getElementById('my-avatar-nav');
       if (av) { av.textContent = (EU_NOME||'?')[0].toUpperCase(); av.title = EU_NOME; }
 
       // Tabs
@@ -650,7 +725,9 @@
         const login = document.getElementById('modal-login').value.trim();
         const senha = document.getElementById('modal-senha').value;
         const erroEl = document.getElementById('modal-erro');
+        const submitBtn = e.target.querySelector('[type=submit]');
 
+        submitBtn.disabled = true;
         try {
           erroEl.classList.add('hidden');
           await req('/admin/atendentes', { method:'POST', body: JSON.stringify({nome, usuario_login: login, senha}) });
@@ -660,6 +737,8 @@
         } catch(e) {
           erroEl.textContent = e.message?.includes('409') ? 'Login já existe' : 'Erro ao criar atendente';
           erroEl.classList.remove('hidden');
+        } finally {
+          submitBtn.disabled = false;
         }
       });
 
@@ -671,7 +750,9 @@
         const cor = document.getElementById('label-cor-hex').value;
         const descricao = document.getElementById('label-descricao').value.trim() || null;
         const erroEl = document.getElementById('modal-label-erro');
+        const submitBtn = e.target.querySelector('[type=submit]');
 
+        submitBtn.disabled = true;
         try {
           erroEl.classList.add('hidden');
           if (id) {
@@ -686,6 +767,8 @@
         } catch(e) {
           erroEl.textContent = e.message?.includes('409') ? 'Já existe etiqueta com esse nome' : 'Erro ao salvar';
           erroEl.classList.remove('hidden');
+        } finally {
+          submitBtn.disabled = false;
         }
       });
 
@@ -697,7 +780,9 @@
         const texto = document.getElementById('canned-texto').value;
         const escopo = document.getElementById('canned-escopo').value;
         const erroEl = document.getElementById('modal-canned-erro');
+        const submitBtn = e.target.querySelector('[type=submit]');
 
+        submitBtn.disabled = true;
         try {
           erroEl.classList.add('hidden');
           const body = { atalho, texto, escopo };
@@ -713,6 +798,8 @@
         } catch(e) {
           erroEl.textContent = e.message?.includes('409') ? 'Atalho já existe' : 'Erro ao salvar';
           erroEl.classList.remove('hidden');
+        } finally {
+          submitBtn.disabled = false;
         }
       });
 
