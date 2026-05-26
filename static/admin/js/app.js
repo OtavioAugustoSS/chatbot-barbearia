@@ -19,6 +19,7 @@ const state = {
   muted: localStorage.getItem('atendente_mute') === '1',
   allLabels: [],           // catálogo global de labels disponíveis (carregado no init)
   bulkSelecionadas: new Set(),  // telefones selecionados em modo bulk
+  attachedFile: null,      // File pendente de envio como mídia
   eu: {
     id: parseInt(localStorage.getItem('atendente_id') || '0'),
     nome: localStorage.getItem('atendente_nome') || ''
@@ -1126,31 +1127,31 @@ function syncComposerState(u) {
     if (msgInput) msgInput.disabled = true;
     if (sendBtn) sendBtn.disabled = true;
   } else if (u.aguardando_humano) {
-    // Aguardando humano
+    // Aguardando humano — compositor desbloqueado, enviar assume automaticamente
     if (threadStatus) threadStatus.textContent = 'Aguardando atendimento';
     btnAssumir?.classList.remove('hidden');
     if (banner) {
-      banner.textContent = 'Cliente aguardando atendimento humano. Clique em "Assumir" para responder.';
+      banner.textContent = 'Cliente aguardando atendimento — enviar mensagem vai assumir automaticamente.';
       banner.classList.remove('hidden');
     }
-    if (msgInput) msgInput.disabled = true;
-    if (sendBtn) sendBtn.disabled = true;
+    if (msgInput) { msgInput.disabled = false; }
+    if (sendBtn) sendBtn.disabled = false;
   } else if (u.bot_ativo) {
-    // Bot ativo
+    // Bot ativo — compositor desbloqueado, enviar interrompe e assume
     if (threadStatus) threadStatus.textContent = 'Bot ativo';
     btnInterromper?.classList.remove('hidden');
     if (banner) {
-      banner.textContent = 'O bot está respondendo. Clique em "Interromper bot" para assumir.';
+      banner.textContent = 'Bot ativo — enviar vai interrompê-lo e assumir automaticamente.';
       banner.classList.remove('hidden');
     }
-    if (msgInput) msgInput.disabled = true;
-    if (sendBtn) sendBtn.disabled = true;
+    if (msgInput) { msgInput.disabled = false; }
+    if (sendBtn) sendBtn.disabled = false;
   } else {
-    // Bot inativo, sem atendente
+    // Bot inativo, sem atendente — compositor desbloqueado, enviar assume
     if (threadStatus) threadStatus.textContent = 'Bot inativo';
     btnAssumir?.classList.remove('hidden');
-    if (msgInput) msgInput.disabled = true;
-    if (sendBtn) sendBtn.disabled = true;
+    if (msgInput) { msgInput.disabled = false; }
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 
@@ -1195,18 +1196,74 @@ async function devolverAoBot(telefone) {
 // ============================================================
 // Enviar mensagem (optimistic UI)
 // ============================================================
+function _limparAttach() {
+  state.attachedFile = null;
+  const inp = document.getElementById('attach-input');
+  if (inp) inp.value = '';
+  const area = document.getElementById('attach-preview-area');
+  if (area) { area.classList.remove('visible'); area.innerHTML = ''; }
+}
+
 async function enviarMensagem() {
   const input = document.getElementById('msg-input');
   const texto = input?.value.trim();
-  if (!texto || !state.conversaAtual) return;
+  if (!texto && !state.attachedFile) return;
+  if (!state.conversaAtual) return;
 
+  // Validação de tamanho de arquivo
+  if (state.attachedFile && state.attachedFile.size > 16 * 1024 * 1024) {
+    showToast('Arquivo muito grande (máx 16MB)', 'error');
+    return;
+  }
+
+  // Auto-assume se esta conversa não estiver atribuída a mim
+  const naoAssumido = !state.usuarioAtual?.atendente_id || state.usuarioAtual.atendente_id !== state.eu?.id;
+  if (naoAssumido) {
+    try {
+      await api.assumir(state.conversaAtual);
+      const data = await api.getConversa(state.conversaAtual);
+      if (data) {
+        state.usuarioAtual = data.usuario;
+        atualizarHeaderThread(data.usuario);
+        syncComposerState(data.usuario);
+      }
+      carregarConversas();
+    } catch(e) {
+      const msg = e.message || String(e);
+      showToast(msg.includes('409') ? 'Outro atendente assumiu primeiro' : 'Não foi possível assumir conversa', 'error');
+      return;
+    }
+  }
+
+  if (state.attachedFile) {
+    // Envio de mídia
+    const arquivo = state.attachedFile;
+    const caption = texto || '';
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn) sendBtn.disabled = true;
+    try {
+      const fd = new FormData();
+      fd.append('file', arquivo);
+      fd.append('caption', caption);
+      await api.enviarMidia(state.conversaAtual, fd);
+      _limparAttach();
+      if (input) { input.value = ''; input.style.height = 'auto'; }
+      _salvarDraft(state.conversaAtual, '');
+      carregarConversas();
+    } catch(e) {
+      showToast('Falha ao enviar arquivo', 'error');
+    } finally {
+      if (sendBtn) sendBtn.disabled = false;
+    }
+    return;
+  }
+
+  // Envio de texto normal
   const tempId = `tmp-${Date.now()}`;
   input.value = '';
   input.style.height = 'auto';
-  // G4b: limpa draft ao enviar com sucesso
   _salvarDraft(state.conversaAtual, '');
 
-  // Bolha pendente (sem entregue confirmado)
   appendMensagemIncremental(texto, 'humano', null, tempId);
 
   try {
@@ -2216,6 +2273,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('search-input')?.addEventListener('input', (e) => {
     const val = e.target.value;
     clearTimeout(_searchTimer);
+    // Mostrar/ocultar clear button
+    const clearBtn = document.getElementById('search-clear-btn');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !val);
     if (val.startsWith('?')) {
       const q = val.substring(1).trim();
       state.searchMode = 'mensagem';
@@ -2228,6 +2288,19 @@ document.addEventListener('DOMContentLoaded', () => {
       state.searchResults = [];
       renderConvList();
     }
+  });
+
+  document.getElementById('search-clear-btn')?.addEventListener('click', () => {
+    const inp = document.getElementById('search-input');
+    if (!inp) return;
+    inp.value = '';
+    document.getElementById('search-clear-btn')?.classList.add('hidden');
+    document.getElementById('btn-search-mode').textContent = '@';
+    state.searchMode = 'contato';
+    state.searchQuery = '';
+    state.searchResults = [];
+    renderConvList();
+    inp.focus();
   });
 
   // Toggle de modo via clique no botão
@@ -2491,6 +2564,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Btn enviar
   document.getElementById('send-btn')?.addEventListener('click', enviarMensagem);
+
+  // Attach: abrir seletor de arquivo
+  document.getElementById('attach-btn')?.addEventListener('click', () => {
+    document.getElementById('attach-input')?.click();
+  });
+
+  // Attach: arquivo selecionado → mostrar preview
+  document.getElementById('attach-input')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    state.attachedFile = file;
+    const area = document.getElementById('attach-preview-area');
+    if (!area) return;
+    area.innerHTML = '';
+    area.classList.add('visible');
+
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.className = 'attach-preview-img';
+      img.src = URL.createObjectURL(file);
+      img.alt = file.name;
+      area.appendChild(img);
+    }
+    // chip com nome sempre visível
+    const chip = document.createElement('div');
+    chip.className = 'attach-preview-chip';
+    chip.innerHTML = `<span title="${file.name}">${file.name}</span><button class="chip-remove" aria-label="Remover arquivo">&times;</button>`;
+    chip.querySelector('.chip-remove').addEventListener('click', _limparAttach);
+    area.appendChild(chip);
+  });
 
   // Nota: salvar / editar
   document.getElementById('note-save-btn')?.addEventListener('click', async () => {

@@ -230,4 +230,16 @@ window.api = {
   // ===== Search =====
   searchMensagens: (q, limit = 50) =>
     _req(`/admin/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+
+  // ===== Mídia =====
+  enviarMidia: async (telefone, formData) => {
+    const resp = await fetch(`/admin/enviar-midia/${encodeURIComponent(telefone)}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+      body: formData
+    });
+    if (resp.status === 401) { _logout(); throw new ApiError(401, 'Sessão expirada', '/admin/enviar-midia'); }
+    if (!resp.ok) throw new ApiError(resp.status, await resp.text(), `/admin/enviar-midia/${telefone}`);
+    return resp.json();
+  },
 };

@@ -996,11 +996,28 @@ def enviar_midia(
         raise HTTPException(404, "Usuário não encontrado")
     if usuario.atendente_id and usuario.atendente_id != me.id:
         raise HTTPException(403, "Conversa pertence a outro atendente")
+    auto_assumiu = False
     if not usuario.atendente_id:
         usuario.bot_ativo = False
         usuario.aguardando_humano = False
         usuario.atendente_id = me.id
+        usuario.status_conversa = "open"
         db.commit()
+        auto_assumiu = True
+        aviso = f"👋 Olá! Sou {me.nome}, do atendimento da Barbearia Bolshoi. Vou te ajudar a partir de agora."
+        ok_aviso = whatsapp.enviar_mensagem_texto(telefone, aviso)
+        db.add(HistoricoConversa(
+            telefone_usuario=telefone,
+            mensagem_cliente=None,
+            resposta_bot=aviso,
+            origem="humano",
+            atendente_id=me.id,
+            entregue=bool(ok_aviso),
+        ))
+        db.commit()
+        notificador.publicar({"tipo": "atendente_assumiu", "telefone": telefone, "atendente_id": me.id, "atendente_nome": me.nome})
+        notificador.publicar({"tipo": "status_alterado", "telefone": telefone, "status": "open", "snoozed_until": None, "por_atendente_id": me.id})
+        notificador.publicar({"tipo": "nova_mensagem", "telefone": telefone, "nome": usuario.nome_cliente, "texto": aviso, "origem": "humano", "atendente_id": me.id, "entregue": bool(ok_aviso)})
 
     try:
         media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")

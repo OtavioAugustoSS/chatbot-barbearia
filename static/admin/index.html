@@ -636,6 +636,24 @@
     #send-btn:hover { transform: scale(1.08); background: var(--accent-hover); }
     #send-btn:active { transform: scale(0.95); }
     #send-btn:disabled { background: var(--bg-card); opacity: 0.4; transform: none; }
+    #attach-btn { color: var(--text-secondary); }
+    #attach-btn:hover { background: rgba(255,255,255,0.05); }
+    #attach-preview-area { display: none; }
+    #attach-preview-area.visible { display: flex; }
+    .attach-preview-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 10px;
+      font-family: 'Fira Code', monospace; font-size: 11px; color: var(--text-primary);
+      max-width: 200px; overflow: hidden;
+    }
+    .attach-preview-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attach-preview-chip .chip-remove {
+      flex-shrink: 0; cursor: pointer; color: var(--text-muted);
+      background: none; border: none; padding: 0; line-height: 1; font-size: 14px;
+    }
+    .attach-preview-chip .chip-remove:hover { color: var(--text-primary); }
+    .attach-preview-img { max-height: 64px; border-radius: var(--radius-lg); object-fit: cover; cursor: pointer; }
 
     /* ===== V8: Info Panel Accordion e Note Cards ===== */
     .info-section { border-bottom: 1px solid var(--border); }
@@ -792,14 +810,12 @@
       font-weight: 600;
       color: var(--text-primary);
     }
-    #search-input {
-      background: var(--bg-card) !important;
-      border: none !important;
-      border-radius: var(--radius-lg) !important;
-      height: 35px;
-      font-size: 13px;
+    .search-wrapper:focus-within {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-subtle);
     }
-    #search-input::placeholder { color: var(--text-secondary); }
+    #search-input::placeholder { color: var(--text-muted); }
+    #search-clear-btn:not(.hidden) { display: flex; }
     #filter-tabs { background: var(--bg-surface); }
     #status-filter-row { background: var(--bg-surface) !important; }
     .active-status {
@@ -1253,17 +1269,15 @@
       </div>
     </div>
 
-    <!-- Search row (spec .search-row) -->
-    <div id="conv-search-row" style="padding: 8px 12px; display:flex; gap:6px; align-items:center; border-bottom: 1px solid var(--border-soft, #1a2329);">
-      <div style="flex:1; height:36px; background:var(--bg-base); border-radius:8px; padding:0 12px; display:flex; align-items:center; gap:10px;">
-        <svg style="width:16px;height:16px;flex-shrink:0;color:var(--text-secondary);" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-        </svg>
-        <input id="search-input" type="text" placeholder="Buscar conversa…" aria-label="Buscar conversas" style="flex:1; height:100%; font-size:14px; background:transparent; border:none; outline:none; color:var(--text-primary);" />
-      </div>
-      <div style="display:flex; align-items:center; gap:4px;">
-        <button id="btn-search-mode" type="button" class="sidebar-nav-btn" title="Modo: contato | mensagem (prefixo ?)">@</button>
-        <span id="badge-total" class="text-xs px-2 py-0.5 rounded-full font-medium" style="background: var(--bg-card); color: var(--text-secondary);"></span>
+    <!-- Search row -->
+    <div id="conv-search-row" class="flex items-center gap-2 px-3 py-2 flex-shrink-0" style="border-bottom: 1px solid var(--border);">
+      <div class="search-wrapper flex-1 flex items-center gap-1 relative" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);height:36px;transition:border-color 0.15s,box-shadow 0.15s;">
+        <svg class="search-icon" style="position:absolute;left:10px;width:14px;height:14px;color:var(--text-muted);pointer-events:none;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <button id="btn-search-mode" title="Alternar modo busca: @ contato | msg mensagem" style="position:absolute;left:30px;font-family:'Fira Code',monospace;font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-subtle);border:none;border-radius:4px;padding:1px 5px;cursor:pointer;flex-shrink:0;">@</button>
+        <input id="search-input" type="text" placeholder="Buscar…" autocomplete="off" aria-label="Buscar conversas" style="flex:1;background:transparent;border:none;outline:none;padding:0 30px 0 60px;font-size:13px;color:var(--text-primary);height:100%;font-family:'Fira Sans',sans-serif;">
+        <button id="search-clear-btn" aria-label="Limpar busca" class="hidden" style="position:absolute;right:8px;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:none;background:var(--text-muted);color:var(--bg-base);cursor:pointer;font-size:10px;font-weight:700;flex-shrink:0;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
     </div>
 
@@ -1484,8 +1498,21 @@
       <!-- Banner contextual -->
       <div id="composer-banner" class="hidden px-4 py-2 text-xs font-medium text-center" style="background: var(--bg-card); color: var(--text-secondary); border-bottom: 1px solid var(--border);"></div>
 
+      <!-- Attach preview area -->
+      <div id="attach-preview-area" style="flex-wrap:wrap;gap:8px;padding:8px 12px;background:var(--bg-composer);border-top:1px solid var(--border);"></div>
+
+      <!-- Hidden file input -->
+      <input type="file" id="attach-input" accept="image/*,.pdf,audio/ogg,audio/mpeg,audio/aac,video/mp4" class="hidden" style="display:none;">
+
       <!-- Input area -->
       <div class="flex items-end gap-2 p-3">
+        <!-- Attach button -->
+        <button id="attach-btn" aria-label="Anexar arquivo" class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white/5 flex-shrink-0" style="color: var(--text-secondary);" title="Anexar arquivo">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+
         <!-- Canned responses trigger -->
         <div class="relative flex-shrink-0">
           <button id="canned-btn" data-tooltip="Respostas rápidas (/)" class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white/5" style="color: var(--text-secondary);" title="Respostas rápidas">
