@@ -808,6 +808,9 @@ function _timestampCompleto(iso) {
   } catch(_) { return iso; }
 }
 
+const _SVG_TICK_OK   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const _SVG_TICK_FAIL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
 function bolha(texto, origem, criado_em, opts = {}) {
   const isCliente = origem === 'cliente';
   const isHumano  = origem === 'humano';
@@ -835,9 +838,6 @@ function bolha(texto, origem, criado_em, opts = {}) {
     labelTxt = `${_ICO_BOT} Bolshoi Bot`;
   }
 
-  // Ticks: exact paths from comp1.jsx (spec); only check (1-tick) since backend has no "lido" flag
-  const _SVG_TICK_OK   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-  const _SVG_TICK_FAIL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
   const entregueIcon = opts.entregue === false ? _SVG_TICK_FAIL : (opts.entregue === true ? _SVG_TICK_OK : '');
 
   const textoEscapado = escapeHtml(texto).replace(/\n/g, '<br>');
@@ -2279,11 +2279,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (val.startsWith('?')) {
       const q = val.substring(1).trim();
       state.searchMode = 'mensagem';
-      document.getElementById('btn-search-mode').textContent = 'msg';
+      const modeBtn = document.getElementById('btn-search-mode');
+      if (modeBtn) modeBtn.textContent = 'msg';
       _searchTimer = setTimeout(() => executarSearchMensagem(q), 300);
     } else {
       state.searchMode = 'contato';
-      document.getElementById('btn-search-mode').textContent = '@';
+      const modeBtn = document.getElementById('btn-search-mode');
+      if (modeBtn) modeBtn.textContent = '@';
       state.searchQuery = val.trim();
       state.searchResults = [];
       renderConvList();
@@ -2295,7 +2297,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!inp) return;
     inp.value = '';
     document.getElementById('search-clear-btn')?.classList.add('hidden');
-    document.getElementById('btn-search-mode').textContent = '@';
+    const modeBtn2 = document.getElementById('btn-search-mode');
+    if (modeBtn2) modeBtn2.textContent = '@';
     state.searchMode = 'contato';
     state.searchQuery = '';
     state.searchResults = [];

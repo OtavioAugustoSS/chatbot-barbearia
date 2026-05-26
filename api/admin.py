@@ -13,7 +13,7 @@ from typing import Optional, Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, text
 
 
@@ -395,6 +395,7 @@ def ver_conversa(
 
     msgs = (
         db.query(HistoricoConversa)
+        .options(joinedload(HistoricoConversa.atendente))
         .filter(HistoricoConversa.telefone_usuario == telefone)
         .order_by(HistoricoConversa.criado_em.asc())
         .limit(500)
@@ -425,6 +426,7 @@ def ver_conversa(
                 "resposta": m.resposta_bot,
                 "origem": m.origem or "bot",
                 "atendente_id": m.atendente_id,
+                "atendente_nome": m.atendente.nome if m.atendente else None,
                 "entregue": m.entregue,
                 "criado_em": _iso_utc(m.criado_em),
             }
