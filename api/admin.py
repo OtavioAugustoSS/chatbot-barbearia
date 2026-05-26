@@ -463,6 +463,8 @@ def assumir(
                 # Normaliza status: ao assumir, conversa precisa aparecer no filtro
                 # padrão "open" do dashboard, independentemente de estar resolved/snoozed antes (PO).
                 "status_conversa": "open",
+                # US-AD-012: snoozed_until deve ser limpo — estado inconsistente se mantido.
+                "snoozed_until": None,
             },
             synchronize_session=False,
         )
@@ -1642,6 +1644,14 @@ async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), 
     a.ativo = False
     # Libera conversas abertas do atendente desativado para evitar que clientes
     # fiquem em limbo (bot_ativo=False sem atendente ativo).
+    # US-AD-010: busca telefones afetados antes do UPDATE para publicar SSE depois.
+    telefones_afetados = [
+        row.telefone
+        for row in db.query(Usuario.telefone).filter(
+            Usuario.atendente_id == atendente_id,
+            Usuario.bot_ativo == False,
+        ).all()
+    ]
     db.query(Usuario).filter(
         Usuario.atendente_id == atendente_id,
         Usuario.bot_ativo == False,
@@ -1650,10 +1660,22 @@ async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), 
             "atendente_id": None,
             "bot_ativo": True,
             "aguardando_humano": False,
+            "status_conversa": "open",
+            "snoozed_until": None,
         },
         synchronize_session=False,
     )
     db.commit()
+    # US-AD-010: notifica dashboard para cada conversa liberada.
+    for tel in telefones_afetados:
+        notificador.publicar({"tipo": "bot_devolveu", "telefone": tel})
+        notificador.publicar({
+            "tipo": "status_alterado",
+            "telefone": tel,
+            "status": "open",
+            "snoozed_until": None,
+            "por_atendente_id": None,
+        })
     return {"ok": True}
 
 
