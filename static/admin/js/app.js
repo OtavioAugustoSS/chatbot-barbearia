@@ -2373,9 +2373,12 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('tag-popover')?.classList.add('hidden');
     });
   });
-  document.addEventListener('click', () => {
+  document.addEventListener('click', (e) => {
     document.getElementById('tag-popover')?.classList.add('hidden');
-    document.getElementById('canned-popover')?.classList.add('hidden');
+    const pop = document.getElementById('canned-popover');
+    if (pop && !pop.classList.contains('hidden') && !pop.contains(e.target) && e.target.id !== 'canned-btn') {
+      pop.classList.add('hidden');
+    }
   });
 
   // Mute
@@ -2395,11 +2398,15 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
     const popover = document.getElementById('canned-popover');
     if (!popover) return;
-    popover.classList.toggle('hidden');
-    if (!popover.classList.contains('hidden')) {
-      const btnRect = document.getElementById('canned-btn').getBoundingClientRect();
-      popover.style.bottom = (window.innerHeight - btnRect.top + 8) + 'px';
-      popover.style.left = btnRect.left + 'px';
+    const isHidden = popover.classList.contains('hidden');
+    if (isHidden) {
+      const btn = document.getElementById('canned-btn');
+      const rect = btn.getBoundingClientRect();
+      popover.style.left = rect.left + 'px';
+      popover.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+      popover.classList.remove('hidden');
+    } else {
+      popover.classList.add('hidden');
     }
   });
 
@@ -2543,6 +2550,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const pop = document.getElementById('canned-popover');
       if (match && pop) {
         renderCannedPopover(match[2]);
+        if (pop.classList.contains('hidden')) {
+          const cannedBtn = document.getElementById('canned-btn');
+          if (cannedBtn) {
+            const rect = cannedBtn.getBoundingClientRect();
+            pop.style.left = rect.left + 'px';
+            pop.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+          }
+        }
         pop.classList.remove('hidden');
       } else if (pop && !pop.classList.contains('hidden')) {
         // Fecha se não há atalho ativo

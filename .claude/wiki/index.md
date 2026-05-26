@@ -36,6 +36,7 @@
 - [ADR-009: Atomicidade Parcial em Bulk Actions e Ordem de SSE](decisions/ADR-009-bulk-action-atomicity.md) — architect — documenta comportamento intencional de atomicidade parcial no bulk_acao; addendum ADR-005 sobre bulk_aplicado com falhas parciais
 - [ADR-010: Tratamento de Exceções em Background Tasks do Webhook](decisions/ADR-010-background-task-exception-handling.md) — architect — política de captura de exceção raiz em tarefa_em_segundo_plano_ia; documenta risco de starvation de lock e mitigação futura (TD-013)
 - [ADR-011: Ausência de RBAC nos Endpoints Admin](decisions/ADR-011-rbac-absence-admin-endpoints.md) — architect — documenta 5 categorias de endpoints sem restrição de role; aceita débito com mitigações compensatórias; define critérios para implementar RBAC
+- [ADR-012: Fix Compositor Layout + Mídia Async + Assume/Devolver Gaps](decisions/ADR-012-compositor-layout-midia-async.md) — architect — 5 decisões: renomear CSS #composer-area→#composer (D1); mídia endpoint sync confirmado correto (D2); canned popover position:fixed+JS (D3); remover double border attach-preview (D4); uniformizar botões compositor 36px (D5)
 
 ## Análises Técnicas (Architect)
 
@@ -55,6 +56,7 @@
 ## User Stories (PO)
 - [US-GAP-01: Reativar Atendente Desativado](../docs/user-stories/US-GAP-01-reativar-atendente.md) — PO — backend IMPLEMENTADO (SP-2); CA-07 frontend PENDENTE (botao na UI de gestao de atendentes)
 - [US-GAP-02: Mensagem de Contexto apos Reativacao por Timeout](../docs/user-stories/US-GAP-02-reativacao-timeout.md) — PO — derivada de BR-011/GAP-08; backend PENDENTE; necessita migration + logica em webhook.py
+- [US-AD-001 a US-AD-015: User Stories Assume/Devolver](../docs/user-stories/assume-devolver-US.md) — PO — 15 cenarios de handoff humano-bot; 1 bug (snoozed_until) + 5 gaps documentados
 
 ## Releases
 - [Release 0.1.0](../docs/release/0_1_0.md) — lead — Sprint 0.1.0: 5 backend quick wins + 5 frontend quick wins + 2 sprint items + 8 ADRs + 5 BRs
