@@ -10,7 +10,7 @@ import re
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -963,6 +963,72 @@ def enviar(
         "entregue": bool(ok),
     })
     return {"status": "ok", "entregue": bool(ok)}
+
+
+_MIME_PARA_TIPO: dict[str, str] = {
+    "image/jpeg": "image", "image/png": "image", "image/webp": "image", "image/gif": "image",
+    "application/pdf": "document",
+    "audio/ogg": "audio", "audio/mpeg": "audio", "audio/aac": "audio",
+    "video/mp4": "video",
+}
+_MAX_MIDIA_BYTES = 16 * 1024 * 1024  # 16 MB
+
+
+@router.post("/enviar-midia/{telefone}")
+def enviar_midia(
+    telefone: str,
+    file: UploadFile = File(...),
+    caption: str = Form(""),
+    db: Session = Depends(get_db),
+    me: Atendente = Depends(atendente_atual),
+):
+    """Atendente envia arquivo de mídia para um cliente. Faz upload para Meta e envia via WhatsApp."""
+    conteudo = file.file.read()
+    if len(conteudo) > _MAX_MIDIA_BYTES:
+        raise HTTPException(400, "Arquivo muito grande (máx 16 MB)")
+    mime = file.content_type or ""
+    media_type = _MIME_PARA_TIPO.get(mime)
+    if not media_type:
+        raise HTTPException(400, f"Tipo não suportado: {mime}")
+
+    usuario = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+    if not usuario:
+        raise HTTPException(404, "Usuário não encontrado")
+    if usuario.atendente_id and usuario.atendente_id != me.id:
+        raise HTTPException(403, "Conversa pertence a outro atendente")
+    if not usuario.atendente_id:
+        usuario.bot_ativo = False
+        usuario.aguardando_humano = False
+        usuario.atendente_id = me.id
+        db.commit()
+
+    try:
+        media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
+        ok = whatsapp.enviar_mensagem_midia(telefone, media_id, media_type, caption)
+    except Exception as e:
+        raise HTTPException(502, f"Erro ao enviar mídia: {e}")
+
+    descricao = f"[Mídia: {file.filename or mime}]" + (f" — {caption}" if caption else "")
+    db.add(HistoricoConversa(
+        telefone_usuario=telefone,
+        mensagem_cliente=None,
+        resposta_bot=descricao,
+        origem="humano",
+        atendente_id=me.id,
+        entregue=bool(ok),
+    ))
+    db.commit()
+
+    notificador.publicar({
+        "tipo": "nova_mensagem",
+        "telefone": telefone,
+        "nome": usuario.nome_cliente,
+        "texto": descricao,
+        "origem": "humano",
+        "atendente_id": me.id,
+        "entregue": bool(ok),
+    })
+    return {"ok": True, "media_id": media_id, "entregue": bool(ok)}
 
 
 @router.post("/devolver/{telefone}")

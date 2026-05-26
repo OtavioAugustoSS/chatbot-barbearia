@@ -239,6 +239,36 @@ class WhatsAppSender:
         }
         return self._post_com_retry(payload, numero, "botoes_resposta")
 
+    def upload_midia_whatsapp(self, file_bytes: bytes, mime_type: str, filename: str) -> str:
+        """Faz upload de mídia para Meta e retorna media_id."""
+        url = f"https://graph.facebook.com/v19.0/{self.phone_id}/media"
+        try:
+            resp = requests.post(
+                url,
+                headers={"Authorization": f"Bearer {self.token}"},
+                data={"messaging_product": "whatsapp", "type": mime_type},
+                files={"file": (filename, file_bytes, mime_type)},
+                timeout=30,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            log.error("upload_midia_whatsapp falhou: %s", e)
+            raise
+        return resp.json()["id"]
+
+    def enviar_mensagem_midia(self, telefone: str, media_id: str, media_type: str, caption: str = "") -> bool:
+        """Envia mensagem de mídia via WhatsApp Business API."""
+        media_payload: dict = {"id": media_id}
+        if media_type == "image" and caption:
+            media_payload["caption"] = caption
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": telefone,
+            "type": media_type,
+            media_type: media_payload,
+        }
+        return self._post_com_retry(payload, telefone, f"midia_{media_type}")
+
     def gerar_url_avatar(self, nome: str | None, telefone: str) -> str:
         """Gera URL de avatar DiceBear via iniciais — sem rede, sem auth, sem expiração."""
         from urllib.parse import quote
