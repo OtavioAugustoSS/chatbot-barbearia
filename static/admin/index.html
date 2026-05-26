@@ -242,9 +242,9 @@
       #thread-header { padding: 8px 12px; gap: 8px; }
       #thread-status { display: none; }
       /* Esconde labels de texto em botões de ação do header em mobile */
-      #btn-devolver { font-size: 0; width: 32px; height: 32px; padding: 0; border-radius: 50%; }
+      #btn-devolver { font-size: 0; min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
       #btn-devolver::after { content: "↩"; font-size: 14px; }
-      #btn-interromper { font-size: 0; width: 32px; height: 32px; padding: 0; border-radius: 50%; }
+      #btn-interromper { font-size: 0; min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: 50%; }
       #btn-interromper::after { content: "⏸"; font-size: 14px; }
       /* Composer area: padding menor */
       #composer-area { padding: var(--space-2) var(--space-3); }
@@ -788,6 +788,9 @@
     .btn-xs { padding: 2px 8px; font-size: 11px; border-radius: var(--radius-sm); }
     .btn-icon { min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: var(--radius-md); }
     .btn-icon-sm { width: 26px; height: 26px; padding: 0; border-radius: var(--radius-sm); }
+
+    /* F1: touch targets for inline icon buttons */
+    #btn-tag, #btn-info-toggle, #canned-btn { min-width: 44px; min-height: 44px; }
 
     /* ===== US-105: Botão flutuante "novas mensagens" ===== */
     #chat-panel { position: relative; }

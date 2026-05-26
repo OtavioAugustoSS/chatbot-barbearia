@@ -76,6 +76,12 @@
     }
     * { box-sizing: border-box; }
 
+    *:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--radius-sm, 4px);
+    }
+
     /* F4: Theme active state using CSS variables */
     .theme-choice.theme-active {
       border-color: var(--accent) !important;
@@ -221,10 +227,10 @@
   </main>
 
   <!-- MODAL: Novo Atendente -->
-  <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+  <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-title-atendente" style="background:rgba(0,0,0,0.7);">
     <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
-        <h2 class="font-semibold" style="color:var(--text-primary);">Novo Atendente</h2>
+        <h2 id="modal-title-atendente" class="font-semibold" style="color:var(--text-primary);">Novo Atendente</h2>
         <button onclick="fecharModal()" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5 text-sm" style="color:var(--text-secondary);">✕</button>
       </div>
 
@@ -253,7 +259,7 @@
   </div>
 
   <!-- MODAL: Nova/Editar Label -->
-  <div id="modal-label" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+  <div id="modal-label" class="hidden fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-label-titulo" style="background:rgba(0,0,0,0.7);">
     <div class="w-full max-w-sm rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
         <h2 id="modal-label-titulo" class="font-semibold" style="color:var(--text-primary);">Nova Etiqueta</h2>
@@ -289,7 +295,7 @@
   </div>
 
   <!-- MODAL: Nova/Editar Canned Response -->
-  <div id="modal-canned" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+  <div id="modal-canned" class="hidden fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-canned-titulo" style="background:rgba(0,0,0,0.7);">
     <div class="w-full max-w-md rounded-xl p-6" style="background:var(--bg-card);border:1px solid var(--border);">
       <div class="flex items-center justify-between mb-5">
         <h2 id="modal-canned-titulo" class="font-semibold" style="color:var(--text-primary);">Nova Resposta</h2>
