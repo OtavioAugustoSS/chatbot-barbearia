@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 import requests
 from dotenv import load_dotenv
@@ -21,7 +22,6 @@ class WhatsAppSender:
     def _post_com_retry(self, payload: dict, numero: str, tipo_log: str) -> bool:
         """POST genérico à Meta API com 3 tentativas em 5xx. Compartilhado entre texto e lista."""
         try:
-            import time
             for attempt in range(3):
                 response = requests.post(self.url, headers=self.headers, json=payload, timeout=10)
                 if response.status_code < 500:
@@ -248,54 +248,6 @@ class WhatsAppSender:
             f"?seed={seed}&backgroundColor=2481cc&radius=50&fontSize=40&fontFamily=Arial,sans-serif"
         )
 
-    def buscar_foto_perfil(self, numero: str) -> str | None:
-        """
-        Tenta buscar a URL da foto de perfil do WhatsApp do cliente via Meta Cloud API.
-
-        Retorna a URL (str) se disponível, ou None em qualquer dos casos:
-          - Cliente tem privacidade de foto fechada
-          - Número inválido ou não registrado no WhatsApp
-          - Erro de rede / timeout
-          - Resposta da Meta sem o campo profile_picture_url
-
-        IMPORTANTE: a URL retornada expira em ~1h. Não persistir como referência
-        permanente — usar somente como cache curto para exibição imediata.
-
-        Usado pelo endpoint GET /admin/cliente/{telefone}/info; falhas são silenciosas
-        (não devem quebrar o fluxo do atendente).
-        """
-        try:
-            url = f"https://graph.facebook.com/v19.0/{self.phone_id}/contacts"
-            params = {"wa_id": numero, "fields": "profile_picture_url"}
-            resp = requests.get(url, headers=self.headers, params=params, timeout=8)
-            log.debug("buscar_foto_perfil: status=%s corpo=%.300s", resp.status_code, resp.text)
-            if resp.status_code != 200:
-                log.warning("buscar_foto_perfil: Meta API status %s para %s | resposta: %s",
-                            resp.status_code, numero, resp.text[:300])
-                return None
-            data = resp.json()
-            contatos = data.get("data") or data.get("contacts") or []
-            if not contatos:
-                log.debug("buscar_foto_perfil: resposta sem contatos para %s — estrutura: %s",
-                          numero, list(data.keys()))
-                return None
-            primeiro = contatos[0] or {}
-            foto = primeiro.get("profile_picture_url")
-            if isinstance(foto, str) and foto.startswith("http"):
-                log.info("buscar_foto_perfil: foto encontrada para %s", numero)
-                return foto
-            log.debug("buscar_foto_perfil: profile_picture_url ausente para %s — campos: %s",
-                      numero, list(primeiro.keys()))
-            return None
-        except requests.RequestException as e:
-            log.warning("buscar_foto_perfil: falha de rede para %s: %s", numero, e)
-            return None
-        except (ValueError, KeyError, TypeError) as e:
-            log.warning("buscar_foto_perfil: payload inesperado para %s: %s", numero, e)
-            return None
-        except Exception as e:
-            log.warning("buscar_foto_perfil: erro inesperado para %s: %s", numero, e)
-            return None
 
 
 def extrair_informacoes_mensagem(body: dict):

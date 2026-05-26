@@ -150,29 +150,91 @@ AI responses use `<br>` for line breaks (mandated in system prompt). `_normaliza
 | `RATE_LIMIT_MSGS_POR_MINUTO` | Per-phone rate limit | 10 |
 | `LOG_LEVEL` | Set to `DEBUG` for full AI payload logging | INFO |
 
-## Multi-Agent System
+## Multi-Agent System — `barbearia-bolshoi-team`
 
-Specialized agents live in `.claude/agents/`. Claude principal IS the coordinator. Full workflow in `.claude/WORKFLOW.md`. Task history in `.claude/AGENT_STATE.md`.
+Agent team **in-process** (Windows, sem tmux). 4 teammates + lead. Todos Sonnet 4.6.
 
-| Agent | subagent_type | Model | Role |
-|-------|---------------|-------|------|
-| `po-agent` | po-agent | Opus 4.7 | Business rules — approves before Dev implements |
-| `dev-agent` | dev-agent | Sonnet 4.6 | Implements features and bug fixes |
-| `qa-agent` | qa-agent | Sonnet 4.6 | Quality review — always last before shipping |
-| `db-agent` | db-agent | Haiku 4.5 | SQL migrations only (ADD/ALTER/DROP/RENAME) |
-| `prompt-engineer` | prompt-engineer | Opus 4.7 | AI behavior and system prompt optimization |
+### Teammates
 
-**Two modes:**
-- **Standalone**: `Agent(subagent_type="...")` sequential — Claude principal coordinates each step
-- **Team**: `TeamCreate` + `Agent(name="...", run_in_background=True)` — agents communicate via `SendMessage` directly with each other
+| Name | Role | Domínio | Output |
+|---|---|---|---|
+| `product-owner-agent` | Product Owner | Regras de negócio, user stories | `.claude/wiki/business-rules/`, `docs/user-stories/` |
+| `architect-agent` | Architect | Decisões técnicas, ADRs | `.claude/wiki/decisions/ADR-NNN-{slug}.md`, atualiza `CLAUDE.md` |
+| `backend-agent` | Backend Dev | `api/`, `services/`, `db/`, `core/`, `scripts/` | Código Python + migrations SQL |
+| `frontend-agent` | Frontend Dev | `static/admin/` (vanilla JS) | HTML/JS/CSS |
+| `qa-agent` | QA Engineer | Auditoria de qualidade + fidelidade visual ao design | `.claude/wiki/qa/{slug}.md` (punch lists) |
+| `lead-agent` (sessão principal) | Tech Lead | Coordena time, gera release reports | `docs/release/{versão}.md` |
 
-**Communication graph**: po → dev → qa (PASS → Claude principal, FAIL → dev). db → dev. prompt-engineer → qa.
+### Memória compartilhada (`.claude/wiki/`)
 
-**Standard flows:**
-- Feature with client impact: `po → dev → [db →] qa`
-- Technical bug: `dev → qa`
-- AI behavior problem: `po → prompt-engineer → qa`
-- Parallel audit: spawn qa + po + prompt-engineer simultaneously
+Filesystem-only (sem MCP no MVP). Todos os teammates seguem o protocolo:
 
-**To start a full system improvement cycle:**
-> "Faça uma revisão completa do sistema usando os agentes especializados"
+1. **Ao iniciar trabalho:** ler `hot.md` → `index.md` → diretório do próprio domínio
+2. **Ao concluir tarefa:** append em `log.md` (formato: `[ISO timestamp] [agent] [task-id] resumo`)
+3. **Decisões persistentes:** criar `.md` no diretório do domínio + registrar em `index.md`
+
+```
+.claude/wiki/
+  hot.md           ← cache (atualizado pelo lead)
+  index.md         ← catálogo mestre
+  log.md           ← append-only ops log
+  business-rules/  ← PO
+  decisions/       ← Architect (ADRs)
+  backend/         ← Backend
+  frontend/        ← Frontend
+```
+
+### Grafo de comunicação
+
+- `backend-agent` → `product-owner-agent` (dúvida funcional)
+- `backend-agent` → `architect-agent` (dúvida técnica)
+- `backend-agent` → `frontend-agent` (contrato de endpoint mudou)
+- `frontend-agent` → `backend-agent` (obter contrato)
+- `frontend-agent` → `architect-agent` (dúvida técnica)
+- `frontend-agent` → `product-owner-agent` (dúvida funcional)
+- Todos → `lead-agent` (reporte de conclusão)
+
+### Regras rígidas globais
+
+- Bot **NUNCA agenda** — sempre redirecionar para AppBarber (PO bloqueia)
+- Mudança no **AI Response Contract** (`{intencao, resposta_sugerida}`) exige ADR aprovado pelo humano (Architect bloqueia)
+- Frontend é **vanilla JS** — introduzir framework exige ADR (Architect bloqueia)
+- Migrations **manuais**, SQL em `scripts/migrations/{TASK}-{descricao}.sql` ANTES de alterar `db/models.py`
+- Operador usa `\n`, IA usa `<br>` — não confundir
+
+### Como ativar o time
+
+O time usa a infraestrutura nativa de Agent Teams do Claude Code (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` em `settings.json`).
+
+**Criar o time (lead cria via `TeamCreate`, depois spawna teammates):**
+```
+Crie o agent team barbearia-bolshoi-team e spawne os 4 teammates:
+product-owner-agent, architect-agent, backend-agent, frontend-agent.
+Use as subagent definitions em .claude/agents/.
+```
+
+**Infraestrutura criada automaticamente:**
+- `~/.claude/teams/barbearia-bolshoi-team/config.json` — config do time
+- `~/.claude/tasks/barbearia-bolshoi-team/` — task list compartilhada
+
+### Como interagir
+
+- `Shift+Down` cicla entre teammates ativos
+- Falar com teammate específico: cycle até ele e digitar
+- Assignar task: "lead, crie task X e atribua ao backend-agent"
+- Pedir release: "lead, gere o release report 0.1.0 em docs/release/"
+- Encerrar: "lead, shutdown todos os teammates e cleanup do time"
+
+### Comunicação entre teammates
+
+Teammates se comunicam via `SendMessage` (não via Agent()). O lead recebe mensagens automaticamente. Peer DMs são visíveis ao lead como resumo no idle notification.
+
+### Reuso standalone
+
+Subagent definitions em `.claude/agents/` ainda funcionam fora do time quando o contexto não requer coordenação entre agentes:
+- `Agent(subagent_type="product-owner-agent", prompt=...)`
+- `Agent(subagent_type="architect-agent", prompt=...)`
+- `Agent(subagent_type="backend-agent", prompt=...)`
+- `Agent(subagent_type="frontend-agent", prompt=...)`
+
+**Diferença:** subagent isolado só reporta de volta ao lead. Teammate no time pode fazer `SendMessage` para outros teammates diretamente.

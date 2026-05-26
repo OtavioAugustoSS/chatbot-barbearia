@@ -107,6 +107,16 @@ RESPOSTA_ATENDIMENTO_FEMININO = (
     f"Para conferir serviços e agendar: {LINK_APPBARBER}"
 )
 
+# Disponibilidade/presença do Fred (proprietário) — NÃO confundir com pedido de contato.
+# "o Fred tá lá?" / "Fred vai estar amanhã?" → orienta para AppBarber.
+# Pedidos de contato/telefone do Fred NÃO estão aqui — vão para IA (BR-002: contato só se pedir explicitamente).
+RESPOSTA_DISPONIBILIDADE_FRED = (
+    "Não temos informação sobre a agenda em tempo real dos profissionais.<br><br>"
+    "Para verificar a disponibilidade e agendar com o Fred, acesse:<br>"
+    f"{LINK_APPBARBER}<br><br>"
+    f"{_FECHAMENTO}"
+)
+
 # Cada entrada: (regex_compilado, resposta_canonica)
 # Padrões são case-insensitive e usam fronteiras de palavra para evitar falsos positivos.
 # ORDEM IMPORTA: padrões mais específicos antes dos genéricos (ex.: cancelar antes de agendar).
@@ -178,7 +188,11 @@ _PADROES = [
             r"(pode\s+pagar|paga(m)?)\s+(com|no)\s+(cart[aã]o|pix|d[eé]bito|cr[eé]dito|dinheiro)|"
             r"(qual|quais)\s+(o|os|as)\s+pagamentos?|"
             r"tem\s+(maquininha|m[aá]quina)\s+(de\s+)?(cart[aã]o|cr[eé]dito|d[eé]bito)|"
-            r"posso\s+(passar|usar)\s+(o\s+)?cart[aã]o"
+            r"posso\s+(passar|usar)\s+(o\s+)?cart[aã]o|"
+            # Marcas de banco/carteira digital — cliente pergunta sobre marca específica.
+            # Resposta genérica cobre: Nubank é cartão débito/crédito; PicPay é cartão.
+            r"aceitam?\s+(nubank|picpay|mercado\s+pago|inter|itau|bradesco|santander)|"
+            r"(nubank|picpay|mercado\s+pago)\s+(funciona|aceita|vai|passa)"
             r")\b",
             re.IGNORECASE,
         ),
@@ -208,7 +222,13 @@ _PADROES = [
             r"acessibilidade|"
             r"cadeirante|"
             r"(atende(m)?|tem\s+atendimento)\s+(crian[çc]a|infantil)|"
-            r"estrutura"
+            r"estrutura|"
+            # Acessibilidade para PCD: termos que o regex "cadeirante/acessibilidade" não cobre.
+            r"deficiente(s)?|"
+            r"pcd|"
+            r"pessoa\s+(com\s+)?defici[eê]ncia|"
+            r"mobilidade\s+reduzida|"
+            r"cadeira\s+de\s+rodas"
             r")\b",
             re.IGNORECASE,
         ),
@@ -232,6 +252,20 @@ _PADRAO_DISPONIBILIDADE = re.compile(
 )
 
 
+# Padrão de disponibilidade do Fred — verificado antes da exclusão geral de disponibilidade
+# para que "fred tem horário amanhã?" retorne canônica em vez de ir para a IA.
+_PADRAO_DISPONIBILIDADE_FRED = re.compile(
+    r"\b("
+    r"(o\s+)?fred\s+(t[aá]|est[aá]|vai\s+estar|vai\s+t[aá]|[eé]|trabalha|atende)\s+"
+    r"(l[aá]|hoje|amanh[aã]|agora|disponivel|disponível)|"
+    r"fred\s+tem\s+(hor[aá]rio|vaga)|"
+    r"quando\s+(o\s+)?fred\s+(trabalha|atende)|"
+    r"(o\s+)?fred\s+(trabalha|atende)\s+(hoje|amanh[aã]|s[aá]bado|segunda|ter[çc]a|quarta|quinta|sexta)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
 def detectar_resposta_canonica(texto_cliente: str) -> str | None:
     """
     Recebe a mensagem bruta do cliente. Devolve resposta canônica com tags <br>
@@ -240,9 +274,16 @@ def detectar_resposta_canonica(texto_cliente: str) -> str | None:
     Exclusão: perguntas de disponibilidade (slot de agendamento) NÃO disparam
     canônico — mesmo que contenham "horário". Vão pra IA que tem contexto
     temporal e regra específica de disponibilidade.
+
+    Exceção à exclusão: disponibilidade do Fred. "fred tem horário amanhã?" tem
+    resposta canônica (orientar AppBarber) e não precisa de contexto temporal.
     """
     if not texto_cliente or not isinstance(texto_cliente, str):
         return None
+    # Disponibilidade do Fred: verificada ANTES da exclusão geral de disponibilidade.
+    if _PADRAO_DISPONIBILIDADE_FRED.search(texto_cliente):
+        return RESPOSTA_DISPONIBILIDADE_FRED
+    # Slot de agendamento genérico: envia para IA (tem contexto temporal e regra específica).
     if _PADRAO_DISPONIBILIDADE.search(texto_cliente):
         return None
     for regex, resposta in _PADROES:

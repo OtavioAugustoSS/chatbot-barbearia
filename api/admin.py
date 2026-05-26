@@ -988,6 +988,11 @@ def devolver(
     if not user:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
+    # G9: ao devolver ao bot, garantir que status não fique como "resolved"
+    # (atendente pode ter resolvido a conversa e depois devolvido — cliente veria como fechado)
+    if user.status_conversa == "resolved":
+        user.status_conversa = "open"
+
     # UPDATE condicional PRIMEIRO: garante que só um request vence a corrida.
     # Se dois requests simultâneos chegarem, apenas um terá afetadas=1.
     # Só enviamos o aviso WhatsApp após confirmar que somos o vencedor,
@@ -1574,18 +1579,29 @@ async def ativar_atendente(
     _: Atendente = Depends(atendente_atual),
 ):
     """
-    GAP-01: Ativa um atendente previamente desativado.
+    GAP-01 / SP-2: Ativa um atendente previamente desativado.
 
-    Retorna 400 se já estiver ativo (falha explícita, não silenciosa).
-    Simétrico a /desativar.
+    Idempotente: se já estiver ativo, retorna {"ok": true, "ja_ativo": true} com 200.
+    Publica SSE presence_changed ao ativar para atualização imediata no dashboard.
     """
     a = db.query(Atendente).filter(Atendente.id == atendente_id).first()
     if not a:
         raise HTTPException(status_code=404, detail="Atendente não encontrado")
+
     if a.ativo:
-        raise HTTPException(status_code=400, detail="Atendente já está ativo")
+        return {"ok": True, "id": a.id, "nome": a.nome, "ja_ativo": True}
+
     a.ativo = True
     db.commit()
+
+    notificador.publicar({
+        "tipo": "presence_changed",
+        "atendente_id": a.id,
+        "atendente_nome": a.nome,
+        "status": "online",  # "reativado" era inválido segundo ADR-005 — TD-016 corrigido
+    })
+
+    log.info("[ATIVAR] atendente_id=%s nome=%s ativado", a.id, a.nome)
     return {"ok": True, "id": a.id, "nome": a.nome, "ativo": True}
 
 

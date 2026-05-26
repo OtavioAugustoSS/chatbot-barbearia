@@ -34,6 +34,9 @@ class Usuario(Base):
     snoozed_until = Column(DateTime, nullable=True, default=None)
     resolved_em = Column(DateTime, nullable=True, default=None)
     resolved_por = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
+    # Setado True quando bot reativa por timeout (BOT_REATIVAR_APOS_HORAS).
+    # Consumido na próxima resposta IA para prefixar frase de contexto; resetado após uso.
+    reativado_por_timeout = Column(Boolean, nullable=False, default=False)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -52,7 +55,7 @@ class HistoricoConversa(Base):
     # Origem da resposta: "bot" (IA), "humano" (atendente via dashboard) ou "cliente"
     # (apenas mensagens do cliente registradas com bot inativo, sem resposta).
     origem = Column(String(10), default="bot")
-    intencao = Column(String(30), nullable=True)
+    intencao = Column(String(50), nullable=True)
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='SET NULL'), nullable=True)
     # Status de entrega ao WhatsApp via Meta Cloud API:
     # True = Meta aceitou (200 OK), False = falhou (4xx/5xx ou erro de rede),

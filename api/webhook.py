@@ -4,6 +4,7 @@ import time
 import hmac
 import hashlib
 import logging
+import traceback
 import threading
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
@@ -42,6 +43,11 @@ def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> b
     esperado = hmac.new(META_APP_SECRET, raw_body, hashlib.sha256).hexdigest()
     recebido = header_signature.split("=", 1)[1]
     return hmac.compare_digest(esperado, recebido)
+
+FRASE_REATIVACAO_TIMEOUT = (
+    "Lamentamos não ter conseguido conectar você com nossa recepção anteriormente. "
+    "Estou aqui para te ajudar!"
+)
 
 MENSAGEM_BOAS_VINDAS = (
     "Olá, seja bem-vindo(a) à *Barbearia Bolshoi*! 💈\n"
@@ -755,7 +761,7 @@ _LOCK_TTL_SEGUNDOS = 1800  # 30min sem uso → lock descartado
 # Rate limit por telefone: deque de timestamps das últimas mensagens.
 _janela_rate_limit: dict[str, list[float]] = {}
 _rate_lock = threading.Lock()
-_DEDUPE_TTL_SEGUNDOS = 600  # cobre retries da Meta
+_DEDUPE_TTL_SEGUNDOS = 3600  # 1h — cobre janela de reenvio da Meta (TD-014)
 
 def _ja_processada(db: Session, message_id: str) -> bool:
     """
@@ -841,6 +847,7 @@ def _verificar_e_reativar_bot(db: Session, user: Usuario) -> bool:
     if datetime.now(timezone.utc) - desativado_em > timedelta(hours=BOT_REATIVAR_APOS_HORAS):
         user.bot_ativo = True
         user.bot_desativado_em = None
+        user.reativado_por_timeout = True
         db.commit()
         log.info("Bot reativado automaticamente para %s após %sh.", user.telefone, BOT_REATIVAR_APOS_HORAS)
         return True
@@ -952,8 +959,30 @@ async def verify_webhook(request: Request):
 
 def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
     """ Essa função roda solta no fundo, dando todo tempo do mundo para a IA pensar sem travar o Facebook """
-    with _lock_do_telefone(telefone):
+    lock = _lock_do_telefone(telefone)
+    # TD-013: timeout de 90s evita starvation caso NIM trave indefinidamente.
+    # Mensagem é descartada silenciosamente — Meta vai retransmitir se não receber ACK,
+    # e o dedupe de 1h protege contra processamento duplicado nesse cenário.
+    adquirido = lock.acquire(timeout=90)
+    if not adquirido:
+        log.warning("Lock timeout (90s) para %s — mensagem descartada para evitar starvation.", telefone)
+        return
+    try:
         _processar_mensagem(telefone, texto_cliente)
+    except Exception as exc:
+        # ADR-010: captura exceção raiz para garantir visibilidade de falhas silenciosas.
+        # O lock é liberado no finally independentemente.
+        ts = datetime.now(timezone.utc).isoformat()
+        entrada = f"[{ts}] [BACKGROUND TASK] telefone={telefone} erro={exc}\n{traceback.format_exc()}\n"
+        log.error("Exceção não tratada em tarefa_em_segundo_plano_ia para %s: %s", telefone, exc)
+        try:
+            caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
+            with open(caminho, "a", encoding="utf-8") as f:
+                f.write(entrada)
+        except Exception:
+            pass
+    finally:
+        lock.release()
 
 def _processar_mensagem(telefone: str, texto_cliente: str):
     db = SessionLocal()
@@ -1021,12 +1050,20 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         # Cliente pedindo o menu/capacidades de novo → lista interativa.
         # Fallback automático para texto se a lista falhar.
         if _e_pedido_de_menu(texto_cliente):
+            if user.reativado_por_timeout:
+                whatsapp.enviar_mensagem_texto(telefone, FRASE_REATIVACAO_TIMEOUT)
+                user.reativado_por_timeout = False
+                db.commit()
             _enviar_menu_lista(db, user, texto_cliente, primeiro_contato=False)
             return
 
         # Saudação pura (oi, eai, bom dia…) sem pergunta acoplada → lista interativa
         # com primeiro nome do cliente. Evita que a IA gere variações casuais.
         if _e_saudacao_pura(texto_cliente):
+            if user.reativado_por_timeout:
+                whatsapp.enviar_mensagem_texto(telefone, FRASE_REATIVACAO_TIMEOUT)
+                user.reativado_por_timeout = False
+                db.commit()
             _enviar_menu_lista(db, user, texto_cliente, primeiro_contato=False)
             return
 
@@ -1034,6 +1071,10 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         # Bypass de IA → custo zero, zero alucinação, formato sempre idêntico.
         resposta_canonica = detectar_resposta_canonica(texto_cliente)
         if resposta_canonica:
+            if user.reativado_por_timeout:
+                resposta_canonica = FRASE_REATIVACAO_TIMEOUT + "<br><br>" + resposta_canonica
+                user.reativado_por_timeout = False
+                db.commit()
             _enviar_e_registrar(db, user, texto_cliente, resposta_canonica, origem="bot")
             return
 
@@ -1042,6 +1083,13 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
         intencao = resultado_ia.get("intencao")
 
         resposta_bruta = resultado_ia.get("resposta_sugerida", "Tivemos um problema processando sua solicitação.")
+
+        # US-GAP-02: primeira resposta após reativação automática por timeout recebe
+        # frase de contexto para o cliente saber que o bot voltou a responder.
+        if user.reativado_por_timeout:
+            resposta_bruta = FRASE_REATIVACAO_TIMEOUT + "<br><br>" + resposta_bruta
+            user.reativado_por_timeout = False
+            db.commit()
 
         # Modo híbrido: durante a chamada da IA (vários segundos) um atendente pode
         # ter assumido a conversa. Re-checa antes de gravar/enviar para não atropelar.
@@ -1052,21 +1100,20 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 return
 
         # Poda automática: mantém últimos 50 registros por usuário (janela do contexto = 15).
-        contagem = db.query(HistoricoConversa).filter(
-            HistoricoConversa.telefone_usuario == telefone
-        ).count()
-        if contagem > 50:
-            ids_manter = [
-                row.id for row in
-                db.query(HistoricoConversa.id)
-                .filter(HistoricoConversa.telefone_usuario == telefone)
-                .order_by(HistoricoConversa.criado_em.desc())
-                .limit(50)
-                .all()
-            ]
+        # TD-012: usa min_id em vez de NOT IN — evita lista de 50 IDs no DELETE.
+        # Busca o id do 50º mais novo (offset=49); deleta tudo com id < esse valor.
+        corte = (
+            db.query(HistoricoConversa.id)
+            .filter(HistoricoConversa.telefone_usuario == telefone)
+            .order_by(HistoricoConversa.criado_em.desc())
+            .offset(50)
+            .limit(1)
+            .scalar()
+        )
+        if corte is not None:
             db.query(HistoricoConversa).filter(
                 HistoricoConversa.telefone_usuario == telefone,
-                ~HistoricoConversa.id.in_(ids_manter)
+                HistoricoConversa.id <= corte,
             ).delete(synchronize_session=False)
             db.commit()
 
@@ -1194,16 +1241,50 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
             except Exception:
                 log.exception("Falha ao publicar status_alterado (reabertura automática) para %s", telefone)
 
-    # !reiniciar: comando de admin. Cliente comum não pode limpar próprio histórico.
-    if str(texto_cliente).strip().lower() == "!reiniciar":
+    # Comandos de admin — processados ANTES de qualquer outra lógica de bot.
+    # Apenas telefones listados em ADMIN_PHONES podem usar; tentativas de não-admin são silenciadas.
+    _cmd = str(texto_cliente).strip().lower()
+
+    if _cmd == "!reiniciar":
         if telefone not in ADMIN_PHONES:
             log.warning("Tentativa de !reiniciar por telefone não-admin: %s", telefone)
             return {"status": "ok"}
+        # Reseta estado completo do usuário: bot ativo, sem handoff pendente, sem atendente.
         user.bot_ativo = True
         user.bot_desativado_em = None
+        user.aguardando_humano = False
+        user.atendente_id = None
+        user.transbordo_em = None
+        user.status_conversa = "open"
+        user.snoozed_until = None
+        user.reativado_por_timeout = False
         db.query(HistoricoConversa).filter(HistoricoConversa.telefone_usuario == telefone).delete()
         db.commit()
-        whatsapp.enviar_mensagem_texto(telefone, "🤖 Bot reiniciado por admin. Memória limpa.")
+        log.info("!reiniciar executado por admin %s: estado e histórico limpos.", telefone)
+        whatsapp.enviar_mensagem_texto(telefone, "Bot reiniciado por admin. Estado e memória limpos.")
+        return {"status": "ok"}
+
+    if _cmd == "!status":
+        if telefone not in ADMIN_PHONES:
+            log.warning("Tentativa de !status por telefone não-admin: %s", telefone)
+            return {"status": "ok"}
+        # Informa estado atual do usuário sem alterar nada — útil para diagnóstico.
+        contagem = db.query(HistoricoConversa).filter(
+            HistoricoConversa.telefone_usuario == telefone
+        ).count()
+        status_bot = "ATIVO" if user.bot_ativo else "INATIVO"
+        aguardando = "sim" if user.aguardando_humano else "nao"
+        atendente = f"#{user.atendente_id}" if user.atendente_id else "nenhum"
+        modo = "hibrido" if MODO_HIBRIDO else "bot_only"
+        msg = (
+            f"Status do bot para {telefone}:\n"
+            f"Bot: {status_bot}\n"
+            f"Aguardando humano: {aguardando}\n"
+            f"Atendente: {atendente}\n"
+            f"Historico: {contagem} msgs\n"
+            f"Modo: {modo}"
+        )
+        whatsapp.enviar_mensagem_texto(telefone, msg)
         return {"status": "ok"}
 
     # Reativação automática do bot após N horas sem atividade humana.

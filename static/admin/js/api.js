@@ -11,19 +11,55 @@ function _logout() {
   location.href = '/static/admin/login.html';
 }
 
-async function _req(url, opts = {}) {
-  const res = await fetch(url, {
-    ...opts,
-    headers: { ..._authHeaders(), ...(opts.headers || {}) }
-  });
-  if (res.status === 401) { _logout(); return null; }
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`${res.status}: ${txt}`);
+// Erro tipado para distinguir falha de rede vs resposta HTTP com erro
+class ApiError extends Error {
+  constructor(status, body, url) {
+    super(`HTTP ${status} — ${url}: ${body}`);
+    this.status = status;
+    this.body = body;
+    this.url = url;
+    this.name = 'ApiError';
   }
+}
+
+async function _req(url, opts = {}) {
+  const method = (opts.method || 'GET').toUpperCase();
+  let res;
+  try {
+    res = await fetch(url, {
+      ...opts,
+      headers: { ..._authHeaders(), ...(opts.headers || {}) }
+    });
+  } catch (networkErr) {
+    // Erro de rede (offline, DNS, CORS, timeout)
+    console.error(`[api] NETWORK ERROR ${method} ${url}:`, networkErr);
+    throw new ApiError(0, 'Erro de rede — verifique a conexão', url);
+  }
+
+  console.debug(`[api] ${method} ${url} → ${res.status}`);
+
+  if (res.status === 401) {
+    console.warn(`[api] 401 Unauthorized — ${url}. Redirecionando para login.`);
+    _logout();
+    // Lança para que chamadores possam distinguir de "lista vazia"
+    throw new ApiError(401, 'Sessão expirada', url);
+  }
+
+  if (!res.ok) {
+    let body = '';
+    try { body = await res.text(); } catch(_) {}
+    console.error(`[api] ${res.status} ${method} ${url}:`, body);
+    throw new ApiError(res.status, body, url);
+  }
+
   if (res.status === 204) return null;
+
   const ct = res.headers.get('content-type') || '';
-  if (!ct.includes('application/json')) return null;
+  if (!ct.includes('application/json')) {
+    console.warn(`[api] ${method} ${url} retornou content-type inesperado: "${ct}"`);
+    return null;
+  }
+
   return res.json();
 }
 

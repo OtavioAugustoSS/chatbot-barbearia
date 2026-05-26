@@ -62,7 +62,7 @@ function escapeHtml(s) {
   );
 }
 
-const _CORES = ['#2481cc','#1a6eb0','#6c5ce7','#00b894','#e17055','#d63031','#636e72','#0984e3','#00838f','#8e44ad','#27ae60','#c0392b'];
+const _CORES = ['#2481cc','#1a6eb0','#0984e3','#00b894','#e17055','#d63031','#636e72','#00838f','#8e44ad','#27ae60','#c0392b','#6d28d9'];
 function _hashStr(s) {
   let h = 0;
   for (const c of (s||'')) h = ((h*31) + c.charCodeAt(0)) >>> 0;
@@ -94,6 +94,18 @@ function horarioRelativo(iso) {
   if (diff < 172800) return 'ontem';
   if (diff < 604800) return `${Math.floor(diff/86400)}d`;
   return d.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'});
+}
+
+// V4: Tempo relativo em formato "há Xmin", "há Xh", "há Xd"
+function tempoRelativo(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'agora';
+  if (mins < 60) return `há ${mins}min`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h/24)}d`;
 }
 
 function dataLabel(iso) {
@@ -131,18 +143,24 @@ function showToast(texto, tipo = 'info') {
     warning: '#f59e0b',
     transbordo: '#dc2626'
   };
+  const bordas = {
+    success: 'var(--success-text)',
+    error: 'var(--danger-text)',
+    transbordo: 'var(--warning-text)',
+    info: 'var(--accent)',
+    warning: 'var(--warning-text)'
+  };
   const cont = document.getElementById('toast-container');
   if (!cont) return;
   const el = document.createElement('div');
-  el.className = 'slide-in text-white px-4 py-2.5 rounded-lg shadow-lg text-sm pointer-events-auto max-w-xs';
+  el.className = 'toast-item text-white px-4 py-2.5 rounded-lg shadow-lg text-sm pointer-events-auto max-w-xs';
   el.style.background = cores[tipo] || cores.info;
+  el.style.borderLeft = `3px solid ${bordas[tipo] || bordas.info}`;
   el.textContent = texto;
   cont.appendChild(el);
   setTimeout(() => {
-    el.style.transition = 'opacity 0.4s, transform 0.4s';
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(120%)';
-    setTimeout(() => el.remove(), 400);
+    el.classList.add('toast-exit');
+    setTimeout(() => el.remove(), 180);
   }, 4500);
 }
 
@@ -166,10 +184,279 @@ function tocarNotificacao() {
 }
 
 // ============================================================
+// SP-1: Modais substituindo window.prompt()
+// ============================================================
+
+/**
+ * Abre modal de snooze com presets e datetime-local.
+ * Retorna Promise<string|null> — ISO timestamp ou null se cancelado.
+ */
+function abrirModalSnooze() {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-snooze');
+    if (!modal) {
+      // Fallback de segurança se o HTML não tiver o modal
+      const horas = prompt('Adiar por quantas horas?', '24');
+      const h = parseInt(horas);
+      if (isNaN(h) || h <= 0) { resolve(null); return; }
+      resolve(new Date(Date.now() + h * 3600 * 1000).toISOString());
+      return;
+    }
+
+    // Pré-preenche datetime-local com agora + 24h como sugestão
+    const dtInput = document.getElementById('snooze-custom-dt');
+    if (dtInput) {
+      const sugestao = new Date(Date.now() + 24 * 3600 * 1000);
+      // datetime-local requer formato YYYY-MM-DDTHH:MM
+      const pad = n => String(n).padStart(2, '0');
+      dtInput.value = `${sugestao.getFullYear()}-${pad(sugestao.getMonth()+1)}-${pad(sugestao.getDate())}T${pad(sugestao.getHours())}:${pad(sugestao.getMinutes())}`;
+    }
+
+    modal.classList.remove('hidden');
+
+    // Presets: clique define o datetime-local e resolve imediatamente
+    const presetBtns = modal.querySelectorAll('.snooze-preset');
+    function onPreset(e) {
+      const h = parseInt(e.currentTarget.dataset.hours);
+      cleanup();
+      resolve(new Date(Date.now() + h * 3600 * 1000).toISOString());
+    }
+    presetBtns.forEach(b => b.addEventListener('click', onPreset, { once: true }));
+
+    function onConfirm() {
+      const dt = document.getElementById('snooze-custom-dt')?.value;
+      if (!dt) { showToast('Selecione uma data e hora', 'error'); return; }
+      const ts = new Date(dt).getTime();
+      if (isNaN(ts) || ts <= Date.now()) {
+        showToast('Data/hora deve ser no futuro', 'error');
+        return;
+      }
+      cleanup();
+      resolve(new Date(dt).toISOString());
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(null);
+    }
+
+    function onKey(e) {
+      if (e.key === 'Escape') { cleanup(); resolve(null); }
+      if (e.key === 'Enter') onConfirm();
+    }
+
+    function cleanup() {
+      modal.classList.add('hidden');
+      document.getElementById('snooze-confirm-btn')?.removeEventListener('click', onConfirm);
+      document.getElementById('snooze-cancel-btn')?.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      // Remove preset listeners que restaram (once não previne duplicatas se houver re-abertura)
+      presetBtns.forEach(b => b.removeEventListener('click', onPreset));
+    }
+
+    document.getElementById('snooze-confirm-btn')?.addEventListener('click', onConfirm);
+    document.getElementById('snooze-cancel-btn')?.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+/**
+ * Abre modal de confirmação genérico (substitui window.confirm()).
+ * titulo: string exibida no h3
+ * corpo: string de detalhe
+ * Retorna Promise<boolean>
+ */
+function abrirModalConfirmar(titulo, corpo) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-confirm');
+    if (!modal) {
+      resolve(confirm(titulo + (corpo ? '\n' + corpo : '')));
+      return;
+    }
+
+    const titleEl = document.getElementById('modal-confirm-title');
+    const bodyEl  = document.getElementById('modal-confirm-body');
+    if (titleEl) titleEl.textContent = titulo || 'Confirmar';
+    if (bodyEl)  bodyEl.textContent  = corpo || '';
+
+    modal.classList.remove('hidden');
+
+    function onOk() { cleanup(); resolve(true); }
+    function onCancel() { cleanup(); resolve(false); }
+    function onKey(e) {
+      if (e.key === 'Escape') { cleanup(); resolve(false); }
+      if (e.key === 'Enter')  onOk();
+    }
+
+    function onOverlay(e) {
+      if (e.target === modal) { cleanup(); resolve(false); }
+    }
+
+    function cleanup() {
+      modal.classList.add('hidden');
+      document.getElementById('modal-confirm-ok')?.removeEventListener('click', onOk);
+      document.getElementById('modal-confirm-cancel')?.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+      modal.removeEventListener('click', onOverlay);
+    }
+
+    document.getElementById('modal-confirm-ok')?.addEventListener('click', onOk);
+    document.getElementById('modal-confirm-cancel')?.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+    modal.addEventListener('click', onOverlay);
+  });
+}
+
+/**
+ * Abre modal de input de texto genérico (substitui prompt() de salvar view).
+ * titulo: string exibida no h3
+ * descricao: string exibida no subtítulo
+ * placeholder: placeholder do input
+ * Retorna Promise<string|null>
+ */
+function abrirModalInputTexto(titulo, descricao, placeholder) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('modal-input-text');
+    if (!modal) {
+      const val = prompt(titulo);
+      resolve(val && val.trim() ? val.trim() : null);
+      return;
+    }
+
+    const titleEl = document.getElementById('modal-input-title');
+    const descEl  = document.getElementById('modal-input-desc');
+    const field   = document.getElementById('modal-input-field');
+
+    if (titleEl) titleEl.textContent = titulo || 'Nome';
+    if (descEl)  descEl.textContent  = descricao || '';
+    if (field)   { field.value = ''; field.placeholder = placeholder || ''; }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => field?.focus(), 50);
+
+    function onConfirm() {
+      const val = (field?.value || '').trim();
+      if (!val) { showToast('Informe um nome', 'error'); return; }
+      cleanup();
+      resolve(val);
+    }
+
+    function onCancel() {
+      cleanup();
+      resolve(null);
+    }
+
+    function onKey(e) {
+      if (e.key === 'Escape') { cleanup(); resolve(null); }
+      if (e.key === 'Enter')  onConfirm();
+    }
+
+    function cleanup() {
+      modal.classList.add('hidden');
+      document.getElementById('modal-input-confirm')?.removeEventListener('click', onConfirm);
+      document.getElementById('modal-input-cancel')?.removeEventListener('click', onCancel);
+      document.removeEventListener('keydown', onKey);
+    }
+
+    document.getElementById('modal-input-confirm')?.addEventListener('click', onConfirm);
+    document.getElementById('modal-input-cancel')?.addEventListener('click', onCancel);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
+// ============================================================
+// V10: Skeleton Loading
+// ============================================================
+function renderSkeletonMsgs(container, count = 4) {
+  if (!container) return;
+  let html = '';
+  for (let i = 0; i < count; i++) {
+    const dir = i % 2 === 0 ? 'incoming' : 'outgoing';
+    html += `<div class="skeleton-msg ${dir}"><div class="skeleton-msg-bubble"></div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderSkeletonList(container, count = 5) {
+  if (!container) return;
+  let html = '<div class="skeleton-container">';
+  for (let i = 0; i < count; i++) {
+    const w1 = [40,55,65,50,70][i % 5];
+    const w2 = [75,85,60,90,80][i % 5];
+    html += `<div class="skeleton-card">
+      <div class="skeleton-avatar-el"></div>
+      <div class="skeleton-content-el">
+        <div class="skeleton-line-el" style="width:${w1}%"></div>
+        <div class="skeleton-line-el" style="width:${w2}%"></div>
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ============================================================
+// V11: Empty States
+// ============================================================
+function renderEmptyConvList() {
+  return `<div class="empty-state">
+    <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+      <polyline points="22,6 12,13 2,6"/>
+    </svg>
+    <span class="empty-state-title">Nenhuma conversa</span>
+    <span class="empty-state-subtitle">Sem conversas para este filtro</span>
+  </div>`;
+}
+
+// ============================================================
+// G4b: Draft Save/Restore — persiste rascunho por conversa em localStorage
+// ============================================================
+let _draftDebounce = null;
+function _salvarDraft(telefone, texto) {
+  if (!telefone) return;
+  if (texto) localStorage.setItem(`draft_${telefone}`, texto);
+  else localStorage.removeItem(`draft_${telefone}`);
+}
+
+// ============================================================
+// V7: Auto-resize textarea + char counter
+// ============================================================
+function _autoResizeComposer() {
+  const ta = document.getElementById('msg-input');
+  if (!ta) return;
+  ta.addEventListener('input', () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+    const counter = document.getElementById('char-counter');
+    if (counter) {
+      const len = ta.value.length;
+      const max = 4096;
+      const pct = len / max;
+      counter.textContent = pct > 0.8 ? `${len}/${max}` : '';
+      counter.className = pct > 0.95 ? 'danger' : pct > 0.8 ? 'warn' : '';
+    }
+  });
+}
+
+// ============================================================
+// V8: Accordion toggle para info-section
+// ============================================================
+function _initInfoAccordion() {
+  document.getElementById('info-panel')?.addEventListener('click', (e) => {
+    const header = e.target.closest('.info-section-header');
+    if (!header) return;
+    const section = header.closest('.info-section');
+    if (!section) return;
+    section.classList.toggle('collapsed');
+  });
+}
+
+// ============================================================
 // Tag helpers
 // ============================================================
 function tagBadgeHTML(tag) {
-  if (tag === 'resolvido') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#052e16;color:#10b981;">✓ Resolvido</span>';
+  if (tag === 'resolvido') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">✓ Resolvido</span>';
   if (tag === 'follow_up') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#451a03;color:#f59e0b;">↩ Follow-up</span>';
   return '';
 }
@@ -179,7 +466,7 @@ function tagBadgeHTML(tag) {
 function labelChipsHTML(labels) {
   if (!labels || !labels.length) return '';
   return labels.map(l => {
-    const cor = l.cor || '#6366f1';
+    const cor = l.cor || '#2481cc';
     const bg = cor + '20';  // alpha 12.5%
     return `<span class="text-xs font-medium px-2 py-0.5 rounded-full" style="background:${bg};color:${cor};">${escapeHtml(l.nome)}</span>`;
   }).join(' ');
@@ -187,7 +474,7 @@ function labelChipsHTML(labels) {
 
 // Chip removível (com X) para o info panel
 function labelChipRemovableHTML(label) {
-  const cor = label.cor || '#6366f1';
+  const cor = label.cor || '#2481cc';
   const bg = cor + '20';
   return `<span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full" style="background:${bg};color:${cor};">
     ${escapeHtml(label.nome)}
@@ -201,17 +488,20 @@ function labelChipRemovableHTML(label) {
 function renderConvList() {
   const cont = document.getElementById('conv-list');
   if (!cont) return;
-
+  try {
   let lista = state.conversas;
 
-  // Filtro por tab
+  // G3: Filtro por tab usando campos reais do objeto de conversa
   if (state.filtro === 'aguardando') {
-    lista = lista.filter(c => c.aguardando_humano);
+    lista = lista.filter(c => c.aguardando_humano && !c.atendente_id);
   } else if (state.filtro === 'meus') {
     lista = lista.filter(c => c.atendente_id === state.eu.id);
   } else if (state.filtro === 'bot') {
-    lista = lista.filter(c => c.bot_ativo && !c.aguardando_humano && !c.atendente_id);
+    lista = lista.filter(c => c.bot_ativo && !c.aguardando_humano);
+  } else if (state.filtro === 'outros') {
+    lista = lista.filter(c => c.atendente_id && c.atendente_id !== state.eu.id);
   }
+  // 'todas' e qualquer outro valor: sem filtro adicional
 
   // Filtro por busca
   if (state.searchQuery) {
@@ -222,7 +512,7 @@ function renderConvList() {
   }
 
   if (lista.length === 0) {
-    cont.innerHTML = '<div class="flex items-center justify-center h-24 text-sm" style="color:var(--text-muted);">Nenhuma conversa</div>';
+    cont.innerHTML = renderEmptyConvList();
     return;
   }
 
@@ -234,32 +524,58 @@ function renderConvList() {
     const preview = escapeHtml(c.preview || '');
     const tempo = horarioRelativo(c.ultima_mensagem_em);
 
-    let dotColor = 'var(--text-muted)';
+    // V4: Status badge no avatar
+    let avatarStatusClass = '';
     let pulseClass = '';
-    if (c.aguardando_humano) { dotColor = 'var(--danger)'; pulseClass = 'pulse-red'; }
-    else if (c.atendente_id === state.eu.id) dotColor = 'var(--accent)';
-    else if (c.bot_ativo && !c.atendente_id) dotColor = 'var(--success)';
+    let dotColor = 'var(--text-muted)';
+    if (c.aguardando_humano && !c.atendente_id) {
+      avatarStatusClass = 'aguardando'; pulseClass = 'pulse-red'; dotColor = 'var(--danger-text, #f85149)';
+    } else if (c.atendente_id && c.atendente_id === state.eu.id) {
+      avatarStatusClass = 'humano'; dotColor = 'var(--accent)';
+    } else if (c.atendente_id && c.atendente_id !== state.eu.id) {
+      avatarStatusClass = 'outro'; dotColor = 'var(--warning-text, #d29922)';
+    } else if (c.bot_ativo && !c.atendente_id) {
+      avatarStatusClass = 'bot'; dotColor = 'var(--success-text, #3fb950)';
+    }
 
+    // V4: Waiting badge (>5min)
+    let waitingBadge = '';
+    if (c.aguardando_humano && c.ultima_mensagem_em) {
+      const mins = Math.floor((Date.now() - new Date(c.ultima_mensagem_em).getTime()) / 60000);
+      if (mins > 5) waitingBadge = `<span class="waiting-badge">Aguardando ${mins}min</span>`;
+    }
+
+    // V4: Unread class — usa aguardando_humano como sinal de não lido
+    const isUnread = c.aguardando_humano && !c.atendente_id;
     const isSelected = state.bulkSelecionadas.has(c.telefone);
     const bulkActive = state.bulkSelecionadas.size > 0;
+
     return `
-      <div class="conv-card${isAtivo ? ' active' : ''}${isSelected ? ' bulk-selected' : ''}" data-tel="${escapeHtml(c.telefone)}">
+      <div class="conv-card conv-card-enter${isAtivo ? ' active active-conv' : ''}${isSelected ? ' bulk-selected' : ''}${isUnread ? ' unread' : ''}" data-tel="${escapeHtml(c.telefone)}">
         <input type="checkbox" class="bulk-check flex-shrink-0 mt-3 ${bulkActive ? '' : 'hidden'}" data-tel="${escapeHtml(c.telefone)}" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation();" style="accent-color: var(--accent);">
-        <div class="${pulseClass} w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 select-none" style="background:${cor}" onclick="event.stopPropagation(); toggleBulkSelecao('${escapeHtml(c.telefone)}')" title="Clique para selecionar">${escapeHtml(ini)}</div>
+        <div class="relative ${pulseClass} flex-shrink-0" onclick="event.stopPropagation(); toggleBulkSelecao('${escapeHtml(c.telefone)}')" title="Clique para selecionar">
+          <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white select-none" style="background:${cor}">${escapeHtml(ini)}</div>
+          ${avatarStatusClass ? `<div class="avatar-status-badge ${avatarStatusClass}"></div>` : ''}
+        </div>
         <div class="flex-1 min-w-0" onclick="abrirConversa('${escapeHtml(c.telefone)}')">
           <div class="flex items-center justify-between gap-1 mb-0.5">
-            <span class="font-medium text-sm truncate" style="color:var(--text-primary);">${nome}</span>
+            <span class="conv-name font-medium text-sm truncate" style="color:var(--text-primary);">${nome}</span>
             <span class="text-xs flex-shrink-0" style="color:var(--text-muted);">${tempo}</span>
           </div>
           <div class="flex items-center justify-between gap-1">
-            <span class="text-xs truncate" style="color:var(--text-secondary);">${preview}</span>
-            <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${dotColor};"></span>
+            <span class="conv-preview text-xs truncate">${preview}</span>
+            <div class="unread-dot flex-shrink-0"></div>
           </div>
+          ${waitingBadge ? `<div class="mt-1">${waitingBadge}</div>` : ''}
           ${(c.labels && c.labels.length) ? `<div class="mt-1 flex flex-wrap gap-1">${labelChipsHTML(c.labels)}</div>` : (c.tag ? `<div class="mt-1">${tagBadgeHTML(c.tag)}</div>` : '')}
         </div>
       </div>
     `;
   }).join('');
+  } catch(err) {
+    console.error('[renderConvList] erro ao renderizar lista:', err);
+    if (cont) cont.innerHTML = '<div class="empty-state"><span class="empty-state-title">Erro ao exibir conversas</span></div>';
+  }
 }
 
 function atualizarBadges(totais) {
@@ -278,19 +594,179 @@ function atualizarBadges(totais) {
     badgeMeus.textContent = totais.meus || '';
     badgeMeus.classList.toggle('hidden', !totais.meus);
   }
+
+  // RD-2: metric cards
+  const valAg = document.getElementById('metric-val-aguardando');
+  if (valAg) valAg.textContent = totais.aguardando || 0;
+  const valAt = document.getElementById('metric-val-atendendo');
+  if (valAt) valAt.textContent = totais.meus || 0;
+  const valBot = document.getElementById('metric-val-bot');
+  if (valBot) valBot.textContent = totais.bot || 0;
+
+  // QW-F2: badge no título da aba (US-127)
+  const aguardando = totais.aguardando || 0;
+  document.title = aguardando > 0
+    ? `(${aguardando}) Bolshoi — Atendimento`
+    : 'Bolshoi — Atendimento';
 }
+
+// ============================================================
+// G4a: JWT Expiry Warning — countdown em tempo real, banner 2min antes
+// US-115: exibe "Sessão expira em M:SS" atualizando a cada segundo
+// US-116: flush imediato do draft quando restam ≤10s para expirar
+// ============================================================
+let _jwtCountdownInterval = null;
+
+function _getJwtExpMs() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000;
+  } catch(_) { return null; }
+}
+
+function _formatCountdown(ms) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function _checarJwtExpiry() {
+  const expMs = _getJwtExpMs();
+  if (!expMs) return;
+  const restanteMs = expMs - Date.now();
+  const banner = document.getElementById('jwt-expiry-banner');
+  const countdownEl = document.getElementById('jwt-countdown');
+
+  if (restanteMs <= 0) {
+    // US-116: flush imediato do draft antes de redirecionar
+    const input = document.getElementById('msg-input');
+    if (input && state.conversaAtual) _salvarDraft(state.conversaAtual, input.value);
+    localStorage.removeItem('token');
+    location.href = '/static/admin/login.html';
+    return;
+  }
+
+  if (restanteMs <= 2 * 60 * 1000) {
+    if (banner) banner.classList.remove('hidden');
+    if (countdownEl) countdownEl.textContent = _formatCountdown(restanteMs);
+
+    // US-116: flush imediato do draft quando restam ≤10s
+    if (restanteMs <= 10_000) {
+      const input = document.getElementById('msg-input');
+      if (input && state.conversaAtual) _salvarDraft(state.conversaAtual, input.value);
+    }
+
+    // Inicia countdown por segundo se não estiver rodando
+    if (!_jwtCountdownInterval) {
+      _jwtCountdownInterval = setInterval(() => {
+        const exp = _getJwtExpMs();
+        if (!exp) { clearInterval(_jwtCountdownInterval); _jwtCountdownInterval = null; return; }
+        const rem = exp - Date.now();
+        if (rem <= 0) {
+          clearInterval(_jwtCountdownInterval); _jwtCountdownInterval = null;
+          _checarJwtExpiry();
+          return;
+        }
+        const el = document.getElementById('jwt-countdown');
+        if (el) el.textContent = _formatCountdown(rem);
+        // US-116: flush quando restam ≤10s
+        if (rem <= 10_000) {
+          const inp = document.getElementById('msg-input');
+          if (inp && state.conversaAtual) _salvarDraft(state.conversaAtual, inp.value);
+        }
+      }, 1000);
+    }
+  } else {
+    if (banner) banner.classList.add('hidden');
+    if (_jwtCountdownInterval) {
+      clearInterval(_jwtCountdownInterval);
+      _jwtCountdownInterval = null;
+    }
+  }
+}
+setInterval(_checarJwtExpiry, 30_000);
+_checarJwtExpiry(); // checar imediatamente ao carregar
 
 // ============================================================
 // Carregar conversas
 // ============================================================
-async function carregarConversas() {
+async function carregarConversas(showSkeleton = false) {
+  const convList = document.getElementById('conv-list');
+  // V10: mostra skeleton apenas no load inicial (showSkeleton=true)
+  if (showSkeleton && convList && !convList.querySelector('.conv-card')) {
+    renderSkeletonList(convList);
+  }
   try {
     const data = await api.getConversasFiltradas(state.filtro, state.statusFiltro);
-    if (!data) return;
+    // data===null pode ser 204 (lista vazia legítima) ou content-type inesperado
+    // Em ambos os casos o backend retornou OK — tratar como lista vazia
+    if (data === null) {
+      console.warn('carregarConversas: resposta null (204 ou content-type inesperado)');
+      state.conversas = [];
+      renderConvList();
+      return;
+    }
     state.conversas = data.items || [];
     atualizarBadges(data.totais_por_estado);
     renderConvList();
-  } catch(e) { console.error('carregarConversas:', e); }
+
+    // Fix defensivo: se lista vazia com filtro "open", verifica se há dados com status NULL
+    // (migration 0008 backfill pode não ter rodado — status_conversa NULL filtra como falso)
+    if (state.conversas.length === 0 && state.statusFiltro === 'open') {
+      _verificarListaVaziaBackfill();
+    }
+  } catch(e) {
+    console.error('carregarConversas erro:', e);
+    // 401 já redirecionou — não mostrar toast para não competir com o redirect
+    if (e.status === 401) return;
+    const msg = e.status === 0
+      ? 'Sem conexão — verifique a rede'
+      : `Erro ao carregar conversas (${e.status || e.message || 'desconhecido'})`;
+    showToast(msg, 'error');
+  }
+}
+
+// Detecta o bug de backfill NULL: testa com status=todas e, se houver dados,
+// muda o filtro ativo para "todas" e exibe aviso ao operador.
+let _backfillCheckFeito = false;
+async function _verificarListaVaziaBackfill() {
+  if (_backfillCheckFeito) return;
+  _backfillCheckFeito = true;
+  try {
+    const probe = await api.getConversasFiltradas(state.filtro, 'todas');
+    if (probe && probe.items && probe.items.length > 0) {
+      console.warn(
+        `[FE-0b] Bug de backfill detectado: ${probe.items.length} conversa(s) existem ` +
+        `mas status_conversa=NULL filtra como vazio. Mudando filtro para "todas".`
+      );
+      // Muda para "todas" automaticamente para o operador ver as conversas
+      state.statusFiltro = 'todas';
+      // Sincroniza UI do status-filter
+      document.querySelectorAll('.status-filter').forEach(b => {
+        if (b.dataset.status === 'todas') {
+          b.classList.add('active-status');
+          b.style.color = 'var(--accent)';
+          b.style.background = 'var(--accent-subtle)';
+        } else {
+          b.classList.remove('active-status');
+          b.style.color = 'var(--text-secondary)';
+          b.style.background = '';
+        }
+      });
+      state.conversas = probe.items;
+      atualizarBadges(probe.totais_por_estado);
+      renderConvList();
+      showToast(
+        'Exibindo todas as conversas — execute a migration 0008 para restaurar o filtro padrão',
+        'warning'
+      );
+    }
+  } catch(e) {
+    console.warn('[FE-0b] probe status=todas falhou:', e);
+  }
 }
 
 // ============================================================
@@ -307,43 +783,72 @@ function separadorData(label) {
   return el;
 }
 
-function separadorEvento(label) {
+function separadorEvento(label, horario) {
   const el = document.createElement('div');
   el.className = 'flex items-center gap-3 my-2';
+  const horaStr = horario ? `<span class="text-xs ml-1" style="color:var(--text-muted);opacity:0.7;">${escapeHtml(horaCurta(horario))}</span>` : '';
   el.innerHTML = `
     <div class="flex-1 h-px" style="background:var(--border);"></div>
-    <span class="text-xs italic" style="color:var(--text-muted);">${escapeHtml(label)}</span>
+    <span class="text-xs italic" style="color:var(--text-muted);">${escapeHtml(label)}${horaStr}</span>
     <div class="flex-1 h-px" style="background:var(--border);"></div>
   `;
   return el;
 }
 
+// US-107: timestamp completo para tooltip das bolhas
+function _timestampCompleto(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  } catch(_) { return iso; }
+}
+
 function bolha(texto, origem, criado_em, opts = {}) {
-  const row = document.createElement('div');
   const isCliente = origem === 'cliente';
   const isHumano  = origem === 'humano';
 
-  row.className = `flex mb-1 ${isCliente ? 'justify-start' : 'justify-end'} fade-in`;
+  // Row wrapper — classes used for CSS sibling-selector grouping (spec :401-403, :446-463)
+  const rowOrigemClass = isCliente ? 'row-client' : (isHumano ? 'row-human' : 'row-bot');
+  const row = document.createElement('div');
+  row.className = `row ${isCliente ? 'row-left' : 'row-right'} ${rowOrigemClass} fade-in`;
 
-  let cls = isCliente ? 'bolha-incoming' : (isHumano ? 'bolha-outgoing-humano' : 'bolha-outgoing-bot');
-  if (opts.falha) cls += ' bolha-falha';
+  let bubbleCls = 'bolha-base ' + (isCliente ? 'bolha-incoming' : (isHumano ? 'bolha-outgoing-humano' : 'bolha-outgoing-bot'));
+  if (opts.falha) bubbleCls += ' bolha-falha';
 
+  const _ICO_USER = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`;
+  const _ICO_BOT  = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M12 2v4"/><circle cx="12" cy="6" r="2"/><line x1="8" y1="15" x2="8" y2="17"/><line x1="16" y1="15" x2="16" y2="17"/></svg>`;
+
+  let labelCls = 'bolha-label';
   let labelTxt = '';
-  if (isCliente) labelTxt = 'Cliente';
-  else if (isHumano) labelTxt = opts.atendente_nome ? `Atendente · ${escapeHtml(opts.atendente_nome)}` : 'Atendente';
-  else labelTxt = '<span class="px-1 rounded text-xs font-bold" style="background:#04473b;color:#86efac;">IA</span> Bot';
+  if (isCliente) {
+    labelTxt = `${_ICO_USER} Cliente`;
+  } else if (isHumano) {
+    labelCls += ' bolha-author-human';
+    labelTxt = `${_ICO_USER} ${opts.atendente_nome ? `Atendente · ${escapeHtml(opts.atendente_nome)}` : 'Atendente'}`;
+  } else {
+    labelCls += ' bolha-author-bot';
+    labelTxt = `${_ICO_BOT} Bolshoi Bot`;
+  }
 
-  const entregueIcon = opts.entregue === false ? ' ⚠' : (opts.entregue === true ? ' ✓' : '');
+  // Ticks: exact paths from comp1.jsx (spec); only check (1-tick) since backend has no "lido" flag
+  const _SVG_TICK_OK   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+  const _SVG_TICK_FAIL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+  const entregueIcon = opts.entregue === false ? _SVG_TICK_FAIL : (opts.entregue === true ? _SVG_TICK_OK : '');
+
   const textoEscapado = escapeHtml(texto).replace(/\n/g, '<br>');
+  const tooltipTs = escapeHtml(_timestampCompleto(criado_em));
 
   row.innerHTML = `
-    <div class="${cls}" ${opts.tempId ? `data-temp-id="${opts.tempId}"` : ''}>
-      <span class="bolha-label">${labelTxt}</span>
-      <p style="white-space:pre-wrap;word-break:break-word;">${textoEscapado}</p>
-      <div class="flex items-center justify-end gap-1 mt-1">
-        <span class="text-xs" style="color:var(--text-secondary);opacity:0.7;">${horaCurta(criado_em)}</span>
-        ${!isCliente ? `<span class="entregue-status text-xs" style="color:var(--text-secondary);opacity:0.7;">${entregueIcon}</span>` : ''}
-      </div>
+    <div class="${bubbleCls}" ${opts.tempId ? `data-temp-id="${opts.tempId}"` : ''} title="${tooltipTs}">
+      <span class="${labelCls}">${labelTxt}</span>
+      <p class="bolha-text">${textoEscapado}</p>
+      <span class="bolha-meta-row">
+        <span class="bolha-ts">${horaCurta(criado_em)}</span>${!isCliente ? `<span class="entregue-status bolha-tick">${entregueIcon}</span>` : ''}
+      </span>
     </div>
   `;
   return row;
@@ -369,10 +874,12 @@ function renderMensagens(mensagens) {
   let ultimoDia = null;
   let ultimaOrigem = null;
 
+  // Grouping handled by CSS sibling selectors (.row-X + .row-X), not JS
   for (const m of mensagens) {
     const labelDia = dataLabel(m.criado_em);
     if (labelDia && labelDia !== ultimoDia) {
       ultimoDia = labelDia;
+      ultimaOrigem = null;
       cont.appendChild(separadorData(labelDia));
     }
 
@@ -385,13 +892,17 @@ function renderMensagens(mensagens) {
       const origem = m.origem || 'bot';
       if (ultimaOrigem !== null) {
         if (origem === 'humano' && ultimaOrigem !== 'humano') {
-          cont.appendChild(separadorEvento('Atendente assumiu'));
+          // QW-F4: usa nome do atendente se disponível (US-039)
+          const nomeAtendente = m.atendente_nome || 'Atendente';
+          cont.appendChild(separadorEvento(`${nomeAtendente} assumiu o atendimento`, m.criado_em));
+          ultimaOrigem = null;
         } else if (origem !== 'humano' && ultimaOrigem === 'humano') {
-          cont.appendChild(separadorEvento('Bot retomou'));
+          cont.appendChild(separadorEvento('Bot retomou o atendimento', m.criado_em));
+          ultimaOrigem = null;
         }
       }
       const textoProcessado = (m.resposta || '').replace(/<\s*br\s*\/?>/gi, '\n');
-      cont.appendChild(bolha(textoProcessado, origem, m.criado_em, { entregue: m.entregue }));
+      cont.appendChild(bolha(textoProcessado, origem, m.criado_em, { entregue: m.entregue, atendente_nome: m.atendente_nome }));
       ultimaOrigem = origem;
     }
   }
@@ -399,11 +910,40 @@ function renderMensagens(mensagens) {
   scrollarFim();
 }
 
+// US-105: verifica se o usuário está no fundo do scroll (tolerância 80px)
+function _estaNoFundo() {
+  const cont = document.getElementById('messages-area');
+  if (!cont) return true;
+  return cont.scrollHeight - cont.scrollTop - cont.clientHeight < 80;
+}
+
+// US-105: exibe/oculta botão "novas mensagens"
+function _mostrarBotaoNovasMensagens(mostrar) {
+  let btn = document.getElementById('btn-novas-mensagens');
+  if (!btn) {
+    if (!mostrar) return;
+    btn = document.createElement('button');
+    btn.id = 'btn-novas-mensagens';
+    btn.className = 'btn-novas-msgs';
+    btn.innerHTML = '&#8595; Novas mensagens';
+    btn.addEventListener('click', () => {
+      const c = document.getElementById('messages-area');
+      if (c) { c.scrollTop = c.scrollHeight; }
+      _mostrarBotaoNovasMensagens(false);
+    });
+    document.getElementById('chat-panel')?.appendChild(btn);
+  }
+  btn.classList.toggle('visible', mostrar);
+}
+
 function scrollarFim(force = true) {
   const cont = document.getElementById('messages-area');
   if (!cont) return;
-  const noFundo = cont.scrollHeight - cont.scrollTop - cont.clientHeight < 80;
-  if (force || noFundo) cont.scrollTop = cont.scrollHeight;
+  const noFundo = _estaNoFundo();
+  if (force || noFundo) {
+    cont.scrollTop = cont.scrollHeight;
+    _mostrarBotaoNovasMensagens(false);
+  }
 }
 
 // ============================================================
@@ -411,7 +951,7 @@ function scrollarFim(force = true) {
 // ============================================================
 let _ultimaOrigemIncremental = null;
 
-function appendMensagemIncremental(texto, origem, entregue, tempId = null) {
+function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts = {}) {
   const cont = document.getElementById('messages-area');
   if (!cont) return;
 
@@ -427,19 +967,28 @@ function appendMensagemIncremental(texto, origem, entregue, tempId = null) {
     cont.appendChild(sep);
   }
 
-  // Separador de evento se origem mudou
+  // Separador de evento se origem mudou (QW-F4)
   if (_ultimaOrigemIncremental !== null) {
     if (origem === 'humano' && _ultimaOrigemIncremental !== 'humano') {
-      cont.appendChild(separadorEvento('Atendente assumiu'));
+      const nomeAtendente = opts.atendente_nome || 'Atendente';
+      cont.appendChild(separadorEvento(`${nomeAtendente} assumiu o atendimento`, agora));
     } else if (origem !== 'humano' && _ultimaOrigemIncremental === 'humano') {
-      cont.appendChild(separadorEvento('Bot retomou'));
+      cont.appendChild(separadorEvento('Bot retomou o atendimento', agora));
     }
   }
+  const _prevOrigemIncremental = _ultimaOrigemIncremental;
   _ultimaOrigemIncremental = origem;
 
   const textoProcessado = (texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
-  cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId }));
-  scrollarFim();
+  cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId, atendente_nome: opts.atendente_nome }));
+
+  // US-105: só rola se já estava no fundo; senão mostra botão flutuante
+  if (_estaNoFundo()) {
+    cont.scrollTop = cont.scrollHeight;
+    _mostrarBotaoNovasMensagens(false);
+  } else {
+    _mostrarBotaoNovasMensagens(true);
+  }
 }
 
 function resolverBolhaPendente(tempId, ok) {
@@ -447,6 +996,20 @@ function resolverBolhaPendente(tempId, ok) {
   if (!el) return;
   if (!ok) {
     el.classList.add('bolha-falha');
+    // US-097/137: botão retry — só adiciona se ainda não existe
+    if (!el.querySelector('.retry-btn')) {
+      const textoEl = el.querySelector('p');
+      const textoOriginal = textoEl ? textoEl.textContent : '';
+      if (textoOriginal) {
+        const btnRetry = document.createElement('button');
+        btnRetry.className = 'retry-btn';
+        btnRetry.innerHTML = '&#8635; Tentar novamente';
+        btnRetry.dataset.texto = textoOriginal;
+        btnRetry.dataset.telefone = state.conversaAtual || '';
+        btnRetry.dataset.tempId = tempId;
+        el.appendChild(btnRetry);
+      }
+    }
   }
   // Atualiza ícone de entrega
   const statusSpan = el.querySelector('.entregue-status');
@@ -460,6 +1023,15 @@ async function abrirConversa(telefone) {
   state.conversaAtual = telefone;
   _ultimaOrigemIncremental = null;
 
+  // G4b: restaura draft do rascunho salvo para esta conversa
+  const composerEl = document.getElementById('msg-input');
+  if (composerEl) {
+    const draft = localStorage.getItem(`draft_${telefone}`);
+    composerEl.value = draft || '';
+    composerEl.style.height = 'auto';
+    if (draft) composerEl.style.height = Math.min(composerEl.scrollHeight, 120) + 'px';
+  }
+
   // Remove active de todos os cards
   document.querySelectorAll('.conv-card').forEach(c => c.classList.remove('active'));
   const card = document.querySelector(`.conv-card[data-tel="${CSS.escape(telefone)}"]`);
@@ -471,7 +1043,11 @@ async function abrirConversa(telefone) {
   // Mostra skeleton loading
   document.getElementById('empty-state')?.classList.add('hidden');
   document.getElementById('thread-header')?.classList.remove('hidden');
-  document.getElementById('messages-area')?.classList.remove('hidden');
+  const msgAreaEl = document.getElementById('messages-area');
+  if (msgAreaEl) {
+    msgAreaEl.classList.remove('hidden');
+    renderSkeletonMsgs(msgAreaEl);
+  }
   document.getElementById('composer')?.classList.remove('hidden');
 
   try {
@@ -599,7 +1175,8 @@ async function assumirConversa(telefone) {
 }
 
 async function devolverAoBot(telefone) {
-  if (!confirm('Devolver conversa ao bot?')) return;
+  const ok = await abrirModalConfirmar('Devolver ao bot?', 'O bot voltará a responder automaticamente a este cliente.');
+  if (!ok) return;
   try {
     await api.devolver(telefone);
     showToast('Conversa devolvida ao bot', 'success');
@@ -626,6 +1203,8 @@ async function enviarMensagem() {
   const tempId = `tmp-${Date.now()}`;
   input.value = '';
   input.style.height = 'auto';
+  // G4b: limpa draft ao enviar com sucesso
+  _salvarDraft(state.conversaAtual, '');
 
   // Bolha pendente (sem entregue confirmado)
   appendMensagemIncremental(texto, 'humano', null, tempId);
@@ -679,7 +1258,7 @@ function renderInfoPanel(info) {
   const statusEl = document.getElementById('info-status-badges');
   if (statusEl) {
     const badges = [];
-    if (info.bot_ativo) badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:#052e16;color:#10b981;">Bot ativo</span>');
+    if (info.bot_ativo) badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Bot ativo</span>');
     else badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:#1a1a2e;color:#8b90a0;">Bot inativo</span>');
     if (info.aguardando_humano) badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:#450a0a;color:#ef4444;">Aguardando atendente</span>');
     statusEl.innerHTML = badges.join('');
@@ -769,7 +1348,7 @@ function renderLabelPicker(query) {
     if (/^[a-z0-9_\-]+$/.test(q)) {
       html += `
         <button class="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs mt-1 transition-colors text-left"
-                style="color: var(--accent); background: rgba(99, 102, 241, 0.1);"
+                style="color: var(--accent); background: var(--accent-subtle);"
                 onclick="criarEAplicarLabel('${escapeHtml(q)}')">
           + Criar etiqueta "${escapeHtml(q)}"
         </button>
@@ -812,7 +1391,7 @@ async function aplicarLabel(labelId) {
 }
 
 async function criarEAplicarLabel(nome) {
-  const cores = ['#6366f1','#10b981','#f59e0b','#ef4444','#a855f7','#3b82f6','#ec4899','#14b8a6'];
+  const cores = ['#2481cc','#10b981','#f59e0b','#ef4444','#a855f7','#3b82f6','#ec4899','#14b8a6'];
   const cor = cores[Math.floor(Math.random() * cores.length)];
   try {
     const nova = await api.criarLabel(nome, cor);
@@ -841,17 +1420,13 @@ async function alterarStatus(novoStatus) {
 
   let snoozedUntil = null;
   if (novoStatus === 'snoozed') {
-    // Prompt simples para datetime. Pode ser substituído por modal/datepicker depois.
-    const horas = prompt('Adiar conversa por quantas horas?', '24');
-    const h = parseInt(horas);
-    if (isNaN(h) || h <= 0 || h > 720) {
-      showToast('Horas inválidas (1-720)', 'error');
-      return;
-    }
-    snoozedUntil = new Date(Date.now() + h * 3600 * 1000).toISOString();
+    // SP-1: modal datepicker substitui window.prompt()
+    snoozedUntil = await abrirModalSnooze();
+    if (!snoozedUntil) return; // cancelou
   }
   if (novoStatus === 'resolved') {
-    if (!confirm('Marcar conversa como resolvida? Ela sairá da lista padrão.')) return;
+    const ok = await abrirModalConfirmar('Marcar como resolvida?', 'A conversa sairá da lista padrão de abertas.');
+    if (!ok) return;
   }
 
   try {
@@ -948,7 +1523,8 @@ async function transferirConversa(atendenteId) {
   if (!state.conversaAtual) return;
   const dest = state.allAtendentes.find(a => a.id === atendenteId);
   if (!dest) return;
-  if (!confirm(`Transferir conversa para ${dest.nome}?`)) return;
+  const okTransf = await abrirModalConfirmar(`Transferir para ${dest.nome}?`, 'A conversa será atribuída ao novo atendente.');
+  if (!okTransf) return;
   try {
     await api.atribuirConversa(state.conversaAtual, atendenteId);
     showToast(`Conversa transferida para ${dest.nome}`, 'success');
@@ -1079,7 +1655,8 @@ function limparBulkSelecao() {
 async function bulkResolver() {
   const telefones = Array.from(state.bulkSelecionadas);
   if (!telefones.length) return;
-  if (!confirm(`Marcar ${telefones.length} conversa(s) como resolvidas?`)) return;
+  const okBulk = await abrirModalConfirmar(`Resolver ${telefones.length} conversa(s)?`, 'As conversas selecionadas serão marcadas como resolvidas.');
+  if (!okBulk) return;
   try {
     const res = await api.bulkConversas(telefones, 'resolver');
     showToast(`${res.sucesso.length} conversa(s) resolvida(s)${res.falha.length ? ` (${res.falha.length} falharam)` : ''}`, 'success');
@@ -1157,7 +1734,7 @@ function aplicarView(viewId) {
     if (b.dataset.status === state.statusFiltro) {
       b.classList.add('active-status');
       b.style.color = 'var(--accent)';
-      b.style.background = 'rgba(99, 102, 241, 0.15)';
+      b.style.background = 'var(--accent-subtle)';
     } else {
       b.classList.remove('active-status');
       b.style.color = 'var(--text-secondary)';
@@ -1169,8 +1746,13 @@ function aplicarView(viewId) {
 }
 
 async function salvarViewAtual() {
-  const nome = prompt('Nome da view (ex.: "VIPs ativos"):');
-  if (!nome || nome.trim().length < 1) return;
+  // SP-1: modal input substitui window.prompt()
+  const nome = await abrirModalInputTexto(
+    'Salvar view',
+    'Dê um nome para os filtros atuais:',
+    'ex.: VIPs ativos'
+  );
+  if (!nome) return;
   try {
     const criterios = { filtro: state.filtro, statusFiltro: state.statusFiltro };
     const nova = await api.criarView(nome.trim(), criterios, state.views.length);
@@ -1186,7 +1768,8 @@ async function salvarViewAtual() {
 async function deletarView(viewId) {
   const v = state.views.find(x => x.id === viewId);
   if (!v) return;
-  if (!confirm(`Excluir view "${v.nome}"?`)) return;
+  const okView = await abrirModalConfirmar(`Excluir view "${v.nome}"?`, 'Esta ação não pode ser desfeita.');
+  if (!okView) return;
   try {
     await api.deletarView(viewId);
     state.views = state.views.filter(x => x.id !== viewId);
@@ -1259,6 +1842,12 @@ function iniciarPresenceTracking() {
     enviarPresence(document.hidden ? 'away' : 'online');
   });
 
+  // US-116: flush imediato do draft ao fechar a aba (garante que rascunho não se perde)
+  window.addEventListener('beforeunload', () => {
+    const inp = document.getElementById('msg-input');
+    if (inp && state.conversaAtual) _salvarDraft(state.conversaAtual, inp.value);
+  });
+
   // Beacon ao fechar a aba: sendBeacon não suporta headers, então passa token como query param.
   // Backend /admin/presence aceita ?token= como fallback (auth dupla).
   window.addEventListener('beforeunload', () => {
@@ -1276,16 +1865,12 @@ function iniciarPresenceTracking() {
 async function bulkSnooze() {
   const telefones = Array.from(state.bulkSelecionadas);
   if (!telefones.length) return;
-  const horas = prompt(`Adiar ${telefones.length} conversa(s) por quantas horas?`, '24');
-  const h = parseInt(horas);
-  if (isNaN(h) || h <= 0 || h > 720) {
-    showToast('Horas inválidas (1-720)', 'error');
-    return;
-  }
-  const snoozedUntil = new Date(Date.now() + h * 3600 * 1000).toISOString();
+  // SP-1: modal datepicker substitui window.prompt()
+  const snoozedUntil = await abrirModalSnooze();
+  if (!snoozedUntil) return; // cancelou
   try {
     const res = await api.bulkConversas(telefones, 'snooze', { snoozed_until: snoozedUntil });
-    showToast(`${res.sucesso.length} conversa(s) adiada(s) por ${h}h`, 'success');
+    showToast(`${res.sucesso.length} conversa(s) adiada(s)${res.falha?.length ? ` (${res.falha.length} falharam)` : ''}`, 'success');
     limparBulkSelecao();
     carregarConversas();
   } catch (e) {
@@ -1335,13 +1920,15 @@ function renderMentionAutocomplete(query) {
 
 function abrirInfoPanel() {
   const panel = document.getElementById('info-panel');
-  if (panel) { panel.classList.remove('hidden'); panel.style.display = 'flex'; }
+  if (panel) panel.style.transform = 'translateX(0)';
+  document.getElementById('info-panel-backdrop')?.classList.add('show');
   state.infoAberto = true;
 }
 
 function fecharInfoPanel() {
   const panel = document.getElementById('info-panel');
-  if (panel) panel.classList.add('hidden');
+  if (panel) panel.style.transform = 'translateX(100%)';
+  document.getElementById('info-panel-backdrop')?.classList.remove('show');
   state.infoAberto = false;
 }
 
@@ -1389,7 +1976,8 @@ function renderNotas(notas) {
   });
   cont.querySelectorAll('.nota-del-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Excluir nota?')) return;
+      const okNota = await abrirModalConfirmar('Excluir nota?', 'Esta ação não pode ser desfeita.');
+      if (!okNota) return;
       try {
         await api.deleteNota(btn.getAttribute('data-nota-id'));
         showToast('Nota excluída', 'success');
@@ -1482,7 +2070,7 @@ document.addEventListener('sse:nova_mensagem', (e) => {
     const temPendente = !!document.querySelector('[data-temp-id]');
     if (!(ev.origem === 'humano' && temPendente)) {
       const textoProcessado = (ev.texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
-      appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue);
+      appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue, null, { atendente_nome: ev.atendente_nome || null });
     }
   } else if (ev.origem === 'cliente') {
     showToast(`Nova mensagem de ${ev.nome || ev.telefone}`, 'info');
@@ -1588,16 +2176,27 @@ document.addEventListener('sse:bot_devolveu', (e) => {
   }
 });
 
+// G10: SSE bulk_aplicado — atualiza lista quando bulk action é processado
+document.addEventListener('sse:bulk_aplicado', (e) => {
+  const ev = e.detail;
+  carregarConversas();
+  // ADR-005: campo correto é "afetadas" (não "count")
+  const n = ev.afetadas || ev.count || '';
+  showToast(`${n} conversa(s) atualizada(s)`.trim(), 'success');
+});
+
 // ============================================================
 // Event listeners de DOM
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Avatar do atendente logado
+  // Avatar e nome do atendente logado
   const avatarEl = document.getElementById('my-avatar');
   if (avatarEl) {
     avatarEl.textContent = iniciais(state.eu.nome, '?');
     avatarEl.setAttribute('title', state.eu.nome);
   }
+  const nomeOpEl = document.getElementById('sidebar-nome-operador');
+  if (nomeOpEl) nomeOpEl.textContent = state.eu.nome || 'Atendente';
 
   // Filter tabs
   document.getElementById('filter-tabs')?.addEventListener('click', (e) => {
@@ -1606,6 +2205,9 @@ document.addEventListener('DOMContentLoaded', () => {
     state.filtro = btn.dataset.filter;
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active-tab'));
     btn.classList.add('active-tab');
+    // QW-F3: limpa seleção bulk ao trocar filtro — evita ações em conversas invisíveis
+    state.bulkSelecionadas.clear();
+    atualizarBulkBar();
     carregarConversas();
   });
 
@@ -1641,6 +2243,23 @@ document.addEventListener('DOMContentLoaded', () => {
     inp.focus();
   });
 
+  // RD-2: metric cards — clique filtra conversas
+  document.getElementById('metric-aguardando')?.addEventListener('click', () => {
+    state.filtro = 'aguardando';
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active-tab', t.dataset.filter === 'aguardando'));
+    carregarConversas();
+  });
+  document.getElementById('metric-atendendo')?.addEventListener('click', () => {
+    state.filtro = 'meus';
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active-tab', t.dataset.filter === 'meus'));
+    carregarConversas();
+  });
+  document.getElementById('metric-bot')?.addEventListener('click', () => {
+    state.filtro = 'bot';
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active-tab', t.dataset.filter === 'bot'));
+    carregarConversas();
+  });
+
   // Btn assumir
   document.getElementById('btn-assumir')?.addEventListener('click', () => {
     if (state.conversaAtual) assumirConversa(state.conversaAtual);
@@ -1664,6 +2283,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Info close
   document.getElementById('info-close-btn')?.addEventListener('click', fecharInfoPanel);
+  document.getElementById('info-panel-backdrop')?.addEventListener('click', fecharInfoPanel);
 
   // Tag popover
   document.getElementById('btn-tag')?.addEventListener('click', (e) => {
@@ -1699,12 +2319,139 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('canned-popover')?.classList.toggle('hidden');
   });
 
+  // G2/V14/US-093: mobile drawer toggle com hamburger animado e backdrop
+  const drawerToggle = document.getElementById('mobile-drawer-toggle');
+  const convPanel = document.getElementById('conv-panel');
+  if (drawerToggle && convPanel) {
+    let backdrop = document.getElementById('drawer-backdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'drawer-backdrop';
+      backdrop.className = 'drawer-backdrop';
+      document.body.appendChild(backdrop);
+    }
+
+    function abrirDrawer() {
+      convPanel.classList.add('drawer-open');
+      drawerToggle.classList.add('open');
+      backdrop.classList.add('show');
+    }
+    function fecharDrawer() {
+      convPanel.classList.remove('drawer-open');
+      drawerToggle.classList.remove('open');
+      backdrop.classList.remove('show');
+    }
+
+    drawerToggle.addEventListener('click', () => {
+      convPanel.classList.contains('drawer-open') ? fecharDrawer() : abrirDrawer();
+    });
+    // Botão "Ver conversas" no empty state
+    document.getElementById('empty-state-drawer-toggle')?.addEventListener('click', abrirDrawer);
+    backdrop.addEventListener('click', fecharDrawer);
+
+    // US-094: fechar drawer ao selecionar conversa em mobile
+    document.getElementById('conv-list')?.addEventListener('click', (e) => {
+      if (e.target.closest('.conv-card') && window.innerWidth < 1024) {
+        fecharDrawer();
+      }
+    });
+  }
+
+  // V8: inicializa accordion do info panel
+  _initInfoAccordion();
+
+  // G6 / US-097/137: retry delegado no container de mensagens
+  document.getElementById('messages-area')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.retry-btn');
+    if (!btn) return;
+    const telefone = btn.dataset.telefone;
+    const texto = btn.dataset.texto;
+    if (!telefone || !texto) return;
+    btn.disabled = true;
+    btn.innerHTML = '&#8635; Reenviando...';
+    // Localiza a bolha pelo data-temp-id armazenado no botão, ou sobe pelo DOM
+    const tempId = btn.dataset.tempId;
+    const bolha = (tempId ? document.querySelector(`[data-temp-id="${tempId}"]`) : null)
+                  || btn.closest('.bolha-falha');
+    try {
+      await api.enviar(telefone, texto);
+      // Remove estado de falha e botão retry
+      bolha?.classList.remove('bolha-falha');
+      btn.remove();
+      // Atualiza ícone de entrega para sucesso
+      const statusSpan = bolha?.querySelector('.entregue-status');
+      if (statusSpan) statusSpan.textContent = ' ✓';
+      // Remove temp-id para não duplicar em SSE
+      bolha?.removeAttribute('data-temp-id');
+      carregarConversas();
+    } catch(e) {
+      btn.disabled = false;
+      btn.innerHTML = '&#8635; Tentar novamente';
+      showToast('Falha ao reenviar mensagem', 'error');
+    }
+  });
+
+  // G7: Bulk Atribuir handler
+  document.getElementById('bulk-atribuir-btn')?.addEventListener('click', async () => {
+    const dd = document.getElementById('bulk-atribuir-dropdown');
+    if (!dd) return;
+    const atendentes = await api.getAtendentes().catch(() => []);
+    dd.innerHTML = (atendentes || [])
+      .filter(a => a.ativo)
+      .map(a => `<button class="w-full text-left px-3 py-1.5 text-xs hover:opacity-80" data-id="${a.id}" style="color:var(--text-primary);">${escapeHtml(a.nome)}</button>`)
+      .join('') || '<div class="px-3 py-2 text-xs" style="color:var(--text-muted);">Nenhum atendente ativo</div>';
+    dd.classList.toggle('hidden');
+    dd.querySelectorAll('button[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        dd.classList.add('hidden');
+        const tels = Array.from(state.bulkSelecionadas);
+        try {
+          await api.bulkConversas(tels, 'atribuir', { atendente_id: Number(btn.dataset.id) });
+          limparBulkSelecao();
+          carregarConversas();
+          showToast(`${tels.length} conversa(s) atribuída(s)`, 'success');
+        } catch(e) {
+          showToast('Erro ao atribuir conversas', 'error');
+        }
+      });
+    });
+  });
+
+  // G7: Bulk Label handler
+  document.getElementById('bulk-label-btn')?.addEventListener('click', async () => {
+    const dd = document.getElementById('bulk-label-dropdown');
+    if (!dd) return;
+    const labels = await api.getLabels().catch(() => []);
+    dd.innerHTML = (labels || [])
+      .map(l => `<button class="w-full text-left px-3 py-1.5 text-xs hover:opacity-80" data-id="${l.id}" style="color:var(--text-primary);">${escapeHtml(l.nome)}</button>`)
+      .join('') || '<div class="px-3 py-2 text-xs" style="color:var(--text-muted);">Nenhuma label disponivel</div>';
+    dd.classList.toggle('hidden');
+    dd.querySelectorAll('button[data-id]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        dd.classList.add('hidden');
+        const tels = Array.from(state.bulkSelecionadas);
+        try {
+          await api.bulkConversas(tels, 'label_add', { label_id: Number(btn.dataset.id) });
+          limparBulkSelecao();
+          carregarConversas();
+          showToast(`Label aplicada a ${tels.length} conversa(s)`, 'success');
+        } catch(e) {
+          showToast('Erro ao aplicar label', 'error');
+        }
+      });
+    });
+  });
+
   // Textarea auto-resize + slash autocomplete para canned responses
   const msgInput = document.getElementById('msg-input');
   if (msgInput) {
     msgInput.addEventListener('input', () => {
       msgInput.style.height = 'auto';
       msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+
+      // G4b: salva draft com debounce 500ms
+      clearTimeout(_draftDebounce);
+      _draftDebounce = setTimeout(() => _salvarDraft(state.conversaAtual, msgInput.value), 500);
 
       // Detecta atalho "/xxx" no final do texto (ou no início)
       const val = msgInput.value;
@@ -1775,13 +2522,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (b.dataset.status === state.statusFiltro) {
         b.classList.add('active-status');
         b.style.color = 'var(--accent)';
-        b.style.background = 'rgba(99, 102, 241, 0.15)';
+        b.style.background = 'var(--accent-subtle)';
       } else {
         b.classList.remove('active-status');
         b.style.color = 'var(--text-secondary)';
         b.style.background = '';
       }
     });
+    // QW-F3: limpa seleção bulk ao trocar filtro de status
+    state.bulkSelecionadas.clear();
+    atualizarBulkBar();
     carregarConversas();
   });
 
@@ -1930,14 +2680,41 @@ document.addEventListener('DOMContentLoaded', () => {
   carregarMentions();
   carregarPresence();
   carregarViews();
-  carregarConversas();
+  carregarConversas(true); // V10: skeleton no load inicial
   sse.conectar();
   iniciarPresenceTracking();
+  _autoResizeComposer(); // V7: char-counter e auto-resize
+
+  // US-105: oculta botão "novas mensagens" quando usuário rola manualmente até o fundo
+  document.getElementById('messages-area')?.addEventListener('scroll', () => {
+    if (_estaNoFundo()) _mostrarBotaoNovasMensagens(false);
+  }, { passive: true });
 
   // Refresh mentions a cada 60s (backup do SSE)
   setInterval(carregarMentions, 60000);
   // Refresh presence a cada 60s (sync com servidor)
   setInterval(carregarPresence, 60000);
+
+  // Atualiza timestamps relativos nos cards sem re-renderizar a lista inteira (perf)
+  setInterval(() => {
+    const cards = document.querySelectorAll('#conv-list .conv-card[data-tel]');
+    if (!cards.length) return;
+    // Reconcilia com state.conversas para atualizar apenas o span de tempo
+    const convMap = {};
+    state.conversas.forEach(c => { convMap[c.telefone] = c; });
+    cards.forEach(card => {
+      const tel = card.dataset.tel;
+      const conv = convMap[tel];
+      if (!conv || !conv.ultima_mensagem_em) return;
+      // O span de tempo é o segundo filho do primeiro div com justify-between dentro do flex-1
+      const infoDiv = card.querySelector('.flex-1.min-w-0');
+      if (!infoDiv) return;
+      const firstRow = infoDiv.querySelector('.flex.items-center.justify-between');
+      if (!firstRow) return;
+      const timeSpan = firstRow.querySelector('span.flex-shrink-0');
+      if (timeSpan) timeSpan.textContent = horarioRelativo(conv.ultima_mensagem_em);
+    });
+  }, 60000);
 
   // ============================================================
   // ATALHOS DE TECLADO
@@ -1956,6 +2733,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('transferir-popover')?.classList.add('hidden');
       document.getElementById('mentions-popover')?.classList.add('hidden');
       document.getElementById('mention-autocomplete')?.classList.add('hidden');
+      // modal-confirm, modal-snooze e modal-input-text têm seus próprios handlers de Escape
       return;
     }
     if (dentroInput) return;
@@ -2033,6 +2811,156 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // SP-1 / ADR-008: click no overlay dos modais fecha (simula cancelar)
+  document.getElementById('modal-snooze')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-snooze')) {
+      document.getElementById('snooze-cancel-btn')?.click();
+    }
+  });
+  document.getElementById('modal-input-text')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-input-text')) {
+      document.getElementById('modal-input-cancel')?.click();
+    }
+  });
+  document.getElementById('modal-confirm')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modal-confirm')) {
+      document.getElementById('modal-confirm-cancel')?.click();
+    }
+  });
+
   // Refresh periódico da lista (60s)
   setInterval(carregarConversas, 60000);
+
+  // ============================================================
+  // FE-2b: Command Palette (Ctrl+K / Cmd+K)
+  // ============================================================
+  const _paletteActions = [
+    { label: 'Buscar conversas', icon: '🔍', shortcut: '/', action: () => { document.getElementById('search-input')?.focus(); } },
+    { label: 'Focar compositor', icon: '✏️', shortcut: 'c', action: () => { document.getElementById('msg-input')?.focus(); } },
+    { label: 'Resolver conversa', icon: '✓', shortcut: 'e', action: () => alterarStatus('resolved') },
+    { label: 'Adiar conversa (snooze)', icon: '⏰', shortcut: 's', action: () => alterarStatus('snoozed') },
+    { label: 'Nova nota interna', icon: '📝', shortcut: 'n', action: () => { if (!state.infoAberto) abrirInfoPanel(); setTimeout(() => document.getElementById('note-input')?.focus(), 100); } },
+    { label: 'Painel de informações', icon: 'ℹ️', shortcut: 'i', action: () => { state.infoAberto ? fecharInfoPanel() : abrirInfoPanel(); } },
+    { label: 'Assumir conversa', icon: '👤', shortcut: '', action: () => { if (state.conversaAtual) assumirConversa(state.conversaAtual); } },
+    { label: 'Devolver ao bot', icon: '🤖', shortcut: '', action: () => { if (state.conversaAtual) devolverAoBot(state.conversaAtual); } },
+    { label: 'Atalhos de teclado', icon: '⌨️', shortcut: '?', action: () => document.getElementById('modal-shortcuts')?.classList.remove('hidden') },
+  ];
+
+  let _paletteOpen = false;
+  let _paletteIdx = 0;
+
+  function _renderPaletteResults(q) {
+    const cont = document.getElementById('cmd-palette-results');
+    if (!cont) return;
+
+    let items = [];
+    const ql = q.toLowerCase().trim();
+
+    // Section: Actions
+    const filteredActions = _paletteActions.filter(a => !ql || a.label.toLowerCase().includes(ql));
+    if (filteredActions.length) {
+      items.push({ type: 'header', label: 'Ações' });
+      filteredActions.forEach(a => items.push({ type: 'action', ...a }));
+    }
+
+    // Section: Conversations (from state)
+    const filteredConvs = ql
+      ? state.conversas.filter(c => (c.nome||'').toLowerCase().includes(ql) || c.telefone.includes(ql))
+      : state.conversas.slice(0, 5);
+    if (filteredConvs.length) {
+      items.push({ type: 'header', label: 'Conversas' });
+      filteredConvs.slice(0, 8).forEach(c => items.push({ type: 'conv', nome: c.nome || c.telefone, telefone: c.telefone }));
+    }
+
+    _paletteIdx = 0;
+    cont.innerHTML = items.map((item, i) => {
+      if (item.type === 'header') {
+        return `<div class="cmd-section-header">${escapeHtml(item.label)}</div>`;
+      }
+      const isAction = item.type === 'action';
+      const label = isAction ? item.label : escapeHtml(item.nome);
+      const icon = isAction ? item.icon : '💬';
+      const shortcut = isAction && item.shortcut ? `<span class="cmd-item-shortcut">${item.shortcut}</span>` : '';
+      const dataIdx = `data-pidx="${i}"`;
+      return `<div class="cmd-item" ${dataIdx} role="option">${icon ? `<span class="cmd-item-icon">${icon}</span>` : ''}<span class="cmd-item-label">${label}</span>${shortcut}</div>`;
+    }).join('');
+
+    // Map dataIdx back to executable items
+    cont._items = items;
+  }
+
+  function _openPalette() {
+    const modal = document.getElementById('cmd-palette');
+    const input = document.getElementById('cmd-palette-input');
+    if (!modal || !input) return;
+    _paletteOpen = true;
+    modal.classList.remove('hidden');
+    input.value = '';
+    _renderPaletteResults('');
+    requestAnimationFrame(() => input.focus());
+  }
+
+  function _closePalette() {
+    _paletteOpen = false;
+    document.getElementById('cmd-palette')?.classList.add('hidden');
+  }
+
+  function _executePaletteItem(el) {
+    const cont = document.getElementById('cmd-palette-results');
+    if (!cont || !cont._items) return;
+    const idx = parseInt(el.dataset.pidx, 10);
+    const item = cont._items[idx];
+    if (!item) return;
+    _closePalette();
+    if (item.type === 'action') item.action();
+    else if (item.type === 'conv') abrirConversa(item.telefone);
+  }
+
+  document.getElementById('cmd-palette-input')?.addEventListener('input', (e) => {
+    _renderPaletteResults(e.target.value);
+  });
+
+  document.getElementById('cmd-palette-input')?.addEventListener('keydown', (e) => {
+    const cont = document.getElementById('cmd-palette-results');
+    const executableItems = cont?.querySelectorAll('.cmd-item') || [];
+    if (e.key === 'Escape') { e.preventDefault(); _closePalette(); return; }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      executableItems.forEach(el => el.classList.remove('cmd-active'));
+      _paletteIdx = Math.min(_paletteIdx + 1, executableItems.length - 1);
+      executableItems[_paletteIdx]?.classList.add('cmd-active');
+      executableItems[_paletteIdx]?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      executableItems.forEach(el => el.classList.remove('cmd-active'));
+      _paletteIdx = Math.max(_paletteIdx - 1, 0);
+      executableItems[_paletteIdx]?.classList.add('cmd-active');
+      executableItems[_paletteIdx]?.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const active = cont?.querySelector('.cmd-active') || executableItems[0];
+      if (active) _executePaletteItem(active);
+    }
+  });
+
+  document.getElementById('cmd-palette-results')?.addEventListener('click', (e) => {
+    const item = e.target.closest('.cmd-item');
+    if (item) _executePaletteItem(item);
+  });
+
+  document.getElementById('cmd-palette')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('cmd-palette')) _closePalette();
+  });
+
+  // Ctrl+K / Cmd+K global handler
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      _paletteOpen ? _closePalette() : _openPalette();
+    }
+  });
 });

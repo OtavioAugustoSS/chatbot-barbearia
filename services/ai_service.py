@@ -3,6 +3,8 @@ import re
 import json
 import time
 import logging
+import threading
+import logging.handlers
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,10 +22,24 @@ log = logging.getLogger("barbearia.ai")
 INTENCOES_VALIDAS = {"tirar_duvida", "chamar_recepcao", "transbordo_falha"}
 
 # Frases proibidas: IA não pode prometer agendamento. Se aparecer, força redirect AppBarber.
+# QW-B3: padrões expandidos para cobrir formas passivas, participio e coloquiais.
 _REGEX_AGENDAMENTO_PROIBIDO = re.compile(
-    r"\b(marquei|agendei|reservei|confirmei seu? hor[aá]rio|seu hor[aá]rio (est[aá]|foi) (marcado|agendado|confirmado|reservado)|"
-    r"j[aá] (marquei|agendei|reservei)|posso (marcar|agendar|reservar) (para|pra) (voc[eê]|ti)|"
-    r"vou (marcar|agendar|reservar) (para|pra) (voc[eê]|ti))\b",
+    r"\b("
+    # Formas ativas diretas (cobertura original)
+    r"marquei|agendei|reservei|"
+    r"confirmei seu? hor[aá]rio|"
+    r"seu hor[aá]rio (est[aá]|foi) (marcado|agendado|confirmado|reservado)|"
+    r"j[aá] (marquei|agendei|reservei)|"
+    r"posso (marcar|agendar|reservar) (para|pra) (voc[eê]|ti)|"
+    r"vou (marcar|agendar|reservar) (para|pra) (voc[eê]|ti)|"
+    # QW-B3: formas passivas e coloquiais adicionadas
+    r"reserva\s+confirmada|"
+    r"agendamento\s+(foi\s+|est[aá]\s+)?(realizado|confirmado|feito|conclu[íi]do)|"
+    r"(ficou|est[aá]|foi)\s+(marcad|agendad|confirmad|reservad)[ao]|"
+    r"j[aá]\s+(deixei|est[aá]|foi)\s+(marcad|agendad|reservad)[ao]|"
+    r"vou\s+(deixar|deixo)\s+(reservad|marcad|agendad)[ao]|"
+    r"pode\s+(ir|vir)\s+que\s+(j[aá]\s+)?est[aá]\s+(marcad|agendad|confirmad)[ao]"
+    r")\b",
     re.IGNORECASE,
 )
 _FRASE_REDIRECT_APPBARBER = (
@@ -78,16 +94,41 @@ def _formatar_horario_dia(weekday: int, horarios_db: dict | None = None) -> str:
     return f"das {abre//60:02d}:{abre%60:02d} às {fecha//60:02d}:{fecha%60:02d}"
 
 
+# Cache de módulo para horários do banco. Evita uma query extra por chamada de IA.
+# TTL idêntico ao cache de serviços/barbeiros (5 min) para consistência operacional.
+# Estrutura: {"data": dict|None, "expira_em": float (epoch seconds)}
+_cache_horarios: dict = {"data": None, "expira_em": 0.0}
+_HORARIOS_CACHE_TTL = 300  # 5 minutos
+# TD-005: lock para proteger leitura/escrita do cache de módulo em background tasks.
+_cache_horarios_lock = threading.Lock()
+
+
 def _carregar_horarios_db() -> dict:
-    """Retorna dict {dia_semana: Horario} consultando o banco. Retorna {} em caso de erro."""
+    """
+    Retorna dict {dia_semana: Horario} consultando o banco, com cache de 5 min.
+    Cache de módulo (compartilhado entre todas as chamadas no mesmo processo).
+    Retorna {} em caso de erro — _construir_contexto_temporal() usa fallback hardcoded.
+    Thread-safe via _cache_horarios_lock (TD-005).
+    """
+    agora = time.time()
+    with _cache_horarios_lock:
+        if _cache_horarios["data"] is not None and agora < _cache_horarios["expira_em"]:
+            return _cache_horarios["data"]
+
     from db.database import SessionLocal
     db = SessionLocal()
     try:
         registros = db.query(Horario).all()
-        return {r.dia_semana: r for r in registros}
+        resultado = {r.dia_semana: r for r in registros}
+        with _cache_horarios_lock:
+            _cache_horarios["data"] = resultado
+            _cache_horarios["expira_em"] = agora + _HORARIOS_CACHE_TTL
+        return resultado
     except Exception as e:
         log.warning("Falha ao carregar horarios do banco, usando fallback hardcoded: %s", e)
-        return {}
+        # Não atualiza o cache em caso de erro — próxima chamada tentará de novo.
+        with _cache_horarios_lock:
+            return _cache_horarios["data"] if _cache_horarios["data"] is not None else {}
     finally:
         db.close()
 
@@ -167,12 +208,37 @@ class AIService:
         # Cache simples de serviços/barbeiros (mudam raramente; revalida a cada N segundos).
         self._cache_db = {"data": None, "expira_em": 0.0}
         self._cache_ttl_segundos = 300  # 5 min
+        # TD-005: lock único por instância protege _cache_db de race conditions
+        # em background tasks concorrentes (FastAPI + threading).
+        self._cache_lock = threading.Lock()
+        # TD-004: logger com rotação em vez de arquivo plano ilimitado.
+        # maxBytes=5MB, backupCount=3 → máx 20MB em disco.
+        # Nome "erro_ia_debug.txt" mantido para compatibilidade com monitoramento existente.
+        self._debug_logger = logging.getLogger("barbearia.ai.debug")
+        if not self._debug_logger.handlers:
+            _log_path = os.path.normpath(
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
+            )
+            _handler = logging.handlers.RotatingFileHandler(
+                _log_path,
+                maxBytes=5 * 1024 * 1024,  # 5 MB
+                backupCount=3,
+                encoding="utf-8",
+            )
+            _handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%Y-%m-%dT%H:%M:%S"))
+            self._debug_logger.addHandler(_handler)
+            self._debug_logger.setLevel(logging.ERROR)
+            self._debug_logger.propagate = False  # evita duplicar no root logger
 
     def _carregar_dados_db(self, db_session):
-        """Cache de serviços/barbeiros formatados. Evita 4 queries SQL por mensagem."""
+        """Cache de serviços/barbeiros formatados. Evita 4 queries SQL por mensagem.
+        Thread-safe via self._cache_lock (TD-005).
+        """
         agora = time.time()
-        if self._cache_db["data"] and agora < self._cache_db["expira_em"]:
-            return self._cache_db["data"]
+        # Leitura rápida sob lock — evita cache stale em threads concorrentes.
+        with self._cache_lock:
+            if self._cache_db["data"] and agora < self._cache_db["expira_em"]:
+                return self._cache_db["data"]
 
         servicos = db_session.query(Servico).filter(Servico.ativo == True).order_by(Servico.categoria, Servico.id).all()
         barbeiros = (
@@ -210,12 +276,14 @@ class AIService:
         str_barbeiros = "\n".join(lista_barbeiros) if lista_barbeiros else "Nenhum barbeiro encontrado."
 
         dados = (str_servicos, str_barbeiros)
-        self._cache_db = {"data": dados, "expira_em": agora + self._cache_ttl_segundos}
+        with self._cache_lock:
+            self._cache_db = {"data": dados, "expira_em": agora + self._cache_ttl_segundos}
         return dados
 
     def invalidar_cache_db(self):
         """Chamar após mutação em Servico/Barbeiro pra forçar revalidação."""
-        self._cache_db = {"data": None, "expira_em": 0.0}
+        with self._cache_lock:
+            self._cache_db = {"data": None, "expira_em": 0.0}
 
     @retry(
         retry=retry_if_exception_type((openai.APITimeoutError, openai.APIConnectionError)),
@@ -246,6 +314,12 @@ class AIService:
             resposta = (
                 f"Não realizamos agendamentos pelo chat.<br><br>{_FRASE_REDIRECT_APPBARBER}"
             )
+
+        # QW-B2: sanitização técnica contra service description leakage.
+        # Remove " | ref: dura Xmin; desc: ..." que pode vazar se o modelo sofrer drift
+        # e copiar literalmente o campo de referência injetado no prompt.
+        if isinstance(resposta, str):
+            resposta = re.sub(r'\s*\|\s*ref:[^\n<]*', '', resposta)
 
         return {"intencao": intencao, "resposta_sugerida": resposta}
 
@@ -293,9 +367,10 @@ class AIService:
                 role = "assistant" if msg.get("role") in ["bot", "model", "assistant"] else "user"
                 messages_payload.append({"role": role, "content": msg.get("content", "")})
 
-            # Anti-drift: a cada >=6 mensagens, injeta âncora antes da pergunta atual.
-            # Reforça regras críticas que tendem a se diluir em conversas longas.
-            if len(historico_mensagens) >= 6:
+            # Anti-drift: a cada >=4 mensagens, injeta âncora antes da pergunta atual.
+            # QW-B4: threshold reduzido de 6 para 4 — drift já ocorre a partir da 2ª troca
+            # em conversas sobre disponibilidade/agendamento. Custo da âncora é ~200 tokens.
+            if len(historico_mensagens) >= 4:
                 messages_payload.append({"role": "system", "content": ANCORA_ANTI_DRIFT})
 
             messages_payload.append({"role": "user", "content": mensagem_atual})
@@ -304,6 +379,18 @@ class AIService:
             completion = self._chamar_llm(messages_payload)
             elapsed = time.time() - t0
             log.info("IA completion ok em %.2fs (msgs=%d)", elapsed, len(messages_payload))
+
+            # QW-B5: JSON truncado por max_tokens — não adianta tentar parsear.
+            if completion.choices[0].finish_reason == "length":
+                log.warning(
+                    "QW-B5: finish_reason=length — resposta truncada, forçando transbordo_falha. "
+                    "Considere aumentar max_tokens ou encurtar o prompt."
+                )
+                self._registrar_erro_debug("[ERRO JSON TRUNCADO] finish_reason=length")
+                return {
+                    "intencao": "transbordo_falha",
+                    "resposta_sugerida": "Tive um problema técnico momentâneo. Vou conectar você à recepção agora.",
+                }
 
             response_text = completion.choices[0].message.content.strip()
             log.debug("IA raw response: %s", response_text[:300])
@@ -316,7 +403,46 @@ class AIService:
                 response_text = response_text[:-3]
             response_text = response_text.strip()
 
-            dados = json.loads(response_text)
+            # QW-B1: tenta parse direto primeiro.
+            # Se falhar, extrai objeto JSON embutido em texto livre (fallback regex).
+            # Cobre: pretty-print sem '{' inicial, JSON com texto antes/depois, JSON após explicação.
+            try:
+                dados = json.loads(response_text)
+            except json.JSONDecodeError:
+                # Fallback 1: extrai objeto JSON que contenha as chaves esperadas
+                _match = re.search(
+                    r'\{[^{}]*"intencao"[^{}]*"resposta_sugerida"[^{}]*\}',
+                    response_text,
+                    re.DOTALL,
+                )
+                if _match:
+                    try:
+                        dados = json.loads(_match.group())
+                        log.warning("QW-B1: JSON extraído via regex (fallback 1). Texto bruto: %s", response_text[:200])
+                    except json.JSONDecodeError:
+                        dados = None
+                else:
+                    dados = None
+
+                if dados is None:
+                    # Fallback 2: extrai qualquer objeto JSON e valida campos obrigatórios
+                    _match2 = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if _match2:
+                        try:
+                            _candidato = json.loads(_match2.group())
+                            if "intencao" in _candidato and "resposta_sugerida" in _candidato:
+                                dados = _candidato
+                                log.warning("QW-B1: JSON extraído via regex (fallback 2). Texto bruto: %s", response_text[:200])
+                        except json.JSONDecodeError:
+                            pass
+
+                if dados is None:
+                    # Esgotou os fallbacks — lança exceção para o except externo tratar
+                    raise json.JSONDecodeError(
+                        "QW-B1: nenhum objeto JSON válido encontrado após todos os fallbacks",
+                        response_text,
+                        0,
+                    )
 
             if "intencao" not in dados and "choices" in dados:
                 inner = dados["choices"][0]["message"]["content"]
@@ -326,7 +452,7 @@ class AIService:
 
         except json.JSONDecodeError as e:
             log.error("Falha ao parsear JSON da IA: %s", e)
-            self._registrar_erro_debug(f"[ERRO JSON] {e}\nTexto recebido: {response_text if 'response_text' in dir() else 'N/A'}")
+            self._registrar_erro_debug(f"[ERRO JSON] {e}\nTexto recebido: {response_text if 'response_text' in locals() else 'N/A'}")
             return {
                 "intencao": "transbordo_falha",
                 "resposta_sugerida": "Estou enfrentando uma instabilidade. Só um instante, estou conectando você à recepção para continuarmos."
@@ -339,15 +465,11 @@ class AIService:
                 "resposta_sugerida": "Tivemos um pequeno erro de comunicação. Aguarde um minuto e já te atendo!"
             }
 
-    @staticmethod
-    def _registrar_erro_debug(mensagem: str):
-        """Append de erro com timestamp em erro_ia_debug.txt (não sobrescreve histórico)."""
-        log_path = os.path.normpath(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
-        )
-        timestamp = datetime.now(timezone.utc).isoformat()
+    def _registrar_erro_debug(self, mensagem: str):
+        """Registra erro em erro_ia_debug.txt com rotação automática (TD-004).
+        Usa RotatingFileHandler configurado no __init__ (5MB x 3 backups).
+        """
         try:
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"\n[{timestamp}] {mensagem}\n")
-        except OSError:
-            pass
+            self._debug_logger.error(mensagem)
+        except Exception:
+            pass  # Nunca deixar erro de log derrubar o fluxo principal

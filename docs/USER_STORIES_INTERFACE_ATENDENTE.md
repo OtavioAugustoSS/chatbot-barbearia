@@ -671,8 +671,8 @@
 - [ ] CA-03: Estilos definidos via CSS (não Tailwind): flexbox, linhas `#2a3942`, texto `#8696a0`
 - [ ] CA-04: Exemplos no HTML preview: "Atendimento transferido para humano · Diego assumiu", "Conversa devolvida para o bot · Diego encerrou o atendimento"
 
-**Estado atual:** PARCIAL — estrutura CSS e HTML preview existem, mas `renderThread()` em `app.js` não injeta separadores de evento baseados nos dados do backend. O backend não retorna metadados de handoff como eventos separados na lista de mensagens.  
-**Arquivos relevantes:** `static/admin/index.html:276-303`, `static/admin/index.html:577-595`, `static/admin/app.js:431-464`
+**Estado atual:** IMPLEMENTADO (QW-F4, FASE 3, 2026-05-21) — `renderMensagens()` em `app.js` detecta mudança de `origem` entre mensagens consecutivas e injeta `separadorEvento()` ao trocar de bot para humano ("Atendente assumiu o atendimento") e de humano para bot ("Bot retomou o atendimento"). Nome do atendente incluído quando disponível em `m.atendente_nome`. Implementado também para mensagens incrementais via SSE.  
+**Arquivos relevantes:** `static/admin/js/app.js:450-534`, `static/admin/index.html:276-303`
 
 ---
 

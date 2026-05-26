@@ -1,5 +1,14 @@
-import logging
 import os
+import time
+
+# TD-001: forçar TZ=UTC antes de qualquer import que use datetime.
+# Garante que naive datetimes do sistema operacional sejam UTC.
+# tzset() não existe no Windows — condicional para dev local.
+os.environ.setdefault("TZ", "UTC")
+if hasattr(time, "tzset"):
+    time.tzset()
+
+import logging
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
