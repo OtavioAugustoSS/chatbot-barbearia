@@ -19,31 +19,45 @@ class WhatsAppSender:
             "Content-Type": "application/json"
         }
 
-    def _post_com_retry(self, payload: dict, numero: str, tipo_log: str) -> bool:
-        """POST genérico à Meta API com 3 tentativas em 5xx. Compartilhado entre texto e lista."""
+    def _post_com_retry(self, payload: dict, numero: str, tipo_log: str) -> tuple[bool, str | None]:
+        """POST genérico à Meta API com 3 tentativas em 5xx e 429. Retorna (ok, wamid)."""
         try:
             for attempt in range(3):
                 response = requests.post(self.url, headers=self.headers, json=payload, timeout=10)
+                if response.status_code == 429:
+                    # BE-01: respeita Retry-After da Meta; fallback para 5s se ausente.
+                    retry_after = int(response.headers.get("Retry-After", 5))
+                    log.warning("Meta API 429 (%s) para %s — aguardando %ds.", tipo_log, numero, retry_after)
+                    if attempt < 2:
+                        time.sleep(retry_after)
+                    continue
                 if response.status_code < 500:
                     break
                 if attempt < 2:
                     time.sleep(1)
         except requests.RequestException as e:
             log.error("Falha de rede ao enviar %s para %s: %s", tipo_log, numero, e)
-            return False
+            return False, None
 
         if response.status_code >= 400:
             log.error("Meta API erro %s (%s) para %s: %s", response.status_code, tipo_log, numero, response.text[:500])
-            return False
+            return False, None
 
         log.info("Envio %s para %s (status %s)", tipo_log, numero, response.status_code)
-        return True
+        try:
+            data = response.json()
+            wamid = data.get("messages", [{}])[0].get("id")
+        except ValueError:
+            # BE-02: corpo de resposta não é JSON válido — não consideramos entregue.
+            log.error("Meta API retornou resposta não-JSON (%s) para %s.", tipo_log, numero)
+            return False, None
+        return True, wamid
 
-    def enviar_mensagem_texto(self, numero: str, texto: str) -> bool:
+    def enviar_mensagem_texto(self, numero: str, texto: str) -> tuple[bool, str | None]:
         """
         Envia mensagem WhatsApp via Meta Cloud API.
-        Retorna True se Meta aceitou (200 OK), False em qualquer falha
-        (erro de rede, 4xx, 5xx, token expirado, etc).
+        Retorna (ok, wamid): ok=True se Meta aceitou (200 OK), wamid=ID da mensagem para
+        rastreamento de status (delivered/read). wamid é None em caso de falha.
         """
         payload = {
             "messaging_product": "whatsapp",
@@ -61,7 +75,7 @@ class WhatsAppSender:
         sections: list[dict],
         header_text: str | None = None,
         footer_text: str | None = None,
-    ) -> bool:
+    ) -> tuple[bool, str | None]:
         """
         Envia Interactive List Message via Meta Cloud API.
         Retorna True se aceito pela Meta, False em qualquer falha.
@@ -86,19 +100,19 @@ class WhatsAppSender:
         # Validação local de limites (evita request inválido que daria 4xx).
         if not button_text or len(button_text) > 20:
             log.error("enviar_lista_interativa: button_text inválido (%r)", button_text)
-            return False
+            return False, None
         if not body_text or len(body_text) > 1024:
             log.error("enviar_lista_interativa: body_text inválido (len=%d)", len(body_text or ""))
-            return False
+            return False, None
         if header_text is not None and len(header_text) > 60:
             log.error("enviar_lista_interativa: header_text excede 60 chars")
-            return False
+            return False, None
         if footer_text is not None and len(footer_text) > 60:
             log.error("enviar_lista_interativa: footer_text excede 60 chars")
-            return False
+            return False, None
         if not sections or len(sections) > 10:
             log.error("enviar_lista_interativa: número de sections inválido (%d)", len(sections or []))
-            return False
+            return False, None
 
         total_rows = 0
         for sec in sections:
@@ -106,27 +120,27 @@ class WhatsAppSender:
             rows = sec.get("rows", [])
             if len(titulo) > 24:
                 log.error("enviar_lista_interativa: section.title >24 chars (%r)", titulo)
-                return False
+                return False, None
             if not rows:
                 log.error("enviar_lista_interativa: section sem rows")
-                return False
+                return False, None
             for r in rows:
                 rid = r.get("id", "")
                 rtitle = r.get("title", "")
                 rdesc = r.get("description", "")
                 if not rid or len(rid) > 200:
                     log.error("enviar_lista_interativa: row.id inválido (%r)", rid)
-                    return False
+                    return False, None
                 if not rtitle or len(rtitle) > 24:
                     log.error("enviar_lista_interativa: row.title inválido (%r)", rtitle)
-                    return False
+                    return False, None
                 if rdesc and len(rdesc) > 72:
                     log.error("enviar_lista_interativa: row.description >72 chars")
-                    return False
+                    return False, None
                 total_rows += 1
         if total_rows == 0 or total_rows > 10:
             log.error("enviar_lista_interativa: total de rows inválido (%d)", total_rows)
-            return False
+            return False, None
 
         # Monta o objeto "action" no formato exato exigido pela Meta.
         action_sections = []
@@ -168,7 +182,7 @@ class WhatsAppSender:
         buttons: list[dict],
         header_text: str | None = None,
         footer_text: str | None = None,
-    ) -> bool:
+    ) -> tuple[bool, str | None]:
         """
         Envia Interactive Reply Buttons via Meta Cloud API.
         Retorna True se Meta aceitou, False em qualquer falha (caller deve fazer fallback).
@@ -189,16 +203,16 @@ class WhatsAppSender:
         # Validação local de limites
         if not body_text or len(body_text) > 1024:
             log.error("enviar_botoes_resposta: body_text inválido (len=%d)", len(body_text or ""))
-            return False
+            return False, None
         if not buttons or len(buttons) > 3:
             log.error("enviar_botoes_resposta: número de botões inválido (%d)", len(buttons or []))
-            return False
+            return False, None
         if header_text is not None and len(header_text) > 60:
             log.error("enviar_botoes_resposta: header_text excede 60 chars")
-            return False
+            return False, None
         if footer_text is not None and len(footer_text) > 60:
             log.error("enviar_botoes_resposta: footer_text excede 60 chars")
-            return False
+            return False, None
 
         action_buttons = []
         ids_vistos = set()
@@ -207,13 +221,13 @@ class WhatsAppSender:
             btitle = b.get("title", "")
             if not bid or len(bid) > 256:
                 log.error("enviar_botoes_resposta: button.id inválido (%r)", bid)
-                return False
+                return False, None
             if not btitle or len(btitle) > 20:
                 log.error("enviar_botoes_resposta: button.title inválido (%r, len=%d)", btitle, len(btitle))
-                return False
+                return False, None
             if bid in ids_vistos:
                 log.error("enviar_botoes_resposta: button.id duplicado (%r)", bid)
-                return False
+                return False, None
             ids_vistos.add(bid)
             action_buttons.append({
                 "type": "reply",
@@ -256,10 +270,11 @@ class WhatsAppSender:
             raise
         return resp.json()["id"]
 
-    def enviar_mensagem_midia(self, telefone: str, media_id: str, media_type: str, caption: str = "") -> bool:
-        """Envia mensagem de mídia via WhatsApp Business API."""
+    def enviar_mensagem_midia(self, telefone: str, media_id: str, media_type: str, caption: str = "") -> tuple[bool, str | None]:
+        """Envia mensagem de mídia via WhatsApp Business API. Retorna (ok, wamid)."""
         media_payload: dict = {"id": media_id}
-        if media_type == "image" and caption:
+        # B6: Meta suporta caption em image, document e video (não em audio).
+        if caption and media_type in ("image", "document", "video"):
             media_payload["caption"] = caption
         payload = {
             "messaging_product": "whatsapp",

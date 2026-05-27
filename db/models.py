@@ -61,6 +61,11 @@ class HistoricoConversa(Base):
     # True = Meta aceitou (200 OK), False = falhou (4xx/5xx ou erro de rede),
     # None = não aplicável (linha só de mensagem do cliente, sem resposta saindo).
     entregue = Column(Boolean, nullable=True)
+    # wamid: ID retornado pela Meta ao aceitar a mensagem (ex: "wamid.xxx...").
+    # Usado para correlacionar status updates (delivered/read) do webhook.
+    wamid = Column(String(255), nullable=True, index=True)
+    # lida: NULL=desconhecido, False=entregue mas não lida, True=lida pelo cliente.
+    lida = Column(Boolean, nullable=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     usuario = relationship("Usuario", back_populates="historico")

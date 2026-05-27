@@ -24,7 +24,14 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-logging.getLogger("barbearia").info("Modo de operação: %s", MODO_OPERACAO)
+_log = logging.getLogger("barbearia")
+_log.info("Modo de operação: %s", MODO_OPERACAO)
+
+if not os.getenv("META_APP_SECRET"):
+    _log.critical(
+        "META_APP_SECRET nao configurado — webhook aceita qualquer POST sem "
+        "validacao de assinatura HMAC. Configure META_APP_SECRET em producao!"
+    )
 
 # SQLAlchemy cria tabelas que ainda não existem no MySQL (porta 3306).
 Base.metadata.create_all(bind=engine)

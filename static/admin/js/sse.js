@@ -4,13 +4,17 @@
   let _retryCount = 0;
   const _MAX_DELAY = 30000; // 30s
 
+  function _setConnStatus(state, label) {
+    document.dispatchEvent(new CustomEvent('sse:connection_status', { detail: { state, label } }));
+  }
+
   function _setStatus(ok, failed) {
     const dot   = document.getElementById('conn-status-dot');
     const label = document.getElementById('conn-status-label');
     const headerDot = document.getElementById('sse-status-dot');
     if (dot) {
-      dot.className = ok ? 'connected' : '';
-      dot.style.background = ok ? '' : '#6b7280';
+      dot.className = ok ? 'connected' : (failed ? 'failed' : 'connecting');
+      dot.style.background = ok ? '' : '';
     }
     if (label) label.textContent = ok ? 'Conectado' : 'Reconectando…';
     if (headerDot) {
@@ -23,6 +27,13 @@
       } else {
         headerDot.classList.add('reconnecting');
       }
+    }
+    if (ok) {
+      _setConnStatus('connected', '');
+    } else if (failed) {
+      _setConnStatus('offline', 'Offline');
+    } else {
+      _setConnStatus('reconnecting', 'Reconectando...');
     }
   }
 

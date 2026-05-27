@@ -58,6 +58,9 @@
 - [US-GAP-02: Mensagem de Contexto apos Reativacao por Timeout](../docs/user-stories/US-GAP-02-reativacao-timeout.md) — PO — derivada de BR-011/GAP-08; backend PENDENTE; necessita migration + logica em webhook.py
 - [US-AD-001 a US-AD-015: User Stories Assume/Devolver](../docs/user-stories/assume-devolver-US.md) — PO — 15 cenarios de handoff humano-bot; 1 bug (snoozed_until) + 5 gaps documentados
 
+## QA (QA Engineer)
+- [QA ui-ux-enhancements-2026-05-26](qa/ui-ux-enhancements-2026-05-26.md) — qa — Auditoria das 15 melhorias UI/UX (Tasks #1/#2/#3): 3 bugs corrigidos, 5 infos, APROVADO
+
 ## Releases
 - [Release 0.1.0](../docs/release/0_1_0.md) — lead — Sprint 0.1.0: 5 backend quick wins + 5 frontend quick wins + 2 sprint items + 8 ADRs + 5 BRs
 - [Release 0.2.0](../docs/release/0_2_0.md) — architect — Sprint 0.2.0: 10/10 goals PASS (design tokens, mobile, chips fix, JWT warning, draft save, CA-07, retry, bulk UI, finish_reason, devolver status, SSE bulk)

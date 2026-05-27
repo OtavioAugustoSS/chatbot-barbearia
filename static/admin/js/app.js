@@ -20,6 +20,8 @@ const state = {
   allLabels: [],           // catálogo global de labels disponíveis (carregado no init)
   bulkSelecionadas: new Set(),  // telefones selecionados em modo bulk
   attachedFile: null,      // File pendente de envio como mídia
+  presence: {},             // {atendente_id: {status, last_seen}}
+  views: [],
   eu: {
     id: parseInt(localStorage.getItem('atendente_id') || '0'),
     nome: localStorage.getItem('atendente_nome') || ''
@@ -136,20 +138,27 @@ function dataFormatoBR(iso) {
 // ============================================================
 // Toast + som
 // ============================================================
-function showToast(texto, tipo = 'info') {
+function _dismissToast(toast) {
+  toast.classList.add('toast-leaving');
+  setTimeout(() => toast.remove(), 280);
+}
+
+function showToast(texto, tipo = 'info', duracao = 4500) {
+  const styles = getComputedStyle(document.documentElement);
+  const tok = (v, fallback) => styles.getPropertyValue(v).trim() || fallback;
   const cores = {
-    info: '#2481cc',
-    success: '#10b981',
-    error: '#ef4444',
-    warning: '#f59e0b',
-    transbordo: '#dc2626'
+    info: tok('--accent', '#2481cc'),
+    success: tok('--success-text', '#3fb950'),
+    error: tok('--danger-text', '#f85149'),
+    warning: tok('--warning-text', '#d29922'),
+    transbordo: tok('--danger-text', '#f85149')
   };
   const bordas = {
-    success: 'var(--success-text)',
-    error: 'var(--danger-text)',
-    transbordo: 'var(--warning-text)',
-    info: 'var(--accent)',
-    warning: 'var(--warning-text)'
+    success: tok('--success-text', '#3fb950'),
+    error: tok('--danger-text', '#f85149'),
+    transbordo: tok('--warning-text', '#d29922'),
+    info: tok('--accent', '#2481cc'),
+    warning: tok('--warning-text', '#d29922')
   };
   const cont = document.getElementById('toast-container');
   if (!cont) return;
@@ -159,10 +168,7 @@ function showToast(texto, tipo = 'info') {
   el.style.borderLeft = `3px solid ${bordas[tipo] || bordas.info}`;
   el.textContent = texto;
   cont.appendChild(el);
-  setTimeout(() => {
-    el.classList.add('toast-exit');
-    setTimeout(() => el.remove(), 180);
-  }, 4500);
+  setTimeout(() => _dismissToast(el), duracao);
 }
 
 function tocarNotificacao() {
@@ -539,15 +545,19 @@ function renderConvList() {
       avatarStatusClass = 'bot'; dotColor = 'var(--success-text, #3fb950)';
     }
 
-    // V4: Waiting badge (>5min)
+    // V4: Waiting badge (>5min) — P1-3: usa transbordo_em, fallback para ultima_mensagem_em
     let waitingBadge = '';
-    if (c.aguardando_humano && c.ultima_mensagem_em) {
-      const mins = Math.floor((Date.now() - new Date(c.ultima_mensagem_em).getTime()) / 60000);
+    const tempoBase = c.transbordo_em || c.ultima_mensagem_em;
+    if (c.aguardando_humano && tempoBase) {
+      const mins = Math.floor((Date.now() - new Date(tempoBase).getTime()) / 60000);
       if (mins > 5) waitingBadge = `<span class="waiting-badge">Aguardando ${mins}min</span>`;
     }
 
-    // V4: Unread class — usa aguardando_humano como sinal de não lido
-    const isUnread = c.aguardando_humano && !c.atendente_id;
+    // V4: Unread class — P1-2: cobre conv sem atendente e conv assumida com msg nova do cliente
+    // TODO(backend): adicionar campo `mensagens_nao_lidas` ao payload de /admin/conversas
+    //   para cobrir o caso c.atendente_id && c.mensagens_nao_lidas > 0
+    const isUnread = (c.aguardando_humano && !c.atendente_id)
+      || (c.mensagens_nao_lidas > 0);
     const isSelected = state.bulkSelecionadas.has(c.telefone);
     const bulkActive = state.bulkSelecionadas.size > 0;
 
@@ -555,7 +565,7 @@ function renderConvList() {
       <div class="conv-card conv-card-enter${isAtivo ? ' active active-conv' : ''}${isSelected ? ' bulk-selected' : ''}${isUnread ? ' unread' : ''}" data-tel="${escapeHtml(c.telefone)}">
         <input type="checkbox" class="bulk-check flex-shrink-0 mt-3 ${bulkActive ? '' : 'hidden'}" data-tel="${escapeHtml(c.telefone)}" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation();" style="accent-color: var(--accent);">
         <div class="relative ${pulseClass} flex-shrink-0" onclick="event.stopPropagation(); toggleBulkSelecao('${escapeHtml(c.telefone)}')" title="Clique para selecionar">
-          <div class="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white select-none" style="background:${cor}">${escapeHtml(ini)}</div>
+          <div class="avatar w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white select-none" style="background:${cor}">${escapeHtml(ini)}</div>
           ${avatarStatusClass ? `<div class="avatar-status-badge ${avatarStatusClass}"></div>` : ''}
         </div>
         <div class="flex-1 min-w-0" onclick="abrirConversa('${escapeHtml(c.telefone)}')">
@@ -579,6 +589,17 @@ function renderConvList() {
   }
 }
 
+function _badgePop(el, novoValor) {
+  if (!el) return;
+  const valorAnterior = parseInt(el.textContent) || 0;
+  if (novoValor > valorAnterior) {
+    el.classList.remove('badge-pop');
+    void el.offsetWidth;
+    el.classList.add('badge-pop');
+    el.addEventListener('animationend', () => el.classList.remove('badge-pop'), { once: true });
+  }
+}
+
 function atualizarBadges(totais) {
   if (!totais) return;
   const total = (totais.aguardando||0) + (totais.meus||0) + (totais.bot||0) + (totais.outros||0);
@@ -587,11 +608,13 @@ function atualizarBadges(totais) {
 
   const badgeAg = document.getElementById('badge-aguardando');
   if (badgeAg) {
+    _badgePop(badgeAg, totais.aguardando || 0);
     badgeAg.textContent = totais.aguardando || '';
     badgeAg.classList.toggle('hidden', !totais.aguardando);
   }
   const badgeMeus = document.getElementById('badge-meus');
   if (badgeMeus) {
+    _badgePop(badgeMeus, totais.meus || 0);
     badgeMeus.textContent = totais.meus || '';
     badgeMeus.classList.toggle('hidden', !totais.meus);
   }
@@ -808,8 +831,48 @@ function _timestampCompleto(iso) {
   } catch(_) { return iso; }
 }
 
-const _SVG_TICK_OK   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const _SVG_TICK_CLOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`;
+const _SVG_TICK_DELIVERED = `<svg width="20" height="12" viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 6 4.5 9.5 13 1"/><polyline points="7 6 10.5 9.5 19 1"/></svg>`;
+const _SVG_TICK_READ = _SVG_TICK_DELIVERED;
 const _SVG_TICK_FAIL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+function _tickSvg(entregue, lida) {
+  if (entregue === false) return { svg: _SVG_TICK_FAIL, cls: 'tick-fail' };
+  if (entregue === null || entregue === undefined) return { svg: _SVG_TICK_CLOCK, cls: 'tick-sending' };
+  if (lida === true) return { svg: _SVG_TICK_READ, cls: 'tick-read' };
+  return { svg: _SVG_TICK_DELIVERED, cls: 'tick-delivered' };
+}
+
+function _renderizarTextoMidia(texto) {
+  const match = texto.match(/^\[Mídia:\s*([^\]]+)\](?:\s*[—-]\s*(.*))?$/);
+  if (!match) return null;
+  const filename = match[1].trim();
+  const caption = match[2]?.trim() || '';
+  const ext = filename.split('.').pop().toLowerCase();
+  const isImage = ['jpg','jpeg','png','gif','webp','heic'].includes(ext);
+  const isAudio = ['ogg','mp3','m4a','aac','opus'].includes(ext);
+  const isPdf = ext === 'pdf';
+  const isVideo = ['mp4','mov','avi'].includes(ext);
+  let icon = '';
+  let label = '';
+  if (isImage) {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+    label = 'Imagem';
+  } else if (isAudio) {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`;
+    label = 'Áudio';
+  } else if (isPdf) {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`;
+    label = 'Documento PDF';
+  } else if (isVideo) {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>`;
+    label = 'Vídeo';
+  } else {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+    label = 'Arquivo';
+  }
+  return { icon, label, filename, caption };
+}
 
 function bolha(texto, origem, criado_em, opts = {}) {
   const isCliente = origem === 'cliente';
@@ -838,20 +901,40 @@ function bolha(texto, origem, criado_em, opts = {}) {
     labelTxt = `${_ICO_BOT} Bolshoi Bot`;
   }
 
-  const entregueIcon = opts.entregue === false ? _SVG_TICK_FAIL : (opts.entregue === true ? _SVG_TICK_OK : '');
-
-  const textoEscapado = escapeHtml(texto).replace(/\n/g, '<br>');
+  const tick = _tickSvg(opts.entregue, opts.lida);
   const tooltipTs = escapeHtml(_timestampCompleto(criado_em));
 
+  const mediaInfo = _renderizarTextoMidia(texto);
+  let conteudoBolha;
+  if (mediaInfo) {
+    const captionHtml = mediaInfo.caption
+      ? `<p class="bolha-text bolha-media-caption">${escapeHtml(mediaInfo.caption)}</p>`
+      : '';
+    conteudoBolha = `
+      <div class="bolha-media-chip">
+        <span class="bolha-media-icon">${mediaInfo.icon}</span>
+        <div class="bolha-media-info">
+          <span class="bolha-media-label">${mediaInfo.label}</span>
+          <span class="bolha-media-filename">${escapeHtml(mediaInfo.filename)}</span>
+        </div>
+      </div>
+      ${captionHtml}
+    `;
+  } else {
+    conteudoBolha = `<p class="bolha-text">${escapeHtml(texto).replace(/\n/g, '<br>')}</p>`;
+  }
+
+  const wamidAttr = opts.wamid ? ` data-wamid="${escapeHtml(opts.wamid)}"` : '';
   row.innerHTML = `
-    <div class="${bubbleCls}" ${opts.tempId ? `data-temp-id="${opts.tempId}"` : ''} title="${tooltipTs}">
+    <div class="${bubbleCls}"${opts.tempId ? ` data-temp-id="${opts.tempId}"` : ''}${wamidAttr} title="${tooltipTs}">
       <span class="${labelCls}">${labelTxt}</span>
-      <p class="bolha-text">${textoEscapado}</p>
+      ${conteudoBolha}
       <span class="bolha-meta-row">
-        <span class="bolha-ts">${horaCurta(criado_em)}</span>${!isCliente ? `<span class="entregue-status bolha-tick">${entregueIcon}</span>` : ''}
+        <span class="bolha-ts">${horaCurta(criado_em)}</span>${!isCliente ? `<span class="entregue-status bolha-tick ${tick.cls}">${tick.svg}</span>` : ''}
       </span>
     </div>
   `;
+
   return row;
 }
 
@@ -861,6 +944,8 @@ function bolha(texto, origem, criado_em, opts = {}) {
 function renderMensagens(mensagens) {
   const cont = document.getElementById('messages-area');
   if (!cont) return;
+  // Preserve typing indicator across re-renders
+  const typingEl = document.getElementById('typing-indicator');
   cont.innerHTML = '';
 
   if (mensagens.length === 0) {
@@ -869,6 +954,7 @@ function renderMensagens(mensagens) {
     el.style.color = 'var(--text-muted)';
     el.textContent = 'Nenhuma mensagem ainda';
     cont.appendChild(el);
+    if (typingEl) cont.appendChild(typingEl);
     return;
   }
 
@@ -903,12 +989,14 @@ function renderMensagens(mensagens) {
         }
       }
       const textoProcessado = (m.resposta || '').replace(/<\s*br\s*\/?>/gi, '\n');
-      cont.appendChild(bolha(textoProcessado, origem, m.criado_em, { entregue: m.entregue, atendente_nome: m.atendente_nome }));
+      cont.appendChild(bolha(textoProcessado, origem, m.criado_em, { entregue: m.entregue, lida: m.lida, wamid: m.wamid, atendente_nome: m.atendente_nome }));
       ultimaOrigem = origem;
     }
   }
 
   scrollarFim();
+  // Re-append typing indicator at the end (preserved before innerHTML='')
+  if (typingEl) { cont.appendChild(typingEl); }
 }
 
 // US-105: verifica se o usuário está no fundo do scroll (tolerância 80px)
@@ -935,6 +1023,11 @@ function _mostrarBotaoNovasMensagens(mostrar) {
     document.getElementById('chat-panel')?.appendChild(btn);
   }
   btn.classList.toggle('visible', mostrar);
+  if (mostrar) {
+    setTimeout(() => btn.classList.add('bounce-active'), 300);
+  } else {
+    btn.classList.remove('bounce-active');
+  }
 }
 
 function scrollarFim(force = true) {
@@ -947,6 +1040,70 @@ function scrollarFim(force = true) {
   }
 }
 
+function _getOrCreateTypingIndicator() {
+  const cont = document.getElementById('messages-area');
+  if (!cont) return null;
+  let el = document.getElementById('typing-indicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'typing-indicator';
+    el.setAttribute('aria-label', 'Cliente digitando');
+    el.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+    cont.appendChild(el);
+  } else {
+    cont.appendChild(el);
+  }
+  return el;
+}
+
+function mostrarTypingIndicator() {
+  const el = _getOrCreateTypingIndicator();
+  if (el) el.classList.add('visible');
+  const cont = document.getElementById('messages-area');
+  if (cont) cont.scrollTop = cont.scrollHeight;
+}
+
+function esconderTypingIndicator() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.classList.remove('visible');
+}
+
+function _countUp(el, from, to, duration = 600) {
+  const start = performance.now();
+  function step(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = Math.round(from + (to - from) * eased);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function _animarTick(tickEl) {
+  if (!tickEl) return;
+  tickEl.classList.remove('tick-animate');
+  void tickEl.offsetWidth; // force reflow
+  tickEl.classList.add('tick-animate');
+}
+
+function _atualizarTabIndicator() {
+  const tabs = document.getElementById('filter-tabs');
+  if (!tabs) return;
+  let indicator = tabs.querySelector('.tab-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.className = 'tab-indicator';
+    tabs.appendChild(indicator);
+  }
+  const activeTab = tabs.querySelector('.filter-tab.active-tab');
+  if (!activeTab) return;
+  const tabsRect = tabs.getBoundingClientRect();
+  const activeRect = activeTab.getBoundingClientRect();
+  indicator.style.width = activeRect.width + 'px';
+  indicator.style.transform = `translateX(${activeRect.left - tabsRect.left + tabs.scrollLeft}px)`;
+}
+
 // ============================================================
 // Append incremental (SSE)
 // ============================================================
@@ -955,12 +1112,13 @@ let _ultimaOrigemIncremental = null;
 function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts = {}) {
   const cont = document.getElementById('messages-area');
   if (!cont) return;
+  if (origem !== 'cliente') esconderTypingIndicator();
 
   const agora = new Date().toISOString();
   const labelDia = dataLabel(agora);
 
   // Verifica se precisa separador de data
-  const ultimoSep = cont.querySelector('.separador-data:last-child');
+  const ultimoSep = Array.from(cont.children).filter(el => el.classList.contains('separador-data')).pop();
   if (!ultimoSep || ultimoSep.getAttribute('data-label') !== labelDia) {
     const sep = separadorData(labelDia);
     sep.classList.add('separador-data');
@@ -1014,7 +1172,12 @@ function resolverBolhaPendente(tempId, ok) {
   }
   // Atualiza ícone de entrega
   const statusSpan = el.querySelector('.entregue-status');
-  if (statusSpan) statusSpan.innerHTML = ok ? _SVG_TICK_OK : _SVG_TICK_FAIL;
+  if (statusSpan) {
+    const { svg, cls } = _tickSvg(ok ? true : false, null);
+    statusSpan.innerHTML = svg;
+    statusSpan.className = `entregue-status bolha-tick ${cls}`;
+    if (ok) _animarTick(statusSpan);
+  }
 }
 
 // ============================================================
@@ -1034,15 +1197,16 @@ async function abrirConversa(telefone) {
   }
 
   // Remove active de todos os cards
-  document.querySelectorAll('.conv-card').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.conv-card').forEach(c => c.classList.remove('active', 'active-conv'));
   const card = document.querySelector(`.conv-card[data-tel="${CSS.escape(telefone)}"]`);
-  if (card) card.classList.add('active');
+  if (card) card.classList.add('active', 'active-conv');
 
   // Fecha info panel ao trocar de conversa
   fecharInfoPanel();
 
   // Mostra skeleton loading
   document.getElementById('empty-state')?.classList.add('hidden');
+  document.getElementById('chat-empty-state')?.classList.remove('visible');
   document.getElementById('thread-header')?.classList.remove('hidden');
   const msgAreaEl = document.getElementById('messages-area');
   if (msgAreaEl) {
@@ -1106,6 +1270,8 @@ function syncComposerState(u) {
   // Reset
   [btnAssumir, btnInterromper, btnDevolver, btnTransferir].forEach(b => b?.classList.add('hidden'));
   if (banner) banner.classList.add('hidden');
+  const attachBtn = document.getElementById('attach-btn');
+  if (attachBtn) attachBtn.disabled = false;
 
   const meuAtendimento = u.atendente_id === state.eu.id;
   const outroAtendente = u.atendente_id && u.atendente_id !== state.eu.id;
@@ -1126,6 +1292,7 @@ function syncComposerState(u) {
     }
     if (msgInput) msgInput.disabled = true;
     if (sendBtn) sendBtn.disabled = true;
+    if (attachBtn) attachBtn.disabled = true;
   } else if (u.aguardando_humano) {
     // Aguardando humano — compositor desbloqueado, enviar assume automaticamente
     if (threadStatus) threadStatus.textContent = 'Aguardando atendimento';
@@ -1170,8 +1337,11 @@ async function assumirConversa(telefone) {
     }
     carregarConversas();
   } catch(e) {
-    const msg = e.message || String(e);
-    showToast(msg.includes('409') ? 'Outro atendente assumiu primeiro' : 'Erro ao assumir', 'error');
+    const body = e?.body || '';
+    const isJaAtendente = e?.status === 400 && body.includes('já é o atendente');
+    if (!isJaAtendente) {
+      showToast(e?.status === 409 ? 'Conversa já assumida por outro atendente' : 'Erro ao assumir', 'error');
+    }
   }
 }
 
@@ -1231,8 +1401,12 @@ async function enviarMensagem() {
       carregarConversas();
     } catch(e) {
       const msg = e.message || String(e);
-      showToast(msg.includes('409') ? 'Outro atendente assumiu primeiro' : 'Não foi possível assumir conversa', 'error');
-      return;
+      if (msg.includes('400')) {
+        // Já sou o atendente — pode continuar enviando
+      } else {
+        showToast(msg.includes('409') ? 'Outro atendente assumiu primeiro' : 'Não foi possível assumir conversa', 'error');
+        return;
+      }
     }
   }
 
@@ -1250,9 +1424,17 @@ async function enviarMensagem() {
       _limparAttach();
       if (input) { input.value = ''; input.style.height = 'auto'; }
       _salvarDraft(state.conversaAtual, '');
+      if (state.conversaAtual) await abrirConversa(state.conversaAtual);
       carregarConversas();
     } catch(e) {
-      showToast('Falha ao enviar arquivo', 'error');
+      let msg = 'Falha ao enviar arquivo';
+      if (e?.body) {
+        try {
+          const parsed = JSON.parse(e.body);
+          if (parsed?.detail && parsed.detail.length < 80) msg = parsed.detail;
+        } catch { /* body não é JSON, usar genérico */ }
+      }
+      showToast(msg, 'error');
     } finally {
       if (sendBtn) sendBtn.disabled = false;
     }
@@ -1274,6 +1456,8 @@ async function enviarMensagem() {
   } catch(e) {
     resolverBolhaPendente(tempId, false);
     showToast('Falha ao enviar mensagem', 'error');
+  } finally {
+    esconderTypingIndicator();
   }
 }
 
@@ -1308,10 +1492,18 @@ function renderInfoPanel(info) {
   if (ultimaEl) ultimaEl.textContent = horarioRelativo(info.data_ultima_interacao) || '—';
 
   const msgsEl = document.getElementById('info-total-msgs');
-  if (msgsEl) msgsEl.textContent = info.total_mensagens ?? '—';
+  if (msgsEl) {
+    const val = info.total_mensagens;
+    if (typeof val === 'number') { msgsEl.textContent = '0'; _countUp(msgsEl, 0, val, 600); }
+    else msgsEl.textContent = val ?? '—';
+  }
 
   const humEl = document.getElementById('info-atend-humanos');
-  if (humEl) humEl.textContent = info.total_atendimentos_humanos ?? '—';
+  if (humEl) {
+    const val = info.total_atendimentos_humanos;
+    if (typeof val === 'number') { humEl.textContent = '0'; _countUp(humEl, 0, val, 600); }
+    else humEl.textContent = val ?? '—';
+  }
 
   const statusEl = document.getElementById('info-status-badges');
   if (statusEl) {
@@ -1672,9 +1864,11 @@ function renderMentionsList() {
 // Autocomplete @ no textarea de notas
 // ============================================================
 function posicionarAutocomplete(textarea, popover) {
+  popover.classList.remove('hidden');  // mostrar antes de medir
   const r = textarea.getBoundingClientRect();
-  popover.style.top = (r.top - popover.offsetHeight - 4) + 'px';
-  popover.style.left = r.left + 'px';
+  const h = popover.offsetHeight || 200;  // fallback 200px
+  popover.style.top = (r.top - h - 4 + window.scrollY) + 'px';
+  popover.style.left = (r.left + window.scrollX) + 'px';
   popover.style.width = r.width + 'px';
 }
 
@@ -1729,8 +1923,6 @@ async function bulkResolver() {
 // ============================================================
 // PRESENCE — online/away/offline
 // ============================================================
-state.presence = {};  // {atendente_id: {status, last_seen}}
-
 function presenceCor(status) {
   return ({ online: '#10b981', away: '#f59e0b', offline: '#6b7280' })[status] || '#6b7280';
 }
@@ -1742,15 +1934,13 @@ async function enviarPresence(status) {
 async function carregarPresence() {
   try {
     const data = await api.getPresence();
-    state.presence = data || {};
+    Object.assign(state.presence, data || {});
   } catch (e) { console.warn('carregarPresence:', e); }
 }
 
 // ============================================================
 // SAVED VIEWS
 // ============================================================
-state.views = [];
-
 async function carregarViews() {
   try {
     const lista = await api.getViews();
@@ -1788,6 +1978,7 @@ function aplicarView(viewId) {
   // Sync filter-tabs UI
   document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active-tab'));
   document.querySelector(`.filter-tab[data-filter="${state.filtro}"]`)?.classList.add('active-tab');
+  _atualizarTabIndicator();
   document.querySelectorAll('.status-filter').forEach(b => {
     if (b.dataset.status === state.statusFiltro) {
       b.classList.add('active-status');
@@ -2124,9 +2315,11 @@ function renderCannedPopover(filtro = '') {
 document.addEventListener('sse:nova_mensagem', (e) => {
   const ev = e.detail;
   if (ev.telefone === state.conversaAtual) {
-    // Não duplica se é mensagem humana e tem bolha pendente
-    const temPendente = !!document.querySelector('[data-temp-id]');
-    if (!(ev.origem === 'humano' && temPendente)) {
+    // Não duplica bolha pendente própria; mensagem de outro atendente deve aparecer
+    const temPendenteProprio = ev.origem === 'humano'
+      && ev.atendente_id === state.eu?.id
+      && !!document.querySelector('[data-temp-id]');
+    if (!temPendenteProprio) {
       const textoProcessado = (ev.texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
       appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue, null, { atendente_nome: ev.atendente_nome || null });
     }
@@ -2140,6 +2333,15 @@ document.addEventListener('sse:nova_mensagem', (e) => {
     conv.preview = ev.texto || '';
     conv.ultima_mensagem_em = new Date().toISOString();
     renderConvList();
+    // Fade-through animation on updated card preview
+    const card = document.querySelector(`.conv-card[data-tel="${CSS.escape(ev.telefone)}"]`);
+    const previewEl = card?.querySelector('.conv-preview');
+    if (previewEl) {
+      previewEl.classList.remove('preview-updating');
+      void previewEl.offsetWidth;
+      previewEl.classList.add('preview-updating');
+      previewEl.addEventListener('animationend', () => previewEl.classList.remove('preview-updating'), { once: true });
+    }
   } else {
     carregarConversas();
   }
@@ -2243,6 +2445,20 @@ document.addEventListener('sse:bulk_aplicado', (e) => {
   showToast(`${n} conversa(s) atualizada(s)`.trim(), 'success');
 });
 
+document.addEventListener('sse:mensagem_lida', (e) => {
+  const { wamid, status } = e.detail;
+  if (!wamid) return;
+  const bolhaEl = document.querySelector(`[data-wamid="${wamid}"]`);
+  if (!bolhaEl) return;
+  const tickEl = bolhaEl.querySelector('.bolha-tick');
+  if (!tickEl) return;
+  const isRead = status === 'read';
+  const { svg, cls } = _tickSvg(true, isRead ? true : false);
+  tickEl.innerHTML = svg;
+  tickEl.className = `entregue-status bolha-tick ${cls}`;
+  if (isRead) _animarTick(tickEl);
+});
+
 // ============================================================
 // Event listeners de DOM
 // ============================================================
@@ -2256,6 +2472,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const nomeOpEl = document.getElementById('sidebar-nome-operador');
   if (nomeOpEl) nomeOpEl.textContent = state.eu.nome || 'Atendente';
 
+  // Show animated empty state on initial load; hide the generic empty state
+  const chatEmpty = document.getElementById('chat-empty-state');
+  const emptyState = document.getElementById('empty-state');
+  if (chatEmpty) chatEmpty.classList.add('visible');
+  if (emptyState) emptyState.style.display = 'none';
+
+  // SSE connection status widget
+  document.addEventListener('sse:connection_status', (e) => {
+    const el = document.getElementById('conn-status');
+    const lbl = document.getElementById('conn-status-label-new');
+    if (!el) return;
+    el.setAttribute('data-state', e.detail.state);
+    if (lbl) lbl.textContent = e.detail.label || '';
+  });
+
   // Filter tabs
   document.getElementById('filter-tabs')?.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-filter]');
@@ -2263,11 +2494,15 @@ document.addEventListener('DOMContentLoaded', () => {
     state.filtro = btn.dataset.filter;
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active-tab'));
     btn.classList.add('active-tab');
+    _atualizarTabIndicator();
     // QW-F3: limpa seleção bulk ao trocar filtro — evita ações em conversas invisíveis
     state.bulkSelecionadas.clear();
     atualizarBulkBar();
     carregarConversas();
   });
+
+  // Init tab indicator after layout stabilizes
+  setTimeout(_atualizarTabIndicator, 50);
 
   // Busca: prefixo "?" ativa modo "Por mensagem" (search global no servidor)
   let _searchTimer = null;
@@ -2324,16 +2559,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('metric-aguardando')?.addEventListener('click', () => {
     state.filtro = 'aguardando';
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active-tab', t.dataset.filter === 'aguardando'));
+    _atualizarTabIndicator();
     carregarConversas();
   });
   document.getElementById('metric-atendendo')?.addEventListener('click', () => {
     state.filtro = 'meus';
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active-tab', t.dataset.filter === 'meus'));
+    _atualizarTabIndicator();
     carregarConversas();
   });
   document.getElementById('metric-bot')?.addEventListener('click', () => {
     state.filtro = 'bot';
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active-tab', t.dataset.filter === 'bot'));
+    _atualizarTabIndicator();
     carregarConversas();
   });
 
@@ -2471,7 +2709,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.remove();
       // Atualiza ícone de entrega para sucesso
       const statusSpan = bolha?.querySelector('.entregue-status');
-      if (statusSpan) statusSpan.innerHTML = _SVG_TICK_OK;
+      if (statusSpan) {
+        const { svg, cls } = _tickSvg(true, null);
+        statusSpan.innerHTML = svg;
+        statusSpan.className = `entregue-status bolha-tick ${cls}`;
+        _animarTick(statusSpan);
+      }
       // Remove temp-id para não duplicar em SSE
       bolha?.removeAttribute('data-temp-id');
       carregarConversas();

@@ -248,7 +248,7 @@ def _enviar_menu_lista(db: Session, user: Usuario, texto_cliente_trigger: str | 
     db.add(hist)
     db.commit()
 
-    ok = whatsapp.enviar_lista_interativa(
+    ok, wamid = whatsapp.enviar_lista_interativa(
         numero=user.telefone,
         body_text=body,
         button_text="Ver opções",
@@ -263,15 +263,17 @@ def _enviar_menu_lista(db: Session, user: Usuario, texto_cliente_trigger: str | 
         fallback_texto = MENSAGEM_BOAS_VINDAS.replace("\n", "<br>") if primeiro_contato \
             else _montar_saudacao(user.nome_cliente).replace("\n", "<br>")
         texto_envio = _normalizar_texto_envio(fallback_texto)
-        ok_fallback = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
+        ok_fallback, wamid_fallback = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
         hist.resposta_bot = fallback_texto
         hist.intencao = "menu_fallback_texto"
         hist.entregue = bool(ok_fallback)
+        hist.wamid = wamid_fallback
         db.commit()
         _notificar_dashboard(user.telefone, user.nome_cliente, fallback_texto, "bot", entregue=bool(ok_fallback))
         return bool(ok_fallback)
 
     hist.entregue = True
+    hist.wamid = wamid
     db.commit()
     _notificar_dashboard(user.telefone, user.nome_cliente, placeholder_historico, "bot", entregue=True)
     return True
@@ -298,7 +300,7 @@ def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
             user.telefone,
             "Perfeito! Aguarde um instante — um atendente da nossa recepção "
             "vai assumir o atendimento em breve."
-        )
+        )  # wamid ignored: handoff message has no associated HistoricoConversa here
     else:
         mensagem_bot_only = (
             "No momento o atendimento por aqui é feito apenas pelo assistente virtual.\n\n"
@@ -306,7 +308,7 @@ def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
             "Para agendar, acesse nosso app:\n"
             "https://sites.appbarber.com.br/bolshoi"
         )
-        whatsapp.enviar_mensagem_texto(user.telefone, mensagem_bot_only)
+        whatsapp.enviar_mensagem_texto(user.telefone, mensagem_bot_only)  # wamid ignored: bot_only
 
 
 # ============================================================
@@ -347,9 +349,9 @@ def _registrar_envio_botoes(
     db.commit()
 
     texto_envio = _normalizar_texto_envio(resposta_texto)
-    ok_texto = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
+    ok_texto, wamid = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
 
-    ok_botoes = whatsapp.enviar_botoes_resposta(
+    ok_botoes, _ = whatsapp.enviar_botoes_resposta(
         numero=user.telefone,
         body_text=body_botoes,
         buttons=buttons,
@@ -364,6 +366,7 @@ def _registrar_envio_botoes(
         whatsapp.enviar_mensagem_texto(user.telefone, hint)
 
     hist.entregue = bool(ok_texto)
+    hist.wamid = wamid
     db.commit()
     _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(ok_texto))
     return bool(ok_texto)
@@ -389,7 +392,7 @@ def _enviar_subflow_servicos(db: Session, user: Usuario, texto_cliente_trigger: 
     db.add(hist)
     db.commit()
 
-    ok = whatsapp.enviar_botoes_resposta(
+    ok, wamid = whatsapp.enviar_botoes_resposta(
         numero=user.telefone,
         body_text=body,
         buttons=buttons,
@@ -404,12 +407,14 @@ def _enviar_subflow_servicos(db: Session, user: Usuario, texto_cliente_trigger: 
             "• Estética (procedimentos com a Isabella)\n"
             "• Agendar"
         )
-        ok_fb = whatsapp.enviar_mensagem_texto(user.telefone, fallback)
+        ok_fb, wamid_fb = whatsapp.enviar_mensagem_texto(user.telefone, fallback)
         hist.resposta_bot = fallback
         hist.intencao = "sub_servicos_fallback"
         hist.entregue = bool(ok_fb)
+        hist.wamid = wamid_fb
     else:
         hist.entregue = True
+        hist.wamid = wamid
     db.commit()
     _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
 
@@ -434,7 +439,7 @@ def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: st
     db.add(hist)
     db.commit()
 
-    ok = whatsapp.enviar_botoes_resposta(
+    ok, wamid = whatsapp.enviar_botoes_resposta(
         numero=user.telefone,
         body_text=body,
         buttons=buttons,
@@ -448,12 +453,14 @@ def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: st
             "• Estética\n"
             "• Agendar"
         )
-        ok_fb = whatsapp.enviar_mensagem_texto(user.telefone, fallback)
+        ok_fb, wamid_fb = whatsapp.enviar_mensagem_texto(user.telefone, fallback)
         hist.resposta_bot = fallback
         hist.intencao = "sub_equipe_fallback"
         hist.entregue = bool(ok_fb)
+        hist.wamid = wamid_fb
     else:
         hist.entregue = True
+        hist.wamid = wamid
     db.commit()
     _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
 
@@ -913,9 +920,10 @@ def _enviar_e_registrar(
     db.commit()
 
     texto_envio = _normalizar_texto_envio(resposta_texto)
-    ok = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
+    ok, wamid = whatsapp.enviar_mensagem_texto(user.telefone, texto_envio)
 
     hist.entregue = bool(ok)
+    hist.wamid = wamid
     db.commit()
 
     _notificar_dashboard(user.telefone, user.nome_cliente, resposta_texto, origem, entregue=bool(ok))
@@ -1164,6 +1172,59 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
 
 
 
+def _processar_status_updates(value: dict) -> None:
+    """
+    Processa status updates de entrega/leitura enviados pela Meta no mesmo endpoint do webhook.
+    Atualiza `lida` em HistoricoConversa e publica SSE mensagem_lida para o dashboard.
+    Cria sessão DB própria (background task não pode reusar a sessão da request).
+    """
+    statuses = value.get("statuses", [])
+    if not statuses:
+        return
+
+    db = SessionLocal()
+    try:
+        for st in statuses:
+            wamid = st.get("id")
+            status = st.get("status")
+            telefone = st.get("recipient_id")
+
+            if status not in ("delivered", "read") or not wamid:
+                continue
+
+            hist = db.query(HistoricoConversa).filter(
+                HistoricoConversa.wamid == wamid
+            ).first()
+
+            if not hist:
+                continue
+
+            if status == "delivered":
+                hist.entregue = True
+                hist.lida = False
+            elif status == "read":
+                hist.entregue = True
+                hist.lida = True
+
+            db.commit()
+
+            if MODO_HIBRIDO:
+                try:
+                    from api.admin import notificador as admin_notificador
+                    admin_notificador.publicar({
+                        "tipo": "mensagem_lida",
+                        "wamid": wamid,
+                        "status": status,
+                        "telefone": telefone,
+                    })
+                except Exception:
+                    log.exception("Falha ao publicar SSE mensagem_lida para wamid=%s", wamid)
+    except Exception:
+        log.exception("Erro em _processar_status_updates")
+    finally:
+        db.close()
+
+
 @router.post("/webhook")
 async def receive_message(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     raw_body = await request.body()
@@ -1177,6 +1238,15 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         body = _json.loads(raw_body)
     except _json.JSONDecodeError:
         return {"status": "ok"}
+
+    # Extrai o bloco value para processar status updates antes do early return de mensagens.
+    try:
+        _value = body.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {})
+    except (IndexError, AttributeError):
+        _value = {}
+
+    if _value.get("statuses"):
+        background_tasks.add_task(_processar_status_updates, _value)
 
     telefone, texto_cliente, nome_cliente, message_id = extrair_informacoes_mensagem(body)
 
@@ -1199,6 +1269,15 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
             "📅 Agendamento\n"
             "📍 Localização e horários"
         )
+        # BE-04: garante que message_id de mídia esteja em MensagemProcessada mesmo
+        # se _ja_processada() acima falhou silenciosamente (ex.: exceção de DB fugaz).
+        if message_id:
+            try:
+                if not db.query(MensagemProcessada).filter(MensagemProcessada.message_id == message_id).first():
+                    db.add(MensagemProcessada(message_id=message_id))
+                    db.commit()
+            except Exception:
+                db.rollback()
         background_tasks.add_task(
             whatsapp.enviar_mensagem_texto,
             telefone,

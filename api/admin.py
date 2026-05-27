@@ -428,6 +428,8 @@ def ver_conversa(
                 "atendente_id": m.atendente_id,
                 "atendente_nome": m.atendente.nome if m.atendente else None,
                 "entregue": m.entregue,
+                "wamid": m.wamid,
+                "lida": m.lida,
                 "criado_em": _iso_utc(m.criado_em),
             }
             for m in msgs
@@ -448,6 +450,8 @@ def assumir(
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
         raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    if user.atendente_id == me.id:
+        raise HTTPException(status_code=400, detail="Você já é o atendente desta conversa.")
     if user.atendente_id and user.atendente_id != me.id:
         raise HTTPException(status_code=409, detail="Conversa já assumida por outro atendente.")
 
@@ -460,11 +464,9 @@ def assumir(
                 "bot_ativo": False,
                 "bot_desativado_em": datetime.now(timezone.utc),
                 "aguardando_humano": False,
-                # Normaliza status: ao assumir, conversa precisa aparecer no filtro
-                # padrão "open" do dashboard, independentemente de estar resolved/snoozed antes (PO).
                 "status_conversa": "open",
-                # US-AD-012: snoozed_until deve ser limpo — estado inconsistente se mantido.
                 "snoozed_until": None,
+                "data_ultima_interacao": datetime.now(timezone.utc),
             },
             synchronize_session=False,
         )
@@ -475,7 +477,7 @@ def assumir(
         raise HTTPException(status_code=409, detail="Outro atendente assumiu essa conversa antes de você.")
 
     aviso = f"👋 Olá! Sou {me.nome}, do atendimento da Barbearia Bolshoi. Vou te ajudar a partir de agora."
-    ok = whatsapp.enviar_mensagem_texto(telefone, aviso)
+    ok, wamid = whatsapp.enviar_mensagem_texto(telefone, aviso)
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
         mensagem_cliente=None,
@@ -483,6 +485,7 @@ def assumir(
         origem="humano",
         atendente_id=me.id,
         entregue=bool(ok),
+        wamid=wamid,
     ))
     db.commit()
 
@@ -853,8 +856,15 @@ def bulk_acao(
                     )
                 )
 
+            user.data_ultima_interacao = agora
+            # BE-03: flush por item mantém as mudanças no buffer da sessão sem
+            # commitar. Exceção de DB aqui é capturada abaixo e faz rollback.
+            db.flush()
             resultados["sucesso"].append(tel)
         except Exception as exc:
+            # BE-03: rollback desfaz o item corrente sem contaminar os anteriores
+            # que já foram flushed — a sessão volta ao estado do último flush bem-sucedido.
+            db.rollback()
             log.exception("Bulk acao=%s telefone=%s falhou", payload.acao, tel)
             resultados["falha"].append({"telefone": tel, "erro": str(exc)})
 
@@ -945,7 +955,7 @@ def enviar(
     # Substitui placeholders ({nome_cliente}, {primeiro_nome}, {atendente}, {barbearia})
     # antes de enviar — atendente pode usar canned responses dinâmicas naturalmente.
     texto = _substituir_placeholders(texto, user, me)
-    ok = whatsapp.enviar_mensagem_texto(telefone, texto)
+    ok, wamid = whatsapp.enviar_mensagem_texto(telefone, texto)
 
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
@@ -954,6 +964,7 @@ def enviar(
         origem="humano",
         atendente_id=me.id,
         entregue=bool(ok),
+        wamid=wamid,
     ))
     db.commit()
 
@@ -964,6 +975,8 @@ def enviar(
         "texto": texto,
         "origem": "humano",
         "atendente_id": me.id,
+        # C3: atendente_nome necessário para o frontend exibir remetente no separador.
+        "atendente_nome": me.nome,
         "entregue": bool(ok),
     })
     return {"status": "ok", "entregue": bool(ok)}
@@ -974,6 +987,13 @@ _MIME_PARA_TIPO: dict[str, str] = {
     "application/pdf": "document",
     "audio/ogg": "audio", "audio/mpeg": "audio", "audio/aac": "audio",
     "video/mp4": "video",
+}
+# C1: extensão → MIME canônico para fallback quando Content-Type é genérico/ausente.
+_EXT_PARA_MIME: dict[str, str] = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "webp": "image/webp", "gif": "image/gif", "pdf": "application/pdf",
+    "ogg": "audio/ogg", "mp3": "audio/mpeg", "aac": "audio/aac",
+    "m4a": "audio/aac", "mp4": "video/mp4",
 }
 _MAX_MIDIA_BYTES = 16 * 1024 * 1024  # 16 MB
 
@@ -991,9 +1011,15 @@ def enviar_midia(
     if len(conteudo) > _MAX_MIDIA_BYTES:
         raise HTTPException(400, "Arquivo muito grande (máx 16 MB)")
     mime = file.content_type or ""
+    # C1: Content-Type genérico/ausente em iPhones e browsers móveis → fallback por extensão.
+    if not mime or mime in ("application/octet-stream", "binary/octet-stream"):
+        ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+        mime = _EXT_PARA_MIME.get(ext, mime)
+        if mime not in ("application/octet-stream", "binary/octet-stream", ""):
+            log.warning("Content-Type genérico — MIME inferido por extensão '%s': %s", ext, mime)
     media_type = _MIME_PARA_TIPO.get(mime)
     if not media_type:
-        raise HTTPException(400, f"Tipo não suportado: {mime}")
+        raise HTTPException(400, f"Tipo não suportado: {mime or 'desconhecido'}. Use: jpg, png, pdf, mp3, mp4.")
 
     usuario = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not usuario:
@@ -1001,6 +1027,7 @@ def enviar_midia(
     if usuario.atendente_id and usuario.atendente_id != me.id:
         raise HTTPException(403, "Conversa pertence a outro atendente")
     auto_assumiu = False
+    aguardando_humano_original = usuario.aguardando_humano
     if not usuario.atendente_id:
         usuario.bot_ativo = False
         usuario.aguardando_humano = False
@@ -1009,7 +1036,7 @@ def enviar_midia(
         db.commit()
         auto_assumiu = True
         aviso = f"👋 Olá! Sou {me.nome}, do atendimento da Barbearia Bolshoi. Vou te ajudar a partir de agora."
-        ok_aviso = whatsapp.enviar_mensagem_texto(telefone, aviso)
+        ok_aviso, wamid_aviso = whatsapp.enviar_mensagem_texto(telefone, aviso)
         db.add(HistoricoConversa(
             telefone_usuario=telefone,
             mensagem_cliente=None,
@@ -1017,6 +1044,7 @@ def enviar_midia(
             origem="humano",
             atendente_id=me.id,
             entregue=bool(ok_aviso),
+            wamid=wamid_aviso,
         ))
         db.commit()
         notificador.publicar({"tipo": "atendente_assumiu", "telefone": telefone, "atendente_id": me.id, "atendente_nome": me.nome})
@@ -1025,9 +1053,23 @@ def enviar_midia(
 
     try:
         media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
-        ok = whatsapp.enviar_mensagem_midia(telefone, media_id, media_type, caption)
+        ok, wamid_midia = whatsapp.enviar_mensagem_midia(telefone, media_id, media_type, caption)
     except Exception as e:
-        raise HTTPException(502, f"Erro ao enviar mídia: {e}")
+        # C2: se auto-assumiu mas o upload/envio falhou, desfaz a atribuição para não
+        # deixar a conversa travada com atendente sem mídia entregue.
+        if auto_assumiu:
+            try:
+                db.query(Usuario).filter(Usuario.telefone == telefone).update(
+                    {"atendente_id": None, "bot_ativo": True, "aguardando_humano": aguardando_humano_original},
+                    synchronize_session=False,
+                )
+                db.commit()
+                notificador.publicar({"tipo": "bot_devolveu", "telefone": telefone, "por_timeout": False})
+            except Exception:
+                db.rollback()
+        # B7: não vazar detalhes internos da exceção para o cliente.
+        log.error("enviar_midia falhou para %s: %s", telefone, e)
+        raise HTTPException(502, "Falha ao enviar arquivo. Tente novamente.")
 
     descricao = f"[Mídia: {file.filename or mime}]" + (f" — {caption}" if caption else "")
     db.add(HistoricoConversa(
@@ -1037,6 +1079,7 @@ def enviar_midia(
         origem="humano",
         atendente_id=me.id,
         entregue=bool(ok),
+        wamid=wamid_midia,
     ))
     db.commit()
 
@@ -1047,6 +1090,8 @@ def enviar_midia(
         "texto": descricao,
         "origem": "humano",
         "atendente_id": me.id,
+        # C3: incluir atendente_nome para o frontend exibir o remetente corretamente.
+        "atendente_nome": me.nome,
         "entregue": bool(ok),
     })
     return {"ok": True, "media_id": media_id, "entregue": bool(ok)}
@@ -1096,11 +1141,9 @@ def devolver(
                 "bot_desativado_em": None,
                 "aguardando_humano": False,
                 "transbordo_em": None,
-                # Normaliza status na devolução: conversa devolvida ao bot deve estar
-                # visível no filtro padrão "open" do dashboard (PO). snoozed_until
-                # também é limpo por paranoia: se a conversa estava adiada, garantir estado limpo.
                 "status_conversa": "open",
                 "snoozed_until": None,
+                "data_ultima_interacao": datetime.now(timezone.utc),
             },
             synchronize_session=False,
         )
@@ -1137,7 +1180,7 @@ def devolver(
         return {"status": "ok", "silent": True}
 
     aviso = "Atendimento humano encerrado. O assistente virtual está de volta e pronto para te ajudar."
-    ok = whatsapp.enviar_mensagem_texto(telefone, aviso)
+    ok, wamid = whatsapp.enviar_mensagem_texto(telefone, aviso)
     db.add(HistoricoConversa(
         telefone_usuario=telefone,
         mensagem_cliente=None,
@@ -1145,6 +1188,7 @@ def devolver(
         origem="humano",
         atendente_id=me.id,
         entregue=bool(ok),
+        wamid=wamid,
     ))
     db.commit()
     notificador.publicar({
@@ -1662,6 +1706,7 @@ async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), 
             "aguardando_humano": False,
             "status_conversa": "open",
             "snoozed_until": None,
+            "data_ultima_interacao": datetime.now(timezone.utc),
         },
         synchronize_session=False,
     )
@@ -1794,7 +1839,9 @@ def _processar_mentions(db: Session, nota: NotaInterna, autor: Atendente) -> lis
         )
         db.add(m)
         notificados.append(a.id)
-    db.commit()
+    # BE-06: flush sem commit — o caller (criar_nota) faz o commit único que
+    # persiste nota + mentions atomicamente.
+    db.flush()
     # Dispatch SSE para cada mencionado
     for aid in notificados:
         notificador.publicar({
@@ -1814,11 +1861,16 @@ async def criar_nota(telefone: str, body: NotaIn, db: Session = Depends(get_db),
     """Registra uma nova nota interna. Processa @mentions e dispara notificações."""
     nota = NotaInterna(telefone_usuario=telefone, atendente_id=atual.id, texto=body.texto.strip())
     db.add(nota)
-    db.commit()
-    db.refresh(nota)
+    # BE-06: flush para obter nota.id sem commitar — se _processar_mentions falhar,
+    # o rollback desfaz tanto a nota quanto as mentions (transação única).
+    db.flush()
 
     # Processa @mentions e gera notificações
     mentions = _processar_mentions(db, nota, atual)
+
+    # Commit único: nota + mentions persistem juntos ou nenhum persiste.
+    db.commit()
+    db.refresh(nota)
 
     return {"ok": True, "id": nota.id, "mencionados": mentions}
 
