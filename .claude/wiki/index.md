@@ -60,6 +60,8 @@
 
 ## QA (QA Engineer)
 - [QA ui-ux-enhancements-2026-05-26](qa/ui-ux-enhancements-2026-05-26.md) — qa — Auditoria das 15 melhorias UI/UX (Tasks #1/#2/#3): 3 bugs corrigidos, 5 infos, APROVADO
+- [FINAL_REPORT](qa/FINAL_REPORT.md) — qa — Relatório final QA full sweep: 43 testes PASS, 11 achados (5 resolved, 2 open decisão humana, 4 open doc P3), veredicto CONDICIONAL p/ prod
+- [FINDINGS](qa/FINDINGS.md) — qa — Achados incrementais completos (Blocos 1–4): análise estática, harness pytest, E2E Playwright, loop fix Fase D
 
 ## Releases
 - [Release 0.1.0](../docs/release/0_1_0.md) — lead — Sprint 0.1.0: 5 backend quick wins + 5 frontend quick wins + 2 sprint items + 8 ADRs + 5 BRs

@@ -17,6 +17,7 @@ os.environ["MODO_OPERACAO"] = "hibrido"
 os.environ["JWT_SECRET"] = "test-secret-do-not-use-in-prod-32chars!!"
 os.environ["JWT_TTL_MIN"] = "60"
 os.environ["META_APP_SECRET"] = ""
+os.environ["ALLOW_UNSIGNED_WEBHOOK"] = "1"  # gate de boot requer este flag quando META_APP_SECRET vazio
 os.environ["DB_USER"] = "test"
 os.environ["DB_PASS"] = "test"
 os.environ["DB_HOST"] = "localhost"

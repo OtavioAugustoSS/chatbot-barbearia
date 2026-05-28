@@ -224,6 +224,61 @@ def test_normalizar_texto_strip():
 # FAQ canônica — gap identificado (possível bug)
 # ============================================================
 
+# ============================================================
+# SEC-01: gate de boot _exigir_meta_secret (função pura)
+# ============================================================
+
+def test_exigir_meta_secret_levanta_sem_secret_e_sem_flag():
+    """SEC-01: sem META_APP_SECRET e sem ALLOW_UNSIGNED_WEBHOOK=1 → RuntimeError."""
+    # Importa a função pura diretamente — não importa main.py completo
+    import importlib, types
+    # A função é definida em main.py mas podemos testá-la via importação dinâmica
+    # APENAS da função, depois que main.py já foi importado pelo conftest via app fixture.
+    # O conftest já importou main — buscamos do módulo cacheado.
+    import sys
+    main_mod = sys.modules.get("main")
+    if main_mod is None:
+        pytest.skip("main não importado ainda")
+    fn = main_mod._exigir_meta_secret
+    with pytest.raises(RuntimeError, match="META_APP_SECRET"):
+        fn("", "")
+
+
+def test_exigir_meta_secret_levanta_com_flag_errada():
+    """SEC-01: ALLOW_UNSIGNED_WEBHOOK != '1' ainda levanta RuntimeError."""
+    import sys
+    main_mod = sys.modules.get("main")
+    if main_mod is None:
+        pytest.skip("main não importado ainda")
+    fn = main_mod._exigir_meta_secret
+    with pytest.raises(RuntimeError):
+        fn("", "true")  # só "1" é aceito
+    with pytest.raises(RuntimeError):
+        fn("", "yes")
+
+
+def test_exigir_meta_secret_nao_levanta_com_flag_dev():
+    """SEC-01: ALLOW_UNSIGNED_WEBHOOK=1 permite boot sem secret (retorna None)."""
+    import sys
+    main_mod = sys.modules.get("main")
+    if main_mod is None:
+        pytest.skip("main não importado ainda")
+    fn = main_mod._exigir_meta_secret
+    result = fn("", "1")  # deve retornar None, não levantar
+    assert result is None
+
+
+def test_exigir_meta_secret_nao_levanta_com_secret_presente():
+    """SEC-01: META_APP_SECRET definido → nenhuma verificação de flag necessária."""
+    import sys
+    main_mod = sys.modules.get("main")
+    if main_mod is None:
+        pytest.skip("main não importado ainda")
+    fn = main_mod._exigir_meta_secret
+    result = fn("meu-secret-real", "")
+    assert result is None
+
+
 def test_faq_gap_como_faco_para_agendar():
     """
     BUG-01 (corrigido): 'como faço para agendar?' agora casa com regex de agendamento.

@@ -12,8 +12,10 @@ Branch: `qa/full-sweep` · Orquestração: time `barbearia-bolshoi-team` (Lead +
 
 ## 1. Sumário executivo
 
-O sistema está **quase pronto para produção**, pendente de **uma decisão de política de deploy
-(SEC-01)** e **um aceite de produto (SEC-04)** — ambos exigem confirmação humana, não código novo.
+O sistema está **pronto para produção** sob uma condição operacional clara (configurar
+`META_APP_SECRET` em prod — agora **forçado no boot** pelo gate SEC-01). As duas decisões humanas
+pendentes foram resolvidas: SEC-01 (gate rígido, implementado) e SEC-04 (inbox compartilhado,
+aceito — ADR-011).
 A postura de qualidade é **forte**: a mega-auditoria recente (commit `a01dd1e`) já havia endurecido
 XSS, SQLi, secrets e a corrida de "assumir". Este sweep (a) criou o **harness de testes que não
 existia** (TD-002) com **43 testes passando**, (b) achou e corrigiu **1 bug de boot crítico** que
@@ -27,9 +29,9 @@ aberto (SEC-01) é uma política de deploy a definir.**
 | ID | Sev | Área | Status | Fix / commit |
 |---|---|---|---|---|
 | DEP-01 | P1 | deps/boot | **RESOLVED** | `python-multipart` add em `requirements.txt` + install |
-| SEC-01 | P1 | segurança/deploy | **OPEN** (decisão humana) | gate de boot p/ `META_APP_SECRET` em prod — aguarda política |
+| SEC-01 | P1 | segurança/deploy | **RESOLVED** | gate em `main.py`: aborta boot sem `META_APP_SECRET` salvo `ALLOW_UNSIGNED_WEBHOOK=1` (dev) |
 | BUG-01 | P2 | FAQ/IA-custo | **RESOLVED** | regex agendamento em `respostas_canonicas.py` + teste invertido |
-| SEC-04 | P2 | autorização | **ACEITO?** (decisão PO) | inbox compartilhado (ADR-011) — aguarda aceite |
+| SEC-04 | P2 | autorização | **ACEITO** (usuário) | inbox compartilhado p/ 1-2 atendentes (ADR-011) — sem mudança de código |
 | SEC-02 | P3 | XSS (self) | **RESOLVED** | `escapeHtml(file.name)` em `app.js` |
 | SEC-03 | P3 | busca | **RESOLVED** | escape de wildcards LIKE em `/admin/search` |
 | SEC-05 | P3 | login/timing | **RESOLVED** | bcrypt dummy p/ usuário inexistente |
@@ -60,8 +62,9 @@ aberto (SEC-01) é uma política de deploy a definir.**
 
 ## 4. Riscos residuais
 
-1. **SEC-01 (P1):** sem `META_APP_SECRET` em produção, o `/webhook` aceita qualquer POST. Hoje só
-   há warning no boot. **Recomendação: gate rígido** (abortar boot em prod sem o secret).
+1. **SEC-01 (mitigado):** o boot agora **aborta** sem `META_APP_SECRET` (salvo `ALLOW_UNSIGNED_WEBHOOK=1`
+   p/ dev). Risco residual: operador esquecer e setar a flag em prod. **Ação dev:** adicione
+   `ALLOW_UNSIGNED_WEBHOOK=1` ao `.env` local, senão o servidor não sobe.
 2. **SEC-04 (P2):** qualquer operador lê qualquer conversa (sem RBAC por conversa). Aceitável p/
    inbox compartilhado de 1–2 pessoas (ADR-011); reavaliar se a equipe crescer ou houver
    requisito de privacidade.

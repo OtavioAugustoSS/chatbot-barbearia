@@ -27,11 +27,24 @@ logging.basicConfig(
 _log = logging.getLogger("barbearia")
 _log.info("Modo de operação: %s", MODO_OPERACAO)
 
-if not os.getenv("META_APP_SECRET"):
-    _log.critical(
-        "META_APP_SECRET nao configurado — webhook aceita qualquer POST sem "
-        "validacao de assinatura HMAC. Configure META_APP_SECRET em producao!"
-    )
+def _exigir_meta_secret(meta_secret: str, allow_unsigned: str) -> None:
+    """Aborta o boot se META_APP_SECRET ausente em producao."""
+    if not meta_secret:
+        if allow_unsigned != "1":
+            raise RuntimeError(
+                "META_APP_SECRET nao configurado. "
+                "Em producao, defina META_APP_SECRET no .env para validar assinaturas HMAC do webhook. "
+                "Para desenvolvimento local sem validacao de assinatura, defina ALLOW_UNSIGNED_WEBHOOK=1."
+            )
+        _log.warning(
+            "META_APP_SECRET ausente — ALLOW_UNSIGNED_WEBHOOK=1 ativo. "
+            "Webhook aceita POST sem validacao de assinatura HMAC. NAO use em producao."
+        )
+
+_exigir_meta_secret(
+    os.getenv("META_APP_SECRET", ""),
+    os.getenv("ALLOW_UNSIGNED_WEBHOOK", ""),
+)
 
 # SQLAlchemy cria tabelas que ainda não existem no MySQL (porta 3306).
 Base.metadata.create_all(bind=engine)

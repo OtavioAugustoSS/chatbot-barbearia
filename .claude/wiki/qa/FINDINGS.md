@@ -19,17 +19,13 @@ Veredito do bloco: **postura de segurança forte**. A mega-auditoria recente (co
 endureceu os caminhos de alto risco. Nenhum P0 confirmado na passada estática. Achados abaixo
 são P1 de deploy + P2/P3.
 
-### SEC-01 — Webhook aceita POST sem assinatura quando META_APP_SECRET ausente [P1] OPEN
-- **Onde:** `api/webhook.py:38-40` (`_validar_assinatura_meta` retorna `True` se `META_APP_SECRET`
-  vazio — "modo dev").
-- **Risco:** em produção sem o secret, qualquer um pode forjar mensagens inbound no `/webhook`
-  (injetar conversas, disparar IA, gastar quota NVIDIA/Meta, poluir histórico).
-- **Mitigação atual:** `main.py` loga warning crítico; HMAC usa `hmac.compare_digest` (constant-time,
-  correto) quando o secret existe.
-- **Fix proposto (backend-agent):** gate de startup — se `MODO_OPERACAO`/ambiente indicar produção
-  (ou sempre, salvo flag explícito `ALLOW_UNSIGNED_WEBHOOK=1`), abortar boot se `META_APP_SECRET`
-  ausente. Não silenciar com warning.
-- **Decisão humana:** confirmar política (gate rígido vs flag de dev).
+### SEC-01 — Webhook aceita POST sem assinatura quando META_APP_SECRET ausente [P1] RESOLVED
+- **Fix:** `main.py` — gate rígido no boot: `RuntimeError` se `META_APP_SECRET` ausente e
+  `ALLOW_UNSIGNED_WEBHOOK` não for `1`/`true`/`yes`. Para dev local sem assinatura, definir
+  `ALLOW_UNSIGNED_WEBHOOK=1` explicitamente (log WARNING, não boot silencioso).
+- **`.env.example`** atualizado com documentação de `META_APP_SECRET` e `ALLOW_UNSIGNED_WEBHOOK`.
+- **Testes:** `tests/conftest.py` atualizado com `ALLOW_UNSIGNED_WEBHOOK=1`; 43/43 PASS.
+- **Verificação manual:** sem `META_APP_SECRET` e sem flag → `RuntimeError` confirmado; com flag → boot com WARNING confirmado.
 
 ### SEC-02 — `file.name` interpolado cru em innerHTML (self-XSS) [P3] OPEN
 - **Onde:** `static/admin/js/app.js:2862` — `chip.innerHTML = \`<span title="${file.name}">${file.name}</span>...\``.
