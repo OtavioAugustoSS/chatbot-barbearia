@@ -19,10 +19,10 @@
       --bg-surface: #1C1D22;
       --bg-card: #25272C;
       --bg-card-hover: #2D2F35;
-      --accent: #4E7AE7;
-      --accent-hover: #3B6BDF;
-      --accent-subtle: rgba(78,122,231,0.10);
-      --accent-border: rgba(78,122,231,0.28);
+      --accent: #3B6BDF;
+      --accent-hover: #2D5BCC;
+      --accent-subtle: rgba(59,107,223,0.10);
+      --accent-border: rgba(59,107,223,0.28);
       --success: #10B981;
       --success-text: #10B981;
       --success-subtle: rgba(16,185,129,0.10);
@@ -73,7 +73,7 @@
       --danger-text: #dc2626;
       --text-primary: #0f172a;
       --text-secondary: #475569;
-      --text-muted: #94a3b8;
+      --text-muted: #64748B;
       --border: #e2e8f0;
       --border-muted: #cbd5e1;
 
@@ -928,8 +928,8 @@
         <div class="settings-modal-field">
           <label for="label-cor-hex">Cor</label>
           <div class="color-picker-row">
-            <input id="label-cor" type="color" value="#2481cc" required class="color-picker-swatch" style="cursor:pointer;padding:2px;" title="Clique para escolher a cor">
-            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#2481cc" required maxlength="7" placeholder="#RRGGBB" style="flex:1;font-family:var(--font-mono);" title="Formato: #RRGGBB (ex: #2481cc)">
+            <input id="label-cor" type="color" value="#3B6BDF" required class="color-picker-swatch" style="cursor:pointer;padding:2px;" title="Clique para escolher a cor">
+            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#3B6BDF" required maxlength="7" placeholder="#RRGGBB" style="flex:1;font-family:var(--font-mono);" title="Formato: #RRGGBB (ex: #3B6BDF)">
           </div>
         </div>
         <div class="settings-modal-field">
@@ -1235,7 +1235,7 @@
         const statusBadge = l.ativo
           ? '<span class="badge-status-active">Ativa</span>'
           : '<span class="badge-status-inactive">Inativa</span>';
-        const cor = l.cor || '#2481cc';
+        const cor = l.cor || '#3B6BDF';
         const acoes = `
           <button onclick='editarLabel(${JSON.stringify(l)})' class="btn btn-sm" style="color:var(--accent);background:transparent;border-color:transparent;">Editar</button>
           ${l.ativo
@@ -1263,8 +1263,8 @@
       document.getElementById('modal-label-titulo').textContent = 'Nova Etiqueta';
       document.getElementById('label-id-edit').value = '';
       document.getElementById('label-nome').value = '';
-      document.getElementById('label-cor').value = '#2481cc';
-      document.getElementById('label-cor-hex').value = '#2481cc';
+      document.getElementById('label-cor').value = '#3B6BDF';
+      document.getElementById('label-cor-hex').value = '#3B6BDF';
       document.getElementById('label-descricao').value = '';
       document.getElementById('modal-label-erro').classList.add('hidden');
       document.getElementById('label-nome').focus();
@@ -1445,7 +1445,7 @@
         const submitBtn = e.target.querySelector('[type=submit]');
 
         if (!/^#[0-9a-fA-F]{6}$/.test(cor)) {
-          erroEl.textContent = 'Cor inválida — use o formato #RRGGBB (ex: #2481cc)';
+          erroEl.textContent = 'Cor inválida — use o formato #RRGGBB (ex: #3B6BDF)';
           erroEl.classList.remove('hidden');
           return;
         }

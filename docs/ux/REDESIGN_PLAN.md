@@ -140,6 +140,25 @@ Repaginar visualmente o dashboard de atendimento sem mexer em comportamento. Cri
 - [ ] Accordion sections: cliente / tags / notas / stats
 - [ ] FAB "+ nota" sticky bottom do painel
 
+---
+
+## Desvios aceitos do redesign
+
+### Tabs do conv-list (Fase 3)
+
+**Mockup V3 esperava:** Todos / Não-lidos / Aguardando
+
+**Implementado:** Todos / Aguardando / Meus / Bot
+
+**Razão:** o JS atual (`app.js` linhas 2595, 2601, 2607) depende de
+`[data-filter="meus"]` e `[data-filter="bot"]`. Renomear ou remover
+quebra os handlers sem permissão pra tocar JS. Sub-tabs estilizadas
+como underline mantêm aderência visual à referência V3.
+
+**Decisão pendente do PO:** se manter 4 tabs (atual) ou consolidar
+em 3 (mockup) — última opção exige refactor do JS pra mapear
+"não-lidos" e ocultar "meus/bot" em overflow menu.
+
 ### Fase 6 — Motion polish (baixo risco)
 - [ ] Stagger reveal nos cards de conversa (30ms entre items)
 - [ ] Spring physics no send button + active conv

@@ -34,14 +34,14 @@
       /* Bolhas */
       --bg-bubble-client: #25272C;
       --bg-bubble-bot: #064E3B;
-      --bg-bubble-human: #4E7AE7;
-      --bg-bubble-system: rgba(78,122,231,0.10);
+      --bg-bubble-human: #3B6BDF;
+      --bg-bubble-system: rgba(59,107,223,0.10);
 
       /* Accent — balanceado, menos saturado */
-      --accent: #4E7AE7;
-      --accent-hover: #3B6BDF;
-      --accent-subtle: rgba(78,122,231,0.10);
-      --accent-border: rgba(78,122,231,0.28);
+      --accent: #3B6BDF;
+      --accent-hover: #2D5BCC;
+      --accent-subtle: rgba(59,107,223,0.10);
+      --accent-border: rgba(59,107,223,0.28);
 
       /* Semânticos de feedback */
       --success: #10B981;
@@ -130,7 +130,7 @@
       --danger-subtle: rgba(220,38,38,0.10);
       --text-primary: #0f172a;
       --text-secondary: #475569;
-      --text-muted: #94a3b8;
+      --text-muted: #64748B;
       --border: #e2e8f0;
       --border-soft: #e2e8f0;
       --border-muted: #cbd5e1;
@@ -757,31 +757,62 @@
     }
 
     /* thread-status: estilo de pill badge para todos os estados
-       O JS escreve textContent diretamente, sem classe — aplicamos pill base em todos */
+       O JS escreve textContent diretamente, sem classe — default neutro (cinza).
+       JS pode adicionar .status-bot / .status-aguardando / .status-humano para colorir. */
     #thread-status:not(:empty) {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       padding: 3px 10px;
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 600;
-      font-family: var(--font-body);
-      letter-spacing: 0.03em;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
       border-radius: var(--radius-full);
       white-space: nowrap;
       text-transform: uppercase;
-      /* Default: aguardando (warning) — para "Aguardando atendimento" */
-      background: var(--warning-subtle);
-      color: var(--warning-text);
-      border: 1px solid rgba(245,158,11,0.28);
+      /* Default neutral — não mais warning yellow fixo */
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-muted);
     }
     #thread-status:not(:empty)::before {
       content: '';
-      display: inline-block;
       width: 6px; height: 6px;
       border-radius: 50%;
-      background: currentColor;
+      background: var(--text-muted);
+      box-shadow: 0 0 4px rgba(156,163,175,0.4);
       flex-shrink: 0;
+    }
+    /* Estado: bot ativo */
+    #thread-status.status-bot {
+      background: var(--success-subtle);
+      color: var(--success-text);
+      border-color: rgba(16,185,129,0.28);
+    }
+    #thread-status.status-bot::before {
+      background: var(--success-text);
+      box-shadow: 0 0 6px rgba(16,185,129,0.6);
+    }
+    /* Estado: aguardando atendimento humano */
+    #thread-status.status-aguardando {
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      border-color: rgba(245,158,11,0.28);
+    }
+    #thread-status.status-aguardando::before {
+      background: var(--warning-text);
+      box-shadow: 0 0 6px rgba(245,158,11,0.5);
+    }
+    /* Estado: em atendimento humano */
+    #thread-status.status-humano {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border-color: var(--accent-border);
+    }
+    #thread-status.status-humano::before {
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(59,107,223,0.5);
     }
 
     .header-btn-group {
