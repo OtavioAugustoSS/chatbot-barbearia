@@ -229,36 +229,42 @@
     /* Botão micro-interaction */
     button:not(:disabled):active { transform: scale(0.96); }
 
-    /* Bolhas de mensagem — cores, direção, raios e labels */
+    /* Fase 4.1: Bolhas de mensagem — squared corners + cores + direção */
     .bolha-incoming {
-      background: var(--bg-bubble-client);
+      background: var(--bg-bubble-client);  /* #25272C cool neutral */
       color: var(--text-primary);
-      border-top-left-radius: 0 !important;
+      border-top-left-radius: 4px !important;  /* squared no canto chegada (esquerda) */
+      align-self: flex-start;
     }
     .bolha-outgoing-bot {
-      background: var(--bg-bubble-bot);
-      color: var(--text-primary);
-      border-top-right-radius: 0 !important;
+      background: var(--bg-bubble-bot);  /* #064E3B verde profundo saturado */
+      color: #ECFDF5;  /* mint claro pra contraste no verde escuro */
+      border-top-right-radius: 4px !important;  /* squared no canto saída (direita) */
+      align-self: flex-end;
     }
     .bolha-outgoing-humano {
-      background: var(--bg-bubble-human);
-      color: var(--bubble-human-text, #ffffff);
-      border-top-right-radius: 0 !important;
+      background: var(--bg-bubble-human);  /* #4E7AE7 accent */
+      color: #FFFFFF;
+      border-top-right-radius: 4px !important;  /* squared no canto saída (direita) */
+      align-self: flex-end;
     }
-    /* Label de remetente: 11.5px/600 NÃO uppercase, ícone inline */
+
+    /* Fase 4.2: Label de remetente — fonte prosa, NÃO mono */
     .bolha-label {
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.02em;
-      color: var(--text-secondary);
+      font-family: var(--font-body);  /* prosa, NÃO mono */
+      letter-spacing: 0.01em;
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
+      line-height: 1.3;
+      color: var(--text-secondary);
     }
-    .bolha-incoming .bolha-label { color: var(--bubble-label-nome); }
-    .bolha-outgoing-bot .bolha-label { color: var(--bubble-label-bot-ts); }
-    .bolha-outgoing-humano .bolha-label { color: var(--bubble-human-label, #d6e8fa); }
+    .bolha-incoming .bolha-label { color: var(--bubble-label-nome); }  /* amber #FBBF24 */
+    .bolha-outgoing-bot .bolha-label { color: var(--bubble-label-bot-ts); }  /* mint #6EE7B7 */
+    .bolha-outgoing-humano .bolha-label { color: var(--bubble-human-label, #BFDBFE); }  /* azul claro */
 
     /* G2 / US-093-095: Mobile responsividade */
     /* Botão toggle de drawer — oculto em desktop */
@@ -580,15 +586,16 @@
     }
     .conv-card-enter { animation: fadeSlideIn var(--duration-normal) var(--ease-out) both; }
 
-    /* ===== V5: Message Bubbles (spec :405-414) ===== */
+    /* ===== Fase 4.1: Message Bubbles — squared corners + cores corretas ===== */
     .bolha-base {
       font-size: 14.2px;
-      line-height: 1.42;
-      border-radius: 8px;
-      box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+      line-height: 1.45;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.18);
       max-width: 72%;
-      padding: 6px 10px 8px;
+      padding: 8px 12px 10px;
       word-wrap: break-word;
+      position: relative;
     }
 
     .bolha-timestamp {
@@ -622,6 +629,16 @@
     [data-theme="light"] .bolha-outgoing-bot .bolha-ts,
     [data-theme="light"] .bolha-outgoing-humano .bolha-ts {
       color: rgba(0,0,0,0.55);
+    }
+    /* Tema claro: bolha bot usa cor escura (bg é verde claro #D1FAE5 — texto branco iria desaparecer) */
+    [data-theme="light"] .bolha-outgoing-bot {
+      color: #064E3B;  /* verde profundo — contrasta com fundo verde claro */
+    }
+    [data-theme="light"] .bolha-outgoing-bot .bolha-label {
+      color: #059669;  /* verde médio — legível em fundo verde claro */
+    }
+    [data-theme="light"] .bolha-outgoing-bot .bolha-text {
+      color: #064E3B;
     }
 
     .bolha-falha {
@@ -665,11 +682,90 @@
     .bolha-outgoing-bot { animation: msgSlideRight var(--duration-normal) var(--ease-out) both; }
     .bolha-outgoing-humano { animation: msgSlideRight var(--duration-normal) var(--ease-out) both; }
 
-    /* ===== V6: Thread Header Refinado ===== */
+    /* ===== Fase 4.6 / V6: Thread Header Refinado ===== */
     #thread-header {
       border-bottom: 1px solid var(--border);
       background: var(--bg-surface);
       box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Thread status badge pill — semântico conforme estado da conversa */
+    #thread-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-size: 10.5px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      letter-spacing: 0.03em;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    #thread-status-badge.badge-aguardando {
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      border: 1px solid rgba(245,158,11,0.28);
+    }
+    #thread-status-badge.badge-bot {
+      background: var(--success-subtle);
+      color: var(--success-text);
+      border: 1px solid rgba(16,185,129,0.28);
+    }
+    #thread-status-badge.badge-humano {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+    #thread-status-badge::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
+    }
+
+    /* thread-nome usa font-heading semibold */
+    #thread-nome {
+      font-family: var(--font-heading);
+      font-weight: var(--font-weight-semibold);
+    }
+    /* thread-telefone mono muted 11px — override do inline style */
+    #thread-telefone {
+      font-family: var(--font-mono) !important;
+      font-size: 11px !important;
+      color: var(--text-muted) !important;
+    }
+
+    /* thread-status: estilo de pill badge para todos os estados
+       O JS escreve textContent diretamente, sem classe — aplicamos pill base em todos */
+    #thread-status:not(:empty) {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      font-size: 10.5px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      letter-spacing: 0.03em;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+      text-transform: uppercase;
+      /* Default: aguardando (warning) — para "Aguardando atendimento" */
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      border: 1px solid rgba(245,158,11,0.28);
+    }
+    #thread-status:not(:empty)::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      flex-shrink: 0;
     }
 
     .header-btn-group {
@@ -718,12 +814,21 @@
     }
     .header-action-btn[data-tooltip]:hover::after { opacity: 1; }
 
-    /* ===== V7: Composer Refinado ===== */
+    /* ===== Fase 4.5 / V7: Composer Refinado ===== */
     #composer {
       border-top: 1px solid var(--border-muted);
       background: var(--bg-composer);
-      padding: var(--space-3) var(--space-4);
+      padding: var(--space-2) var(--space-3) var(--space-3);
     }
+    /* Toolbar do composer: row com ícones à esquerda + AI Assist à direita */
+    #composer-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 0 6px 0;
+    }
+    #composer-toolbar-spacer { flex: 1; }
+
     #msg-input {
       font-size: var(--text-base);
       line-height: var(--leading-relaxed);
@@ -732,8 +837,9 @@
       max-height: 120px;
       overflow-y: auto;
       transition: border-color var(--duration-fast);
-      border-radius: var(--radius-lg) !important;
+      border-radius: 12px !important;
       padding: var(--space-2) var(--space-3) !important;
+      placeholder: "Digite uma mensagem ou /comando…";
     }
     #msg-input:focus {
       border-color: var(--accent) !important;
@@ -751,6 +857,7 @@
     #char-counter.warn { color: var(--warning-text, #d29922); }
     #char-counter.danger { color: var(--danger-text, #f85149); }
 
+    /* Fase 4.5: Send button — 40px circular, spring animation */
     #send-btn {
       width: 40px; height: 40px;
       border-radius: var(--radius-full);
@@ -758,11 +865,31 @@
       transition: all var(--duration-fast) var(--ease-spring);
       flex-shrink: 0;
     }
-    #send-btn:hover { transform: scale(1.08); background: var(--accent-hover); }
-    #send-btn:active { transform: scale(0.95); }
+    #send-btn:hover:not(:disabled) { transform: scale(1.06); background: var(--accent-hover); box-shadow: 0 0 0 3px var(--accent-subtle); }
+    #send-btn:active:not(:disabled) { transform: scale(0.95); }
     #send-btn:disabled { background: var(--bg-card); opacity: 0.4; transform: none; }
     #attach-btn { color: var(--text-secondary); }
     #attach-btn:hover { background: rgba(255,255,255,0.05); }
+
+    /* Fase 4.5: AI Assist pill — visual only, disabled */
+    .ai-assist-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-body);
+      background: linear-gradient(135deg, rgba(78,122,231,0.12) 0%, rgba(168,85,247,0.10) 100%);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+      border-radius: var(--radius-full);
+      cursor: not-allowed;
+      opacity: 0.7;
+      transition: opacity var(--duration-fast);
+      white-space: nowrap;
+    }
+    .ai-assist-pill:not(:disabled):hover { opacity: 1; }
     #attach-preview-area { display: none; }
     #attach-preview-area.visible { display: flex; }
     .attach-preview-chip {
@@ -1224,17 +1351,20 @@
     .row-bot    + .row-bot    .bolha-outgoing-bot::before,
     .row-human  + .row-human  .bolha-outgoing-humano::before { display: none; }
 
-    .row-client + .row-client .bolha-incoming            { border-top-left-radius: 8px !important; }
+    /* Consecutive same-origin rows: restore full corner (no tail, no squared) */
+    .row-client + .row-client .bolha-incoming            { border-top-left-radius: 12px !important; }
     .row-bot    + .row-bot    .bolha-outgoing-bot,
-    .row-human  + .row-human  .bolha-outgoing-humano     { border-top-right-radius: 8px !important; }
+    .row-human  + .row-human  .bolha-outgoing-humano     { border-top-right-radius: 12px !important; }
 
     /* Hide author label on grouped rows */
     .row-client + .row-client .bolha-label,
     .row-bot    + .row-bot    .bolha-label,
     .row-human  + .row-human  .bolha-label { display: none !important; }
 
-    /* Bubble text */
-    .bolha-text { margin: 0; white-space: pre-wrap; color: var(--text-primary); }
+    /* Bubble text — herda cor da bolha pai (cada tipo define a cor no próprio seletor) */
+    .bolha-text { margin: 0; white-space: pre-wrap; color: inherit; }
+    /* incoming usa text-primary do tema */
+    .bolha-incoming .bolha-text { color: var(--text-primary); }
 
     /* ===== RD-3: SVG delivery ticks ===== */
     .bolha-tick svg { display: inline; vertical-align: middle; }
@@ -1570,6 +1700,100 @@
       margin-top: 6px;
       padding-top: 6px;
       border-top: 1px solid var(--border);
+    }
+
+    /* ===== Fase 4.4: System Pills — mensagens de evento centralizadas ===== */
+    /* Classe nova + backward-compat com separadorEvento existente no app.js */
+    .msg-system-pill,
+    .bolha-sistema,
+    .msg-evento {
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 80%;
+      margin: 12px auto;
+      padding: 5px 14px;
+      font-size: 11.5px;
+      font-weight: 500;
+      font-family: var(--font-body);
+      background: var(--bg-bubble-system);  /* rgba(78,122,231,0.10) */
+      color: var(--accent);
+      border-radius: var(--radius-full);
+      border: 1px solid var(--accent-border);
+      text-align: center;
+      letter-spacing: 0.01em;
+    }
+    .msg-system-pill::before,
+    .bolha-sistema::before {
+      content: '';
+      display: inline-block;
+      width: 12px; height: 12px;
+      flex-shrink: 0;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%234E7AE7' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'/></svg>");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+    }
+
+    /* Variantes semânticas */
+    .msg-system-pill.system-warning,
+    .bolha-sistema.evento-warning {
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      border-color: rgba(245,158,11,0.28);
+    }
+    .msg-system-pill.system-warning::before,
+    .bolha-sistema.evento-warning::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23FBBF24' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z'/></svg>");
+    }
+    .msg-system-pill.system-success,
+    .bolha-sistema.evento-success {
+      background: var(--success-subtle);
+      color: var(--success-text);
+      border-color: rgba(16,185,129,0.28);
+    }
+    .msg-system-pill.system-success::before,
+    .bolha-sistema.evento-success::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2310B981' stroke-width='2'><polyline points='20 6 9 17 4 12'/></svg>");
+    }
+    .msg-system-pill.system-danger,
+    .bolha-sistema.evento-danger {
+      background: var(--danger-subtle);
+      color: var(--danger-text);
+      border-color: rgba(239,68,68,0.28);
+    }
+    .msg-system-pill.system-danger::before,
+    .bolha-sistema.evento-danger::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23EF4444' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M6 18L18 6M6 6l12 12'/></svg>");
+    }
+
+    /* Estilização CSS-only dos separadores de evento do app.js:
+       separadorEvento() cria .flex.items-center.gap-3.my-2 → o <span> filho italic
+       Redefinimos apenas a parte do span de texto pra parecer com a pill */
+    #messages-area > .flex.items-center.gap-3.my-2 {
+      margin: 10px 0;
+    }
+    #messages-area > .flex.items-center.gap-3.my-2 > span.text-xs.italic {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      font-size: 11.5px;
+      font-weight: 500;
+      font-style: normal;
+      font-family: var(--font-body);
+      background: var(--bg-bubble-system);
+      color: var(--accent);
+      border-radius: var(--radius-full);
+      border: 1px solid var(--accent-border);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    /* As linhas horizontais do separadorEvento ficam invisíveis — apenas a pill */
+    #messages-area > .flex.items-center.gap-3.my-2 > div[style*="h-px"] {
+      display: none;
     }
 
     /* ===== TASK 3.4: Conv Card Preview Fade-Through ===== */
@@ -1931,8 +2155,8 @@
       <!-- Hidden file input -->
       <input type="file" id="attach-input" accept="image/*,.pdf,audio/ogg,audio/mpeg,audio/aac,audio/x-m4a,.m4a,video/mp4" class="hidden" style="display:none;">
 
-      <!-- Input area -->
-      <div class="flex items-end gap-2 p-3">
+      <!-- Fase 4.5: Composer toolbar — linha de ícones + AI Assist + char counter -->
+      <div id="composer-toolbar" class="flex items-center gap-1 pb-2">
         <!-- Attach button -->
         <button id="attach-btn" aria-label="Anexar arquivo" class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white/5 flex-shrink-0" style="color: var(--text-secondary);" title="Anexar arquivo">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -1952,7 +2176,26 @@
           </div>
         </div>
 
-        <textarea id="msg-input" rows="1" placeholder="Escreva uma mensagem…" aria-label="Mensagem para o cliente" disabled class="flex-1 resize-none rounded-xl px-3 py-2 text-sm outline-none transition-colors custom-scrollbar" style="background: var(--bg-card); border: 1px solid transparent; color: var(--text-primary); max-height: 120px; line-height: 1.5;"></textarea>
+        <!-- Emoji placeholder (sem feature — visual only) -->
+        <button class="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-white/5 flex-shrink-0" style="color: var(--text-secondary);" title="Emoji (em breve)" disabled aria-label="Emoji">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm4.875 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Z" />
+          </svg>
+        </button>
+
+        <!-- Spacer -->
+        <div id="composer-toolbar-spacer" style="flex:1;"></div>
+
+        <!-- AI Assist pill — visual only, sem feature real -->
+        <button id="ai-assist-btn" class="ai-assist-pill" disabled title="Em breve: sugestão de resposta IA" aria-label="Sugerir resposta com IA">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2l2.4 7.4L22 12l-7.6 2.6L12 22l-2.4-7.4L2 12l7.6-2.6L12 2z"/></svg>
+          <span>Sugerir IA</span>
+        </button>
+      </div>
+
+      <!-- Input area: textarea + send button -->
+      <div class="flex items-end gap-2">
+        <textarea id="msg-input" rows="1" placeholder="Digite uma mensagem ou /comando…" aria-label="Mensagem para o cliente" disabled class="flex-1 resize-none rounded-xl px-3 py-2 text-sm outline-none transition-colors custom-scrollbar" style="background: var(--bg-card); border: 1px solid transparent; color: var(--text-primary); max-height: 120px; line-height: 1.5;"></textarea>
 
         <span id="char-counter"></span>
         <button id="send-btn" disabled aria-label="Enviar mensagem" class="w-10 h-10 flex items-center justify-center rounded-full transition-colors flex-shrink-0" style="background: var(--accent); color: white;">
