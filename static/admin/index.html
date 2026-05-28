@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     // Aplica tema antes do render para evitar flash
     (function() {
@@ -19,8 +19,9 @@
     /* Tema escuro — paleta OLED Bolshoi */
     :root, :root[data-theme="dark"] {
       /* Tipografia */
-      --font-heading: 'Fira Code', monospace;
-      --font-body: 'Fira Sans', sans-serif;
+      --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
 
       /* Estrutura de painéis */
       --bg-base: #0d1117;
@@ -38,8 +39,8 @@
       /* Accent */
       --accent: #2481cc;
       --accent-hover: #1a6fad;
-      --accent-subtle: rgba(36,129,204,0.15);
-      --accent-border: rgba(36,129,204,0.35);
+      --accent-subtle: rgba(36,129,204,0.12);
+      --accent-border: rgba(36,129,204,0.32);
 
       /* Semânticos de feedback */
       --success: #00a884;
@@ -149,12 +150,13 @@
     * { box-sizing: border-box; }
 
     /* Tipografia global */
-    body { font-family: var(--font-body, 'Fira Sans', sans-serif); }
-    h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading, 'Fira Code', monospace); }
-    kbd, code, .font-mono { font-family: var(--font-heading, 'Fira Code', monospace); }
+    body { font-family: var(--font-body); }
+    h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -0.01em; }
+    kbd, code, .font-mono { font-family: var(--font-mono); }
+    /* Geist Mono para dados técnicos */
     .bolha-label, .filter-tab, .sidebar-nav-btn,
     .waiting-badge, .conv-time, #thread-telefone,
-    .badge-count, [class*="badge"] { font-family: var(--font-heading, 'Fira Code', monospace); }
+    .badge-count, [class*="badge"] { font-family: var(--font-mono); }
 
     /* Scrollbar customizado */
     .custom-scrollbar::-webkit-scrollbar { width: 5px; }
@@ -499,7 +501,9 @@
       white-space: nowrap;
     }
     .bolha-ts {
+      font-family: var(--font-mono);
       font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
       color: rgba(255,255,255,0.5);
     }
     .bolha-incoming .bolha-ts { color: var(--text-secondary); }
@@ -626,8 +630,12 @@
     #char-counter {
       font-size: 10px;
       color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
       transition: color var(--duration-fast);
     }
+    #thread-telefone { font-variant-numeric: tabular-nums; }
+    .conv-time { font-variant-numeric: tabular-nums; }
     #char-counter.warn { color: var(--warning-text, #d29922); }
     #char-counter.danger { color: var(--danger-text, #f85149); }
 
@@ -649,7 +657,7 @@
       display: inline-flex; align-items: center; gap: 6px;
       background: var(--bg-card); border: 1px solid var(--border);
       border-radius: 20px; padding: 4px 10px;
-      font-family: 'Fira Code', monospace; font-size: 11px; color: var(--text-primary);
+      font-family: var(--font-mono); font-size: 11px; color: var(--text-primary);
       max-width: 200px; overflow: hidden;
     }
     .attach-preview-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -963,7 +971,7 @@
       display: block;
       font-size: 10px;
       font-weight: 700;
-      font-family: 'Fira Code', monospace;
+      font-family: var(--font-mono);
       color: var(--text-secondary);
       text-align: center;
       letter-spacing: 0.1em;
@@ -971,7 +979,7 @@
       margin-top: 2px;
     }
 
-    /* === Design polish: OLED depth + Fira Code accent === */
+    /* === Design polish: OLED depth + Geist Mono accent === */
     /* Subtle gradient on sidebar */
     #conv-panel-header {
       background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-base) 100%) !important;
@@ -1004,18 +1012,18 @@
     #sse-status-dot {
       transition: background var(--duration-normal), box-shadow var(--duration-normal);
     }
-    /* Kbd: Fira Code */
+    /* Kbd: Geist Mono */
     kbd {
-      font-family: 'Fira Code', monospace;
+      font-family: var(--font-mono);
       font-size: 10px;
     }
-    /* Thread nome: Fira Code */
+    /* Thread nome: Plus Jakarta Sans semibold */
     #thread-nome {
-      font-family: 'Fira Code', monospace;
+      font-family: var(--font-heading);
     }
     /* Conv name */
     .conv-name {
-      font-family: 'Fira Code', monospace;
+      font-family: var(--font-heading);
       font-size: 13px;
     }
 
@@ -1045,7 +1053,7 @@
     .cmd-item-shortcut {
       font-size: 11px;
       color: var(--text-muted);
-      font-family: 'Fira Code', monospace;
+      font-family: var(--font-mono);
     }
     .cmd-section-header {
       padding: 4px 16px 2px;
@@ -1428,7 +1436,7 @@
     }
     .bolha-media-filename {
       font-size: var(--text-sm);
-      font-family: 'Fira Code', monospace;
+      font-family: var(--font-mono);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1538,8 +1546,8 @@
     <div id="conv-search-row" class="flex items-center gap-2 px-3 py-2" style="border-bottom: 1px solid var(--border); flex-shrink:0;">
       <div class="search-wrapper flex-1 flex items-center gap-1 relative" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);height:36px;transition:border-color 0.15s,box-shadow 0.15s;">
         <svg class="search-icon" style="position:absolute;left:10px;width:14px;height:14px;color:var(--text-muted);pointer-events:none;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <button id="btn-search-mode" title="Modo de busca: Contato = busca pelo nome/telefone | Mensagem = busca no conteúdo das mensagens" style="position:absolute;left:30px;font-family:'Fira Code',monospace;font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-subtle);border:none;border-radius:4px;padding:1px 5px;cursor:pointer;flex-shrink:0;">Contato</button>
-        <input id="search-input" type="text" placeholder="Buscar…" autocomplete="off" aria-label="Buscar conversas" style="flex:1;background:transparent;border:none;outline:none;padding:0 30px 0 60px;font-size:13px;color:var(--text-primary);height:100%;font-family:'Fira Sans',sans-serif;">
+        <button id="btn-search-mode" title="Modo de busca: Contato = busca pelo nome/telefone | Mensagem = busca no conteúdo das mensagens" style="position:absolute;left:30px;font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-subtle);border:none;border-radius:4px;padding:1px 5px;cursor:pointer;flex-shrink:0;">Contato</button>
+        <input id="search-input" type="text" placeholder="Buscar…" autocomplete="off" aria-label="Buscar conversas" style="flex:1;background:transparent;border:none;outline:none;padding:0 30px 0 60px;font-size:13px;color:var(--text-primary);height:100%;font-family:var(--font-body);">
         <button id="search-clear-btn" aria-label="Limpar busca" class="hidden" style="position:absolute;right:8px;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:none;background:var(--text-muted);color:var(--bg-base);cursor:pointer;font-size:10px;font-weight:700;flex-shrink:0;">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>

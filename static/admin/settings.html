@@ -7,9 +7,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root, :root[data-theme="dark"] {
+      /* Tipografia */
+      --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+
       --bg-base: #0d1117;
       --bg-surface: #161b22;
       --bg-card: #1c2128;
@@ -17,7 +22,7 @@
       --accent: #2481cc;
       --accent-hover: #1a6fad;
       --accent-subtle: rgba(36,129,204,0.12);
-      --accent-border: rgba(36,129,204,0.35);
+      --accent-border: rgba(36,129,204,0.32);
       --success: #238636;
       --success-text: #3fb950;
       --success-subtle: rgba(0,168,132,0.15);
@@ -45,6 +50,11 @@
       --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     }
     :root[data-theme="light"] {
+      /* Tipografia (herdada do dark, mas redeclarada para robustez) */
+      --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+
       --bg-base: #f8fafc;
       --bg-surface: #ffffff;
       --bg-card: #f1f5f9;
@@ -78,9 +88,10 @@
     }
     * { box-sizing: border-box; }
 
-    body { font-family: 'Fira Sans', sans-serif; }
-    h1, h2, h3, h4, h5, h6, kbd, code, .font-mono,
-    .badge, label, th { font-family: 'Fira Code', monospace; }
+    body { font-family: var(--font-body); }
+    h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -0.01em; }
+    kbd, code, .font-mono { font-family: var(--font-mono); }
+    .badge, label, th { font-family: var(--font-mono); }
 
     *:focus-visible {
       outline: 2px solid var(--accent);
