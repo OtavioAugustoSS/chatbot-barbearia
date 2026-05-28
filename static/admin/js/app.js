@@ -2859,7 +2859,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // chip com nome sempre visível
     const chip = document.createElement('div');
     chip.className = 'attach-preview-chip';
-    chip.innerHTML = `<span title="${file.name}">${file.name}</span><button class="chip-remove" aria-label="Remover arquivo">&times;</button>`;
+    chip.innerHTML = `<span title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span><button class="chip-remove" aria-label="Remover arquivo">&times;</button>`;
     chip.querySelector('.chip-remove').addEventListener('click', _limparAttach);
     area.appendChild(chip);
   });

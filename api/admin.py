@@ -169,7 +169,13 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Muitas tentativas. Tente novamente em 1 minuto.")
 
     atendente = db.query(Atendente).filter(Atendente.usuario_login == payload.usuario_login.lower()).first()
-    if not atendente or not atendente.ativo or not verificar_senha(payload.senha, atendente.senha_hash):
+    # Dummy bcrypt quando o usuário não existe — evita timing side-channel por enumeração.
+    # Custo idêntico ao de verificar_senha() real, tornando ambos os paths iguais em tempo.
+    if not atendente:
+        verificar_senha(payload.senha, "$2b$12$dummyhashfortimingequalityxxxxxxxxxxxxxxxxxxxxxxxx")
+        log.warning("Login inválido para usuario_login=%r de IP %s", payload.usuario_login, ip)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
+    if not atendente.ativo or not verificar_senha(payload.senha, atendente.senha_hash):
         log.warning("Login inválido para usuario_login=%r de IP %s", payload.usuario_login, ip)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
 
@@ -634,13 +640,14 @@ def search_mensagens(
     MVP: LIKE simples. Se ficar lento (>5s em 50k+ mensagens), migrar para FULLTEXT.
     """
     from sqlalchemy import or_
-    termo = f"%{q}%"
+    q_escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    termo = f"%{q_escaped}%"
     msgs = (
         db.query(HistoricoConversa, Usuario.nome_cliente)
         .outerjoin(Usuario, Usuario.telefone == HistoricoConversa.telefone_usuario)
         .filter(or_(
-            HistoricoConversa.mensagem_cliente.like(termo),
-            HistoricoConversa.resposta_bot.like(termo),
+            HistoricoConversa.mensagem_cliente.like(termo, escape="\\"),
+            HistoricoConversa.resposta_bot.like(termo, escape="\\"),
         ))
         .order_by(HistoricoConversa.criado_em.desc())
         .limit(limit)

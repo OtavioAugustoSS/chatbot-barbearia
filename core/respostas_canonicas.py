@@ -169,6 +169,7 @@ _PADROES = [
             r"\b("
             r"como\s+(eu\s+)?agend(o|ar|amento)|"
             r"como\s+marc(o|ar)|"
+            r"como\s+(eu\s+)?fa[çc]o\s+para\s+(agendar|marcar)|"
             r"quero\s+(marcar|agendar|reservar)|"
             r"posso\s+(marcar|agendar|reservar)|"
             r"link\s+(do|de)\s+agendamento|"
