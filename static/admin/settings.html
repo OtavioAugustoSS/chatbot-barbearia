@@ -298,7 +298,7 @@
           <label class="block text-xs font-medium mb-1.5" style="color:var(--text-secondary);">Cor</label>
           <div class="flex items-center gap-2">
             <input id="label-cor" type="color" value="#2481cc" required class="w-12 h-9 rounded cursor-pointer" style="background:var(--bg-base);border:1px solid var(--border);">
-            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#2481cc" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none font-mono" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);">
+            <input id="label-cor-hex" type="text" pattern="#[0-9a-fA-F]{6}" value="#2481cc" required maxlength="7" placeholder="#RRGGBB" class="flex-1 px-3 py-2 rounded-lg text-sm outline-none font-mono" style="background:var(--bg-base);border:1px solid var(--border);color:var(--text-primary);" title="Formato: #RRGGBB (ex: #2481cc)">
           </div>
         </div>
         <div>
@@ -399,7 +399,11 @@
     async function req(url, opts = {}) {
       const res = await fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers||{}) } });
       if (res.status === 401) { localStorage.clear(); location.href = '/static/admin/login.html'; return null; }
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const err = new Error(await res.text());
+        err.status = res.status;
+        throw err;
+      }
       if (res.status === 204) return null;
       return res.json();
     }
@@ -642,11 +646,7 @@
         const lista = await req('/admin/canned');
         if (!lista) return;
         renderCanned(lista);
-      } catch(e) {
-        // Endpoint pode não existir ainda em fases iniciais
-        const tbody = document.getElementById('tbody-canned');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-sm" style="color:var(--text-muted);">Funcionalidade em implementação</td></tr>';
-      }
+      } catch(e) { showMsg('Erro ao carregar respostas rápidas', 'error'); }
     }
 
     function renderCanned(items) {
@@ -763,7 +763,7 @@
           fecharModal();
           carregarAtendentes();
         } catch(e) {
-          erroEl.textContent = e.message?.includes('409') ? 'Login já existe' : 'Erro ao criar atendente';
+          erroEl.textContent = e.status === 409 ? 'Login já existe' : 'Erro ao criar atendente';
           erroEl.classList.remove('hidden');
         } finally {
           submitBtn.disabled = false;
@@ -780,6 +780,11 @@
         const erroEl = document.getElementById('modal-label-erro');
         const submitBtn = e.target.querySelector('[type=submit]');
 
+        if (!/^#[0-9a-fA-F]{6}$/.test(cor)) {
+          erroEl.textContent = 'Cor inválida — use o formato #RRGGBB (ex: #2481cc)';
+          erroEl.classList.remove('hidden');
+          return;
+        }
         submitBtn.disabled = true;
         try {
           erroEl.classList.add('hidden');
@@ -793,7 +798,7 @@
           fecharModalLabel();
           carregarLabels();
         } catch(e) {
-          erroEl.textContent = e.message?.includes('409') ? 'Já existe etiqueta com esse nome' : 'Erro ao salvar';
+          erroEl.textContent = e.status === 409 ? 'Já existe etiqueta com esse nome' : 'Erro ao salvar';
           erroEl.classList.remove('hidden');
         } finally {
           submitBtn.disabled = false;
@@ -824,7 +829,7 @@
           fecharModalCanned();
           carregarCanned();
         } catch(e) {
-          erroEl.textContent = e.message?.includes('409') ? 'Atalho já existe' : 'Erro ao salvar';
+          erroEl.textContent = e.status === 409 ? 'Atalho já existe' : 'Erro ao salvar';
           erroEl.classList.remove('hidden');
         } finally {
           submitBtn.disabled = false;

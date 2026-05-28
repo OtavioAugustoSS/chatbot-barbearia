@@ -832,8 +832,10 @@ function _timestampCompleto(iso) {
 }
 
 const _SVG_TICK_CLOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`;
-const _SVG_TICK_DELIVERED = `<svg width="20" height="12" viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 6 4.5 9.5 13 1"/><polyline points="7 6 10.5 9.5 19 1"/></svg>`;
-const _SVG_TICK_READ = _SVG_TICK_DELIVERED;
+// double-check: primeiro check (esquerda) + segundo check (deslocado +5px à direita), sem sobreposição
+const _SVG_TICK_DELIVERED = `<svg width="18" height="11" viewBox="0 0 18 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,6 3.5,9 8,2"/><polyline points="6,6 8.5,9 13,2"/></svg>`;
+// mesmo desenho, cor aplicada via classe .tick-read no CSS
+const _SVG_TICK_READ = `<svg width="18" height="11" viewBox="0 0 18 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,6 3.5,9 8,2"/><polyline points="6,6 8.5,9 13,2"/></svg>`;
 const _SVG_TICK_FAIL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
 function _tickSvg(entregue, lida) {
@@ -1138,13 +1140,17 @@ function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts 
   const _prevOrigemIncremental = _ultimaOrigemIncremental;
   _ultimaOrigemIncremental = origem;
 
+  const eraNoFundo = _estaNoFundo();
+
   const textoProcessado = (texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
   cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId, atendente_nome: opts.atendente_nome }));
 
-  // US-105: só rola se já estava no fundo; senão mostra botão flutuante
-  if (_estaNoFundo()) {
-    cont.scrollTop = cont.scrollHeight;
-    _mostrarBotaoNovasMensagens(false);
+  // US-105: captura "era no fundo" ANTES do append; rola dentro de rAF para scrollHeight atualizado
+  if (eraNoFundo) {
+    requestAnimationFrame(() => {
+      cont.scrollTop = cont.scrollHeight;
+      _mostrarBotaoNovasMensagens(false);
+    });
   } else {
     _mostrarBotaoNovasMensagens(true);
   }
@@ -2052,6 +2058,12 @@ async function executarSearchMensagem(q) {
   }
 }
 
+function _origemLabel(origem) {
+  if (origem === 'bot') return '🤖 Bot';
+  if (origem === 'humano') return '👩‍💼 Operador';
+  return '👤 Cliente';
+}
+
 function renderSearchResults() {
   const cont = document.getElementById('conv-list');
   if (!cont) return;
@@ -2062,6 +2074,7 @@ function renderSearchResults() {
   cont.innerHTML = state.searchResults.map(r => {
     const ini = iniciais(r.nome, r.telefone);
     const cor = corDoCliente(r.nome || r.telefone);
+    const origemLabel = r.origem ? escapeHtml(_origemLabel(r.origem)) : '';
     return `
       <div class="conv-card" onclick="abrirConversa('${escapeHtml(r.telefone)}')">
         <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 select-none" style="background:${cor}">${escapeHtml(ini)}</div>
@@ -2070,7 +2083,10 @@ function renderSearchResults() {
             <span class="font-medium text-sm truncate" style="color:var(--text-primary);">${escapeHtml(r.nome)}</span>
             <span class="text-xs flex-shrink-0" style="color:var(--text-muted);">${horarioRelativo(r.criado_em)}</span>
           </div>
-          <div class="text-xs" style="color:var(--text-secondary);">${escapeHtml(r.snippet)}</div>
+          <div class="flex items-center gap-1.5 text-xs">
+            ${origemLabel ? `<span style="color:var(--text-muted);">${origemLabel}</span><span style="color:var(--border);">·</span>` : ''}
+            <span style="color:var(--text-secondary);">${escapeHtml(r.snippet)}</span>
+          </div>
         </div>
       </div>
     `;
@@ -2460,6 +2476,24 @@ document.addEventListener('sse:mensagem_lida', (e) => {
 });
 
 // ============================================================
+// Helpers de UI
+// ============================================================
+
+// Posiciona o canned popover acima do botão de referência, clampando ao viewport (ADR-012 D3)
+function _posicionarCannedPopover(popover, refBtn) {
+  const rect = refBtn.getBoundingClientRect();
+  const popW = popover.offsetWidth || 360;
+  const bottomGap = window.innerHeight - rect.top + 8;
+  let left = rect.left;
+  if (left + popW > window.innerWidth - 12) {
+    left = Math.max(12, window.innerWidth - popW - 12);
+  }
+  popover.style.left = left + 'px';
+  popover.style.bottom = bottomGap + 'px';
+  popover.style.top = '';
+}
+
+// ============================================================
 // Event listeners de DOM
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -2516,12 +2550,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const q = val.substring(1).trim();
       state.searchMode = 'mensagem';
       const modeBtn = document.getElementById('btn-search-mode');
-      if (modeBtn) modeBtn.textContent = 'msg';
+      if (modeBtn) modeBtn.textContent = 'Mensagem';
       _searchTimer = setTimeout(() => executarSearchMensagem(q), 300);
     } else {
       state.searchMode = 'contato';
       const modeBtn = document.getElementById('btn-search-mode');
-      if (modeBtn) modeBtn.textContent = '@';
+      if (modeBtn) modeBtn.textContent = 'Contato';
       state.searchQuery = val.trim();
       state.searchResults = [];
       renderConvList();
@@ -2534,7 +2568,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inp.value = '';
     document.getElementById('search-clear-btn')?.classList.add('hidden');
     const modeBtn2 = document.getElementById('btn-search-mode');
-    if (modeBtn2) modeBtn2.textContent = '@';
+    if (modeBtn2) modeBtn2.textContent = 'Contato';
     state.searchMode = 'contato';
     state.searchQuery = '';
     state.searchResults = [];
@@ -2639,9 +2673,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isHidden = popover.classList.contains('hidden');
     if (isHidden) {
       const btn = document.getElementById('canned-btn');
-      const rect = btn.getBoundingClientRect();
-      popover.style.left = rect.left + 'px';
-      popover.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+      _posicionarCannedPopover(popover, btn);
       popover.classList.remove('hidden');
     } else {
       popover.classList.add('hidden');
@@ -2795,11 +2827,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCannedPopover(match[2]);
         if (pop.classList.contains('hidden')) {
           const cannedBtn = document.getElementById('canned-btn');
-          if (cannedBtn) {
-            const rect = cannedBtn.getBoundingClientRect();
-            pop.style.left = rect.left + 'px';
-            pop.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-          }
+          if (cannedBtn) _posicionarCannedPopover(pop, cannedBtn);
         }
         pop.classList.remove('hidden');
       } else if (pop && !pop.classList.contains('hidden')) {

@@ -52,6 +52,7 @@
 - [DASHBOARD-AUDIT](frontend/DASHBOARD-AUDIT.md) — frontend — Auditoria completa: bugs confirmados, cobertura de US, responsividade, performance (2026-05-21)
 - [CHATWOOT-FEATURES-FRONTEND](frontend/CHATWOOT-FEATURES-FRONTEND.md) — frontend — 6 funcionalidades Chatwoot avaliadas: viabilidade vanilla JS + esforço estimado (2026-05-21)
 - [SPRINT-FIXES](frontend/SPRINT-FIXES.md) — frontend — FASE 3: QW-F1 backoff SSE, QW-F2 badge título aba, QW-F3 limpar bulk ao trocar filtro, QW-F4 separadores handoff com nome+hora, SP-1 modais datepicker/input substituindo 3x prompt()
+- [FEATURE_BACKLOG](frontend/FEATURE_BACKLOG.md) — PO — 14 features priorizadas (P1-P4) para o dashboard de atendentes; 4 seeds descartadas; top 3: SLA badges, nao-lidos por aba, reabertura rapida (2026-05-27)
 
 ## User Stories (PO)
 - [US-GAP-01: Reativar Atendente Desativado](../docs/user-stories/US-GAP-01-reativar-atendente.md) — PO — backend IMPLEMENTADO (SP-2); CA-07 frontend PENDENTE (botao na UI de gestao de atendentes)
