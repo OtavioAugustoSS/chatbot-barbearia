@@ -294,7 +294,7 @@
       /* Bolhas mais largas em mobile */
       .bolha-incoming, .bolha-outgoing-bot, .bolha-outgoing-humano { max-width: 88% !important; }
       /* Filter tabs: scroll horizontal, sem quebra de linha */
-      #filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+      #filter-tabs { overflow-x: auto; flex-wrap: nowrap; padding: 0; }
       #filter-tabs::-webkit-scrollbar { display: none; }
       .filter-tab { flex-shrink: 0; }
       /* Status filter: scroll horizontal */
@@ -337,18 +337,74 @@
       #badge-total { display: none; }
     }
 
-    /* Filter tabs */
+    /* ===== Fase 3: Filter tabs — tab-style com underline ===== */
+    #filter-tabs {
+      display: flex;
+      padding: 0 !important;
+      gap: 0 !important;
+      border-bottom: 1px solid var(--border);
+    }
     .filter-tab {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 9px 6px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-weight-medium);
+      font-family: var(--font-mono);
       color: var(--text-secondary);
       background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      cursor: pointer;
+      transition: color var(--duration-fast) var(--ease-out),
+                  border-color var(--duration-fast) var(--ease-out),
+                  background var(--duration-fast) var(--ease-out);
+      white-space: nowrap;
+      position: relative;
+      /* bottom -1px removido: .tab-indicator JS faz a linha com spring animation */
     }
     .filter-tab:hover {
-      background: var(--bg-card);
+      background: var(--bg-card-hover);
       color: var(--text-primary);
+      /* border-bottom do hover não compete com o tab-indicator JS */
     }
     .active-tab {
-      background: var(--bg-card) !important;
       color: var(--text-primary) !important;
+      background: transparent !important;
+      /* sem border-bottom: o .tab-indicator JS faz a linha com spring animation */
+      font-weight: var(--font-weight-semibold) !important;
+    }
+    /* Tab count inline — reestiliza os badges existentes dentro das tabs (só quando visíveis) */
+    .filter-tab .tab-count,
+    .filter-tab #badge-aguardando:not(.hidden),
+    .filter-tab #badge-meus:not(.hidden) {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 17px;
+      padding: 0 4px;
+      height: 15px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      border-radius: var(--radius-full);
+      background: var(--bg-card-hover);
+      color: var(--text-secondary);
+      line-height: 1;
+    }
+    .active-tab #badge-aguardando:not(.hidden),
+    .active-tab #badge-meus:not(.hidden) {
+      background: var(--accent-subtle);
+      color: var(--accent);
+    }
+    /* badge-aguardando: tint vermelho quando não está na active-tab */
+    .filter-tab:not(.active-tab) #badge-aguardando:not(.hidden) {
+      background: rgba(248,81,73,0.12);
+      color: var(--danger-text, #f85149);
     }
 
     /* Conv cards */
@@ -437,15 +493,31 @@
       background: var(--accent); flex-shrink: 0;
     }
 
+    /* ===== Fase 3.2: Avatar 40px no conv-card ===== */
+    .conv-card .avatar {
+      width: 40px !important;
+      height: 40px !important;
+      min-width: 40px !important;
+      min-height: 40px !important;
+    }
+
+    /* ===== Fase 3.2: Avatar status badge (12px, bottom-right) ===== */
     .avatar-status-badge {
       position: absolute; bottom: -1px; right: -1px;
       width: 12px; height: 12px; border-radius: 50%;
-      border: 2px solid var(--bg-card);
+      border: 2px solid var(--bg-surface);
+      flex-shrink: 0;
     }
-    .avatar-status-badge.aguardando { background: var(--danger-text, #f85149); }
-    .avatar-status-badge.bot { background: var(--success-text, #3fb950); }
+    /* bot = verde (ativo) */
+    .avatar-status-badge.bot { background: var(--success, #10B981); }
+    /* aguardando = amarelo/warning */
+    .avatar-status-badge.aguardando { background: var(--warning, #F59E0B); }
+    /* humano = azul accent */
     .avatar-status-badge.humano { background: var(--accent); }
-    .avatar-status-badge.outro { background: var(--warning-text, #d29922); }
+    /* outro = cinza muted (atendente de outro operador) */
+    .avatar-status-badge.outro { background: var(--text-muted, #6B7280); }
+    /* encerrado = cinza muted */
+    .avatar-status-badge.encerrado { background: var(--text-muted, #6B7280); }
 
     .conv-preview {
       display: -webkit-box;
@@ -457,11 +529,50 @@
       font-size: var(--text-xs);
     }
 
+    /* ===== Fase 3.6: Waiting badge chip amarelo uppercase ===== */
     .waiting-badge {
-      font-size: 10px; font-weight: var(--font-weight-medium);
-      padding: 1px 6px; border-radius: var(--radius-full);
-      background: var(--danger-subtle, rgba(248,81,73,0.12)); color: var(--danger-text, #f85149);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      border-radius: var(--radius-full);
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      border: 1px solid rgba(245,158,11,0.20);
+      text-transform: uppercase;
     }
+
+    /* ===== Fase 3.5: Tag chips removíveis ===== */
+    .tag-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      border-radius: var(--radius-full);
+      background: var(--tag-color-subtle, var(--accent-subtle));
+      color: var(--tag-color, var(--accent));
+      border: 1px solid var(--tag-color-border, var(--accent-border));
+    }
+    .tag-chip-remove {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: transparent;
+      cursor: pointer;
+      color: inherit; opacity: 0.6;
+      border: none; padding: 0;
+    }
+    .tag-chip-remove:hover { opacity: 1; background: rgba(0,0,0,0.2); }
+    .tag-chip.tag-vip { --tag-color: #FBBF24; --tag-color-subtle: rgba(251,191,36,0.10); --tag-color-border: rgba(251,191,36,0.28); }
+    .tag-chip.tag-recorrente { --tag-color: #10B981; --tag-color-subtle: rgba(16,185,129,0.10); --tag-color-border: rgba(16,185,129,0.28); }
+    .tag-chip.tag-cabelo { --tag-color: #4E7AE7; --tag-color-subtle: rgba(78,122,231,0.10); --tag-color-border: rgba(78,122,231,0.28); }
+    .tag-chip.tag-barba { --tag-color: #9CA3AF; --tag-color-subtle: rgba(156,163,175,0.10); --tag-color-border: rgba(156,163,175,0.28); }
+    .tag-chip.tag-estetica { --tag-color: #EC4899; --tag-color-subtle: rgba(236,72,153,0.10); --tag-color-border: rgba(236,72,153,0.28); }
 
     @keyframes fadeSlideIn {
       from { opacity: 0; transform: translateY(6px); }
@@ -815,10 +926,10 @@
       background-size: 140px 140px, 160px 160px, 180px 180px, 200px 200px, 130px 130px;
     }
 
-    /* ===== FE-1b: Conv panel header WhatsApp-style ===== */
+    /* ===== FE-1b: Conv panel header (Fase 3 — atualizado) ===== */
     #conv-panel-header {
       background: var(--bg-surface);
-      padding: 14px 16px;
+      /* padding via inline style no HTML */
     }
     #conv-panel-header h2 {
       font-size: 15px;
@@ -831,7 +942,7 @@
     }
     #search-input::placeholder { color: var(--text-muted); }
     #search-clear-btn:not(.hidden) { display: flex; }
-    #filter-tabs { background: var(--bg-surface); }
+    /* filter-tabs bg gerenciado pelo bloco Fase 3 acima */
     #status-filter-row { background: var(--bg-surface) !important; }
     .active-status {
       background: var(--accent-subtle) !important;
@@ -990,9 +1101,12 @@
     }
 
     /* === Design polish: OLED depth + Geist Mono accent === */
-    /* Subtle gradient on sidebar */
+    /* Subtle gradient on sidebar (Fase 3: mantém gradiente mas sem sobrescrever padding) */
     #conv-panel-header {
-      background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-base) 100%) !important;
+      background: var(--bg-surface) !important;
+    }
+    #conv-operator-row {
+      background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-base) 100%);
     }
     /* Stronger border contrast for panel dividers */
     #thread-header {
@@ -1521,45 +1635,58 @@
   <!-- PAINEL 1: Sidebar (360px) — lista de conversas + navegação -->
   <aside id="conv-panel" class="flex flex-col overflow-hidden" style="background: var(--bg-surface); border-right: 1px solid var(--border-soft, #1F2025);">
 
-    <!-- Sidebar header: identidade do operador (spec .sidebar-header) -->
-    <div id="conv-panel-header" style="padding: 14px 16px; border-bottom: 1px solid var(--border-soft, #1F2025); display: flex; align-items: center; gap: 10px;">
-      <!-- Logo Bolshoi real -->
+    <!-- Sidebar header: identidade do operador + título Conversas (Fase 3.3) -->
+    <div id="conv-panel-header" style="padding: 12px 14px; border-bottom: 1px solid var(--border-soft, #1F2025); display: flex; align-items: center; gap: 8px;">
+      <!-- Logo Bolshoi 40px -->
       <img src="/static/admin/img/logo-bolshoi.png" alt="Bolshoi" class="sidebar-logo">
-      <!-- Avatar do atendente (gradiente azul como no mockup) -->
-      <div id="my-avatar" class="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white cursor-pointer" style="width:40px; height:40px; font-size:14px; background: linear-gradient(135deg, var(--accent), var(--accent-hover, #3B6BDF));" title="Minha conta"></div>
-      <div style="flex:1; min-width:0;">
-        <div style="display:flex; align-items:center; gap:4px;">
-          <div id="sidebar-nome-operador" style="font-weight:600; font-size:15px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-          <span id="sse-status-dot" title="Conexão em tempo real" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);display:inline-block;margin-left:4px;flex-shrink:0;"></span>
+      <!-- Título "Conversas" -->
+      <h2 style="flex:1; min-width:0; font-size:15px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--font-heading); margin:0;">Conversas</h2>
+      <div style="display:flex; gap:2px; align-items:center;">
+        <!-- Avatar do atendente com presence dot -->
+        <div style="position:relative; flex-shrink:0; width:32px; height:32px;">
+          <div id="my-avatar" class="rounded-full flex items-center justify-center font-semibold text-white cursor-pointer" style="width:32px; height:32px; font-size:12px; background: linear-gradient(135deg, var(--accent), var(--accent-hover, #3B6BDF));" title="Minha conta"></div>
+          <span id="sse-status-dot" title="Conexão em tempo real" style="position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:var(--text-muted);border:2px solid var(--bg-surface);display:inline-block;flex-shrink:0;"></span>
         </div>
-        <div style="font-size:12px; color:var(--text-secondary);">Atendente · Bolshoi</div>
-      </div>
-      <div style="display:flex; gap:4px;">
+        <!-- Botão "+" nova conversa (Fase 3.3) -->
+        <button id="btn-nova-conversa" class="sidebar-nav-btn" title="Nova conversa / contactar cliente" aria-label="Nova conversa" style="width:36px;height:36px;">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:16px;height:16px;" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </button>
         <!-- Mentions inbox button -->
         <div class="relative">
-          <button id="btn-mentions-inbox" class="sidebar-nav-btn" title="Menções" aria-label="Menções">
-            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:18px;height:18px;">
+          <button id="btn-mentions-inbox" class="sidebar-nav-btn" title="Menções" aria-label="Menções" style="width:36px;height:36px;">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:17px;height:17px;">
               <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
             </svg>
             <span id="mentions-badge" class="hidden absolute -top-0.5 -right-0.5 text-[10px] font-bold px-1 rounded-full" style="background:var(--danger);color:white;min-width:16px;text-align:center;">0</span>
           </button>
         </div>
         <!-- Settings -->
-        <button onclick="location.href='/static/admin/settings.html'" class="sidebar-nav-btn" title="Configurações" aria-label="Configurações">
-          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:18px;height:18px;">
+        <button onclick="location.href='/static/admin/settings.html'" class="sidebar-nav-btn" title="Configurações" aria-label="Configurações" style="width:36px;height:36px;">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:17px;height:17px;">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
           </svg>
         </button>
       </div>
     </div>
+    <!-- Sub-header do atendente (nome + role) — separado do header de Conversas -->
+    <div id="conv-operator-row" style="padding:8px 14px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border-soft,#1F2025); background:var(--bg-base); flex-shrink:0;">
+      <div style="flex:1; min-width:0;">
+        <span id="sidebar-nome-operador" style="font-weight:500; font-size:12px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;"></span>
+      </div>
+    </div>
 
-    <!-- Search row -->
+    <!-- Search row — Fase 3.4 polido -->
     <div id="conv-search-row" class="flex items-center gap-2 px-3 py-2" style="border-bottom: 1px solid var(--border); flex-shrink:0;">
       <div class="search-wrapper flex-1 flex items-center gap-1 relative" style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);height:36px;transition:border-color 0.15s,box-shadow 0.15s;">
+        <!-- Lupa ícone esquerda (Fase 3.4) -->
         <svg class="search-icon" style="position:absolute;left:10px;width:14px;height:14px;color:var(--text-muted);pointer-events:none;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <button id="btn-search-mode" title="Modo de busca: Contato = busca pelo nome/telefone | Mensagem = busca no conteúdo das mensagens" style="position:absolute;left:30px;font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-subtle);border:none;border-radius:4px;padding:1px 5px;cursor:pointer;flex-shrink:0;">Contato</button>
-        <input id="search-input" type="text" placeholder="Buscar…" autocomplete="off" aria-label="Buscar conversas" style="flex:1;background:transparent;border:none;outline:none;padding:0 30px 0 60px;font-size:13px;color:var(--text-primary);height:100%;font-family:var(--font-body);">
+        <!-- Input com placeholder melhorado (Fase 3.4) -->
+        <input id="search-input" type="text" placeholder="Buscar conversas…" autocomplete="off" aria-label="Buscar conversas" style="flex:1;background:transparent;border:none;outline:none;padding:0 30px 0 60px;font-size:13px;color:var(--text-primary);height:100%;font-family:var(--font-body);">
+        <!-- Clear button X (Fase 3.4) -->
         <button id="search-clear-btn" aria-label="Limpar busca" class="hidden" style="position:absolute;right:8px;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:none;background:var(--text-muted);color:var(--bg-base);cursor:pointer;font-size:10px;font-weight:700;flex-shrink:0;">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -1582,19 +1709,19 @@
       </div>
     </div>
 
-    <!-- Filter tabs -->
-    <div id="filter-tabs" class="flex gap-1 px-3 py-2" style="border-bottom: 1px solid var(--border); flex-shrink:0;">
-      <button data-filter="todas" class="filter-tab active-tab flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Todas</button>
-      <button data-filter="aguardando" class="filter-tab flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+    <!-- Filter tabs — Fase 3.1: tab-style com underline + counters -->
+    <div id="filter-tabs" style="flex-shrink:0; position:relative;">
+      <button data-filter="todas" class="filter-tab active-tab" aria-label="Todas as conversas">Todos</button>
+      <button data-filter="aguardando" class="filter-tab" aria-label="Conversas aguardando humano">
         Aguardando
-        <span id="badge-aguardando" class="hidden text-xs font-bold px-1.5 py-0.5 rounded-full" style="background: var(--danger); color: white;"></span>
+        <span id="badge-aguardando" class="hidden"></span>
       </button>
-      <button data-filter="meus" class="filter-tab flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+      <button data-filter="meus" class="filter-tab" aria-label="Minhas conversas">
         Meus
-        <span id="badge-meus" class="hidden text-xs font-bold px-1.5 py-0.5 rounded-full" style="background: var(--accent); color: white;"></span>
+        <span id="badge-meus" class="hidden"></span>
       </button>
-      <button data-filter="bot" class="filter-tab flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">Bot</button>
-      <div id="conn-status" data-state="connected" aria-live="polite" style="margin-left:auto;">
+      <button data-filter="bot" class="filter-tab" aria-label="Conversas com bot ativo">Bot</button>
+      <div id="conn-status" data-state="connected" aria-live="polite" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); pointer-events:none;">
         <span class="conn-dot"></span>
         <span class="conn-dot"></span>
         <span class="conn-dot"></span>
