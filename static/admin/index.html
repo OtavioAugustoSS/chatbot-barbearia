@@ -1816,6 +1816,231 @@
     .presence-dot.online {
       animation: presencePulse 2s ease-out infinite;
     }
+
+    /* ===== Fase 5: Info Panel Rich ===== */
+
+    /* 5.2 — Header do info-panel */
+    .info-panel-header {
+      padding: 24px 20px 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .info-avatar-wrapper {
+      display: inline-block;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    /* O avatar é um <div> com inicial + fundo dinâmico (JS popula textContent + style.background).
+       Preserva retrocompatibilidade: JS usa #info-avatar com textContent e style.background */
+    #info-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: var(--accent-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-heading);
+      font-weight: 700;
+      font-size: 28px;
+      color: white;
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+    #info-nome {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0 0 4px;
+      letter-spacing: -0.01em;
+    }
+    #info-telefone {
+      font-family: var(--font-mono) !important;
+      font-size: 12px !important;
+      color: var(--text-muted) !important;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 12px;
+    }
+    .info-actions-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .info-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border-muted);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .info-action-btn:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+      border-color: var(--accent-border);
+      transform: translateY(-1px);
+    }
+    .info-action-btn:active { transform: scale(0.94); }
+
+    /* 5.3 — Tags container (complementa .tag-chip e .tag-chip-remove já definidos) */
+    .info-tags-container { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag-add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      border-radius: var(--radius-full);
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px dashed var(--border-muted);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .tag-add-btn:hover {
+      background: var(--bg-card-hover);
+      color: var(--accent);
+      border-color: var(--accent-border);
+      border-style: solid;
+    }
+
+    /* 5.4 — Sobre o cliente */
+    .info-sobre-texto {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-primary);
+      margin: 0 0 8px;
+    }
+    .info-editar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-body);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .info-editar-btn:hover {
+      background: var(--bg-card-hover);
+      color: var(--accent);
+      border-color: var(--accent-border);
+    }
+
+    /* 5.5 — Notas internas — reforça estilos dos cards (JS injeta innerHTML com classes inline,
+       mas o hover/shadow ficam aqui). O JS usa sua própria estrutura HTML; este CSS
+       aplica via .nota-card quando o JS escreve os cards com rounded-lg bg-card etc.
+       Adicionalmente, os estilos inline do JS sobrevivem — sem conflito. */
+    .nota-card {
+      border-color: var(--border-muted) !important;
+      transition: box-shadow var(--duration-fast), border-color var(--duration-fast);
+    }
+    .nota-card:hover {
+      box-shadow: var(--shadow-sm);
+      border-color: var(--border-muted) !important;
+    }
+    .nota-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .nota-card-autor {
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .nota-card-timestamp {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .nota-card-body {
+      font-size: 13px;
+      color: var(--text-primary);
+      line-height: 1.55;
+      word-wrap: break-word;
+    }
+
+    /* nota-add-fab: redefine de sticky para inline-width (5.5 spec) */
+    .nota-add-fab {
+      position: static !important;
+      width: 100% !important;
+      margin: 8px 0 0 0 !important;
+      padding: 10px !important;
+      border-radius: var(--radius-md) !important;
+      font-size: 13px !important;
+      box-shadow: none !important;
+    }
+    .nota-add-fab:hover {
+      background: var(--accent-hover) !important;
+      transform: translateY(-1px) !important;
+      box-shadow: var(--shadow-sm) !important;
+    }
+    .nota-add-fab:active { transform: scale(0.97) !important; }
+
+    /* 5.6 — Stats grid refinado */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      text-align: center;
+      transition: all var(--duration-fast) var(--ease-out);
+    }
+    .stat-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-muted);
+      transform: translateY(-1px);
+    }
+    .stat-value {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+    .stat-label {
+      font-size: 10px;
+      font-weight: 500;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 4px;
+    }
+
+    /* 5.7 — Section title (info-section refinado) */
+    .info-section-title {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body id="app-body" style="display:grid; grid-template-columns: 360px 1fr; height:100vh; overflow:hidden; background: var(--bg-base); color: var(--text-primary);">
@@ -2212,75 +2437,162 @@
     <!-- Info Panel — slide-over drawer dentro do chat-panel (RD-4) -->
     <aside id="info-panel" class="flex-col overflow-hidden" style="display:flex; position:absolute; top:0; right:0; bottom:0; width:380px; background: var(--bg-surface); border-left: 1px solid var(--border); z-index:10; box-shadow: -8px 0 24px rgba(0,0,0,0.3); transform: translateX(100%); transition: transform 0.26s cubic-bezier(0.2,0.7,0.2,1);">
 
-      <!-- Header -->
+      <!-- Barra de título do painel (fecha painel) -->
       <div class="flex items-center justify-between px-4 py-3 flex-shrink-0" style="border-bottom: 1px solid var(--border);">
-        <h3 class="text-sm font-semibold" style="color: var(--text-primary);">Informações</h3>
-        <button id="info-close-btn" aria-label="Fechar painel de informações" class="w-10 h-10 flex items-center justify-center rounded hover:bg-white/5 transition-colors" style="color: var(--text-secondary);">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <h3 class="text-sm font-semibold" style="color: var(--text-primary); font-family: var(--font-heading);">Informações</h3>
+        <button id="info-close-btn" aria-label="Fechar painel de informações" class="w-10 h-10 flex items-center justify-center rounded transition-colors" style="color: var(--text-secondary);">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
+      <!-- Corpo com scroll -->
       <div class="flex-1 overflow-y-auto custom-scrollbar">
-        <!-- Contact card -->
-        <div class="p-4" style="border-bottom: 1px solid var(--border);">
-          <div class="flex flex-col items-center gap-3">
-            <div id="info-avatar" class="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-white" style="background: var(--accent);"></div>
-            <div class="text-center">
-              <h4 id="info-nome" class="font-semibold text-sm" style="color: var(--text-primary);"></h4>
-              <p id="info-telefone" class="text-xs mt-0.5" style="color: var(--text-secondary);"></p>
+
+        <!-- 5.2 — Header do contato: avatar grande + nome + telefone + ações -->
+        <div class="info-panel-header">
+          <div class="info-avatar-wrapper">
+            <!-- JS usa: avatarEl.textContent = inicial; avatarEl.style.background = cor -->
+            <div id="info-avatar"></div>
+          </div>
+          <h3 id="info-nome" class="info-nome"></h3>
+          <div id="info-telefone" class="info-telefone"></div>
+          <div class="info-actions-row">
+            <!-- Copiar telefone -->
+            <button class="info-action-btn" title="Copiar telefone" aria-label="Copiar telefone" onclick="navigator.clipboard?.writeText(document.getElementById('info-telefone').textContent||'')">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+              </svg>
+            </button>
+            <!-- Abrir WhatsApp -->
+            <button class="info-action-btn" title="Abrir no WhatsApp" aria-label="Abrir no WhatsApp" onclick="(function(){const t=document.getElementById('info-telefone').textContent.replace(/\D/g,'');if(t)window.open('https://wa.me/'+t,'_blank');})()">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+              </svg>
+            </button>
+            <!-- Botão info: toggle painel (alias do #btn-info-toggle) — fecha o painel -->
+            <button class="info-action-btn" title="Fechar painel" aria-label="Fechar painel" onclick="document.getElementById('info-close-btn').click()">
+              <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 5.6 — Estatísticas: grid 2×2 (placeholders — JS populará via endpoint futuro) -->
+        <div class="info-section">
+          <header class="info-section-header">
+            <span class="info-section-title">Estatísticas</span>
+            <svg class="info-section-chevron" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </header>
+          <div class="info-section-body">
+            <!-- Os IDs antigos (info-criado-em, info-ultima, info-total-msgs, info-atend-humanos)
+                 são preservados dentro do grid para retrocompatibilidade com o JS -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div id="info-total-msgs" class="stat-value">—</div>
+                <div class="stat-label">Mensagens</div>
+              </div>
+              <div class="stat-card">
+                <div id="info-atend-humanos" class="stat-value">—</div>
+                <div class="stat-label">Atend. humanos</div>
+              </div>
+              <div class="stat-card">
+                <div id="info-criado-em" class="stat-value" style="font-size:13px; font-weight:600; letter-spacing:0;">—</div>
+                <div class="stat-label">1º contato</div>
+              </div>
+              <div class="stat-card">
+                <div id="info-ultima" class="stat-value" style="font-size:13px; font-weight:600; letter-spacing:0;">—</div>
+                <div class="stat-label">Último contato</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Stats grid -->
-        <div class="p-4 grid grid-cols-2 gap-3" style="border-bottom: 1px solid var(--border);">
-          <div class="rounded-lg p-3" style="background: var(--bg-card);">
-            <p class="text-xs mb-1" style="color: var(--text-muted);">Cliente desde</p>
-            <p id="info-criado-em" class="text-sm font-medium" style="color: var(--text-primary);"></p>
-          </div>
-          <div class="rounded-lg p-3" style="background: var(--bg-card);">
-            <p class="text-xs mb-1" style="color: var(--text-muted);">Última atividade</p>
-            <p id="info-ultima" class="text-sm font-medium" style="color: var(--text-primary);"></p>
-          </div>
-          <div class="rounded-lg p-3" style="background: var(--bg-card);">
-            <p class="text-xs mb-1" style="color: var(--text-muted);">Mensagens</p>
-            <p id="info-total-msgs" class="text-sm font-bold" style="color: var(--text-primary);"></p>
-          </div>
-          <div class="rounded-lg p-3" style="background: var(--bg-card);">
-            <p class="text-xs mb-1" style="color: var(--text-muted);">Atend. humanos</p>
-            <p id="info-atend-humanos" class="text-sm font-bold" style="color: var(--text-primary);"></p>
+        <!-- Status (badges bot_ativo / aguardando_humano) — JS popula #info-status-badges -->
+        <div class="info-section">
+          <header class="info-section-header">
+            <span class="info-section-title">Status</span>
+            <svg class="info-section-chevron" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </header>
+          <div class="info-section-body">
+            <div id="info-status-badges" class="flex flex-wrap gap-2"></div>
           </div>
         </div>
 
-        <!-- Status section -->
-        <div class="p-4" style="border-bottom: 1px solid var(--border);">
-          <p class="text-xs font-medium mb-2" style="color: var(--text-muted);">STATUS</p>
-          <div id="info-status-badges" class="flex flex-wrap gap-2"></div>
+        <!-- 5.3 — Tags (etiquetas): JS popula #info-labels; #btn-add-label abre label-picker -->
+        <div class="info-section">
+          <header class="info-section-header">
+            <span class="info-section-title">Tags</span>
+            <svg class="info-section-chevron" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </header>
+          <div class="info-section-body" style="position:relative;">
+            <div class="info-tags-container" style="margin-bottom:8px;">
+              <!-- JS popula via renderInfoLabels() — usa #info-labels -->
+              <div id="info-labels" class="flex flex-wrap gap-1.5"></div>
+              <!-- TODO: tags add/remove — feature futura; btn-add-label já tem listener JS -->
+              <button id="btn-add-label" class="tag-add-btn" aria-label="Adicionar etiqueta">+ Adicionar</button>
+            </div>
+            <!-- Label picker dropdown (JS controla .hidden) -->
+            <div id="label-picker" class="hidden absolute z-50 rounded-lg p-2" style="background: var(--bg-card); border: 1px solid var(--border); box-shadow: var(--shadow-md); left:0; right:0; top:calc(100% + 4px);">
+              <input id="label-search" type="text" placeholder="Buscar ou criar..." aria-label="Buscar etiqueta" class="w-full text-xs px-2 py-1 rounded outline-none mb-2" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary);">
+              <div id="label-picker-list" class="max-h-40 overflow-y-auto custom-scrollbar"></div>
+            </div>
+          </div>
         </div>
 
-        <!-- Labels section -->
-        <div class="p-4 relative" style="border-bottom: 1px solid var(--border);">
-          <div class="flex items-center justify-between mb-2">
-            <p class="text-xs font-medium" style="color: var(--text-muted);">ETIQUETAS</p>
-            <button id="btn-add-label" class="text-xs px-2 py-0.5 rounded hover:opacity-80 transition-opacity" style="background: var(--accent-subtle); color: var(--accent);">+ Adicionar</button>
-          </div>
-          <div id="info-labels" class="flex flex-wrap gap-1.5"></div>
-          <div id="label-picker" class="hidden absolute z-50 mt-2 rounded-lg p-2 left-4 right-4" style="background: var(--bg-card); border: 1px solid var(--border); box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.5));">
-            <input id="label-search" type="text" placeholder="Buscar ou criar..." aria-label="Buscar etiqueta" class="w-full text-xs px-2 py-1 rounded outline-none mb-2" style="background: var(--bg-base); border: 1px solid var(--border); color: var(--text-primary);">
-            <div id="label-picker-list" class="max-h-40 overflow-y-auto custom-scrollbar"></div>
+        <!-- 5.4 — Sobre o cliente (placeholder — sem endpoint por ora) -->
+        <div class="info-section">
+          <header class="info-section-header">
+            <span class="info-section-title">Sobre o cliente</span>
+            <svg class="info-section-chevron" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </header>
+          <div class="info-section-body">
+            <!-- TODO: popular via endpoint quando PO aprovar campo "sobre" no usuário -->
+            <p id="info-sobre-texto" class="info-sobre-texto">Sem informação cadastrada.</p>
+            <button class="info-editar-btn" title="Editar nota sobre o cliente" disabled style="opacity:0.45; cursor:not-allowed;" aria-disabled="true">
+              <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+              </svg>
+              Editar
+            </button>
           </div>
         </div>
 
-        <!-- Notes section -->
-        <div class="p-4">
-          <p class="text-xs font-medium mb-3" style="color: var(--text-muted);">NOTAS INTERNAS</p>
-          <div id="notes-list" class="flex flex-col gap-2 mb-3"></div>
-          <textarea id="note-input" rows="2" placeholder="Adicionar nota interna…" maxlength="4096" aria-label="Nota interna" class="w-full resize-none rounded-lg px-3 py-2 text-xs outline-none mb-2 custom-scrollbar" style="background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary);"></textarea>
-          <button id="note-save-btn" class="w-full py-2 rounded-lg text-xs font-medium transition-colors" style="background: var(--accent); color: white;">Salvar nota</button>
+        <!-- 5.5 — Notas internas: JS renderiza via renderNotas() em #notes-list;
+             note-input e note-save-btn têm listeners registrados no app.js -->
+        <div class="info-section" style="border-bottom:none;">
+          <header class="info-section-header">
+            <span class="info-section-title">Notas internas</span>
+            <svg class="info-section-chevron" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </header>
+          <div class="info-section-body">
+            <!-- JS escreve innerHTML aqui com seu próprio template HTML (rounded-lg bg-card etc.)
+                 IMPORTANTE: não alterar ID #notes-list — app.js usa document.getElementById('notes-list') -->
+            <div id="notes-list" class="flex flex-col gap-2 mb-3"></div>
+            <textarea id="note-input" rows="2" placeholder="Adicionar nota interna…" maxlength="4096" aria-label="Nota interna" class="w-full resize-none rounded-lg px-3 py-2 text-xs outline-none mb-2 custom-scrollbar" style="background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); font-family: var(--font-body);"></textarea>
+            <!-- nota-add-fab: app.js não usa este ID — é puramente visual -->
+            <button id="note-save-btn" class="nota-add-fab">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Nova nota
+            </button>
+          </div>
         </div>
-      </div>
+
+      </div><!-- /flex-1 overflow-y-auto -->
     </aside>
   </main>
 
