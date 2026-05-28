@@ -15,21 +15,22 @@
       --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
       --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
 
-      --bg-base: #0d1117;
-      --bg-surface: #161b22;
-      --bg-card: #1c2128;
-      --bg-card-hover: #21262d;
-      --accent: #2481cc;
-      --accent-hover: #1a6fad;
-      --accent-subtle: rgba(36,129,204,0.12);
-      --accent-border: rgba(36,129,204,0.32);
-      --danger-text: #f85149;
-      --danger-subtle: rgba(248,81,73,0.12);
-      --text-primary: #e6edf3;
-      --text-secondary: #8b949e;
-      --text-muted: #484f58;
-      --border: #21262d;
-      --border-muted: #30363d;
+      --bg-base: #15161A;
+      --bg-surface: #1C1D22;
+      --bg-card: #25272C;
+      --bg-card-hover: #2D2F35;
+      --accent: #4E7AE7;
+      --accent-hover: #3B6BDF;
+      --accent-subtle: rgba(78,122,231,0.10);
+      --accent-border: rgba(78,122,231,0.28);
+      --success: #10B981;
+      --danger-text: #EF4444;
+      --danger-subtle: rgba(239,68,68,0.10);
+      --text-primary: #E5E7EB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --border: #2A2C32;
+      --border-muted: #34363D;
       --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px;
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
       --text-sm: 13px; --text-base: 14px; --text-xl: 18px;
@@ -67,8 +68,8 @@
       min-height: 100vh;
       display: flex;
       align-items: stretch;
-      background-image: radial-gradient(ellipse at 20% 50%, rgba(36,129,204,0.05) 0%, transparent 60%),
-                        radial-gradient(ellipse at 80% 20%, rgba(36,129,204,0.03) 0%, transparent 50%);
+      background-image: radial-gradient(ellipse at 20% 50%, rgba(78,122,231,0.05) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, rgba(78,122,231,0.03) 0%, transparent 50%);
     }
 
     /* Autofill override */
@@ -76,14 +77,14 @@
     input:-webkit-autofill:hover,
     input:-webkit-autofill:focus {
       -webkit-text-fill-color: var(--text-primary);
-      -webkit-box-shadow: 0 0 0px 1000px #1c2128 inset;
+      -webkit-box-shadow: 0 0 0px 1000px #25272C inset;
       transition: background-color 5000s ease-in-out 0s;
     }
 
     /* Split layout */
     .login-left {
       width: 42%;
-      background: linear-gradient(135deg, var(--accent-subtle) 0%, rgba(36,129,204,0.04) 100%);
+      background: linear-gradient(135deg, var(--accent-subtle) 0%, rgba(78,122,231,0.04) 100%);
       border-right: 1px solid var(--border-muted);
       display: flex;
       flex-direction: column;
@@ -208,6 +209,38 @@
       line-height: 1.5;
     }
 
+    /* Logo real Bolshoi */
+    .brand-logo {
+      width: 160px;
+      height: auto;
+      margin-bottom: 20px;
+      filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
+    }
+    @media (max-width: 768px) {
+      .brand-logo { width: 120px; margin-bottom: 12px; }
+    }
+
+    /* Login footer */
+    .login-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .login-footer-text { font-family: var(--font-body); }
+    .login-system-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      color: var(--success);
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px rgba(16,185,129,0.6);
+    }
+
     /* Features list */
     .features-list {
       margin-top: 40px;
@@ -247,8 +280,6 @@
       }
       .login-right { padding: 32px 24px; }
       .features-list { display: none; }
-      .brand-icon { width: 56px; height: 56px; border-radius: 14px; margin-bottom: 12px; }
-      .brand-name { font-size: 20px; }
     }
   </style>
 </head>
@@ -256,17 +287,7 @@
 
   <!-- Painel esquerdo — branding -->
   <div class="login-left">
-    <!-- LOGO PLACEHOLDER LOGIN: Substitua pelo seu logo real.
-         Exemplo: <img src="/static/admin/logo.svg" alt="Bolshoi" style="width:72px;height:72px;"> -->
-    <div class="brand-icon" id="logo-placeholder-login">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:36px;height:36px;">
-        <path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
-        <path d="M12 7V5a2 2 0 00-4 0v2"/>
-        <circle cx="8.5" cy="12" r="1.5"/>
-        <path d="M15 10h2M15 14h2"/>
-      </svg>
-    </div>
-    <h1 class="brand-name">Barbearia Bolshoi</h1>
+    <img src="/static/admin/img/logo-bolshoi.png" alt="Barbearia Bolshoi" class="brand-logo">
     <p class="brand-sub">Painel de Atendimento WhatsApp</p>
 
     <ul class="features-list">
@@ -351,6 +372,13 @@
           <span class="btn-text">Entrar</span>
         </button>
       </form>
+      <div class="login-footer">
+        <span class="login-footer-text">Não tem conta? Contate o gerente.</span>
+        <span class="login-system-status">
+          <span class="status-dot"></span>
+          <span class="status-label">SISTEMA OK</span>
+        </span>
+      </div>
     </div>
   </div>
 

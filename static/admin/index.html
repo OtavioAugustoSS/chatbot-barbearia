@@ -16,56 +16,57 @@
     })();
   </script>
   <style>
-    /* Tema escuro — paleta OLED Bolshoi */
+    /* Tema escuro — paleta cool-toned Bolshoi */
     :root, :root[data-theme="dark"] {
       /* Tipografia */
       --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
       --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
       --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
 
-      /* Estrutura de painéis */
-      --bg-base: #0d1117;
-      --bg-surface: #13171e;
-      --bg-card: #1a2332;
-      --bg-card-hover: #21304a;
-      --bg-chat: #090e13;
-      --bg-composer: #1a2332;
+      /* Estrutura de painéis — cool charcoal, sub-tom azul */
+      --bg-base: #15161A;
+      --bg-surface: #1C1D22;
+      --bg-card: #25272C;
+      --bg-card-hover: #2D2F35;
+      --bg-chat: #15161A;
+      --bg-composer: #1C1D22;
 
       /* Bolhas */
-      --bg-bubble-client: #13171e;
-      --bg-bubble-bot: #04473b;
-      --bg-bubble-human: #2481cc;
+      --bg-bubble-client: #25272C;
+      --bg-bubble-bot: #064E3B;
+      --bg-bubble-human: #4E7AE7;
+      --bg-bubble-system: rgba(78,122,231,0.10);
 
-      /* Accent */
-      --accent: #2481cc;
-      --accent-hover: #1a6fad;
-      --accent-subtle: rgba(36,129,204,0.12);
-      --accent-border: rgba(36,129,204,0.32);
+      /* Accent — balanceado, menos saturado */
+      --accent: #4E7AE7;
+      --accent-hover: #3B6BDF;
+      --accent-subtle: rgba(78,122,231,0.10);
+      --accent-border: rgba(78,122,231,0.28);
 
       /* Semânticos de feedback */
-      --success: #00a884;
-      --success-text: #00a884;
-      --success-subtle: rgba(0,168,132,0.15);
-      --warning: #c98a00;
-      --warning-text: #e9b884;
-      --warning-subtle: rgba(233,184,132,0.15);
-      --danger: #6e1c1c;
-      --danger-text: #f85149;
-      --danger-subtle: rgba(248,81,73,0.12);
+      --success: #10B981;
+      --success-text: #10B981;
+      --success-subtle: rgba(16,185,129,0.10);
+      --warning: #F59E0B;
+      --warning-text: #FBBF24;
+      --warning-subtle: rgba(245,158,11,0.12);
+      --danger: #7F1D1D;
+      --danger-text: #EF4444;
+      --danger-subtle: rgba(239,68,68,0.10);
 
       /* Tipografia */
-      --text-primary: #e9edef;
-      --text-secondary: #8696a0;
-      --text-muted: #4a5568;
-      --border: #1e2d42;
-      --border-soft: #0d1117;
-      --border-muted: #243450;
+      --text-primary: #E5E7EB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --border: #2A2C32;
+      --border-soft: #1F2025;
+      --border-muted: #34363D;
 
-      /* Tokens semânticos de bolha (mockup) */
-      --bubble-label-nome: #e9b884;
-      --bubble-label-bot-ts: #7fe3c4;
-      --bubble-human-text: #ffffff;
-      --bubble-human-label: #d6e8fa;
+      /* Tokens semânticos de bolha */
+      --bubble-label-nome: #FBBF24;
+      --bubble-label-bot-ts: #6EE7B7;
+      --bubble-human-text: #FFFFFF;
+      --bubble-human-label: #BFDBFE;
 
       /* === DESIGN SYSTEM TOKENS === */
       /* Espaçamento */
@@ -104,17 +105,17 @@
       --bg-chat: #f8fafc;
       --bg-composer: #f1f5f9;
       --bg-bubble-client: #e2e8f0;
-      --bg-bubble-bot: #d1fae5;
-      --bg-bubble-human: #1a6fad;
+      --bg-bubble-bot: #D1FAE5;
+      --bg-bubble-human: #3B6BDF;
       /* Tokens semânticos de bolha (tema claro) */
       --bubble-label-nome: #a16207;
       --bubble-label-bot-ts: #059669;
       --bubble-human-text: #ffffff;
       --bubble-human-label: #bfdbfe;
-      --accent: #1a6fad;
-      --accent-hover: #145a9e;
-      --accent-subtle: rgba(26,111,173,0.10);
-      --accent-border: rgba(26,111,173,0.30);
+      --accent: #3B6BDF;
+      --accent-hover: #2D5BCC;
+      --accent-subtle: rgba(59,107,223,0.08);
+      --accent-border: rgba(59,107,223,0.25);
       --success: #059669;
       --success-text: #059669;
       --success-subtle: rgba(5,150,105,0.10);
@@ -198,8 +199,8 @@
       to   { opacity: 1; transform: none; }
     }
     @keyframes accentGlow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(36,129,204,0); }
-      50%       { box-shadow: 0 0 14px 3px rgba(36,129,204,0.18); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(78,122,231,0); }
+      50%       { box-shadow: 0 0 14px 3px rgba(78,122,231,0.18); }
     }
     @keyframes shimmerSlide {
       from { background-position: -400px 0; }
@@ -979,6 +980,15 @@
       margin-top: 2px;
     }
 
+    .sidebar-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+    }
+
     /* === Design polish: OLED depth + Geist Mono accent === */
     /* Subtle gradient on sidebar */
     #conv-panel-header {
@@ -987,7 +997,7 @@
     /* Stronger border contrast for panel dividers */
     #thread-header {
       border-bottom-color: var(--border) !important;
-      box-shadow: 0 1px 0 rgba(36,129,204,0.06);
+      box-shadow: 0 1px 0 rgba(78,122,231,0.06);
     }
     /* Active conv: glowing left border + background */
     .conv-card.active-conv {
@@ -1002,11 +1012,11 @@
     }
     [id^="metric-"]:hover {
       transform: translateY(-1px);
-      box-shadow: 0 4px 16px rgba(36,129,204,0.12);
+      box-shadow: 0 4px 16px rgba(78,122,231,0.12);
     }
     /* Button hover glow for primary accent buttons */
     button[style*="var(--accent)"]:not(:disabled):hover {
-      box-shadow: 0 0 0 3px rgba(36,129,204,0.2);
+      box-shadow: 0 0 0 3px rgba(78,122,231,0.2);
     }
     /* SSE status dot enhanced */
     #sse-status-dot {
@@ -1120,7 +1130,7 @@
     #metric-cards { background: var(--bg-surface); }
     .metric-card {
       background: var(--bg-card);
-      border: 1px solid var(--border-soft, #1a2329);
+      border: 1px solid var(--border-soft, #1F2025);
       border-radius: 10px;
       padding: 8px 10px;
       position: relative;
@@ -1150,7 +1160,7 @@
     }
     #metric-aguardando { --metric-color: var(--danger-text); }
     #metric-atendendo { --metric-color: var(--success, #00a884); }
-    #metric-bot { --metric-color: var(--accent, #2481cc); }
+    #metric-bot { --metric-color: var(--accent, #4E7AE7); }
 
     /* Gap 1: prefers-reduced-motion */
     @media (prefers-reduced-motion: reduce) {
@@ -1509,12 +1519,14 @@
   <h1 class="sr-only">Painel de Atendimento — Barbearia Bolshoi</h1>
 
   <!-- PAINEL 1: Sidebar (360px) — lista de conversas + navegação -->
-  <aside id="conv-panel" class="flex flex-col overflow-hidden" style="background: var(--bg-surface); border-right: 1px solid var(--border-soft, #1a2329);">
+  <aside id="conv-panel" class="flex flex-col overflow-hidden" style="background: var(--bg-surface); border-right: 1px solid var(--border-soft, #1F2025);">
 
     <!-- Sidebar header: identidade do operador (spec .sidebar-header) -->
-    <div id="conv-panel-header" style="padding: 14px 16px; border-bottom: 1px solid var(--border-soft, #1a2329); display: flex; align-items: center; gap: 10px;">
+    <div id="conv-panel-header" style="padding: 14px 16px; border-bottom: 1px solid var(--border-soft, #1F2025); display: flex; align-items: center; gap: 10px;">
+      <!-- Logo Bolshoi real -->
+      <img src="/static/admin/img/logo-bolshoi.png" alt="Bolshoi" class="sidebar-logo">
       <!-- Avatar do atendente (gradiente azul como no mockup) -->
-      <div id="my-avatar" class="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white cursor-pointer" style="width:40px; height:40px; font-size:14px; background: linear-gradient(135deg, var(--accent), var(--accent-hover, #1a5a8f));" title="Minha conta"></div>
+      <div id="my-avatar" class="flex-shrink-0 rounded-full flex items-center justify-center font-semibold text-white cursor-pointer" style="width:40px; height:40px; font-size:14px; background: linear-gradient(135deg, var(--accent), var(--accent-hover, #3B6BDF));" title="Minha conta"></div>
       <div style="flex:1; min-width:0;">
         <div style="display:flex; align-items:center; gap:4px;">
           <div id="sidebar-nome-operador" style="font-weight:600; font-size:15px; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
@@ -1555,7 +1567,7 @@
     </div>
 
     <!-- RD-2: Metric cards (Aguardando / Atendendo / Com bot — spec :92-117) -->
-    <div id="metric-cards" style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:10px 12px; border-bottom: 1px solid var(--border-soft, #1a2329); background: var(--bg-surface); flex-shrink:0;">
+    <div id="metric-cards" style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:10px 12px; border-bottom: 1px solid var(--border-soft, #1F2025); background: var(--bg-surface); flex-shrink:0;">
       <div class="metric-card" id="metric-aguardando">
         <span class="metric-value" id="metric-val-aguardando">0</span>
         <span class="metric-label">Aguardando</span>
@@ -1638,7 +1650,7 @@
     <div id="conv-list" class="overflow-y-auto custom-scrollbar" style="flex:1; min-height:0;"></div>
 
     <!-- Footer: SSE status + mute (spec .sidebar-footer :242-257) -->
-    <div id="sidebar-footer" style="padding: 10px 14px; display:flex; align-items:center; gap:8px; border-top: 1px solid var(--border-soft, #1a2329); background: var(--bg-surface); flex-shrink:0;">
+    <div id="sidebar-footer" style="padding: 10px 14px; display:flex; align-items:center; gap:8px; border-top: 1px solid var(--border-soft, #1F2025); background: var(--bg-surface); flex-shrink:0;">
       <div style="flex:1; min-width:0; display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-secondary);">
         <span id="conn-status-dot" style="width:7px; height:7px; border-radius:50%; flex-shrink:0; background:#6b7280;"></span>
         <span id="conn-status-label">Conectando…</span>
