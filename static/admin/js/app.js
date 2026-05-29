@@ -2725,12 +2725,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const q = val.substring(1).trim();
       state.searchMode = 'mensagem';
       const modeBtn = document.getElementById('btn-search-mode');
-      if (modeBtn) modeBtn.textContent = 'Mensagem';
+      if (modeBtn) modeBtn.textContent = 'Mensagem ▾';
       _searchTimer = setTimeout(() => executarSearchMensagem(q), 300);
     } else {
       state.searchMode = 'contato';
       const modeBtn = document.getElementById('btn-search-mode');
-      if (modeBtn) modeBtn.textContent = 'Contato';
+      if (modeBtn) modeBtn.textContent = 'Contato ▾';
       state.searchQuery = val.trim();
       state.searchResults = [];
       renderConvList();
@@ -2743,7 +2743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inp.value = '';
     document.getElementById('search-clear-btn')?.classList.add('hidden');
     const modeBtn2 = document.getElementById('btn-search-mode');
-    if (modeBtn2) modeBtn2.textContent = 'Contato';
+    if (modeBtn2) modeBtn2.textContent = 'Contato ▾';
     state.searchMode = 'contato';
     state.searchQuery = '';
     state.searchResults = [];
@@ -3418,11 +3418,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // FEATURE 1: Help FAB
-  document.getElementById('help-fab')?.addEventListener('click', () => {
+  // FEATURE 1: Help button (inline no composer toolbar — TAREFA 2)
+  document.getElementById('help-toolbar-btn')?.addEventListener('click', () => {
     document.getElementById('modal-shortcuts')?.classList.remove('hidden');
-    // Ao abrir via FAB, também esconde o hint se ainda estiver visível
-    document.getElementById('help-hint')?.style && (document.getElementById('help-hint').style.display = 'none');
+  });
+  // Retrocompatibilidade: help-fab agora é elemento vazio mas mantido para não quebrar
+  document.getElementById('help-fab')?.addEventListener?.('click', () => {
+    document.getElementById('modal-shortcuts')?.classList.remove('hidden');
   });
 
   // FEATURE 1: First-run hint — aparece uma vez após login, auto-dismiss 6s
