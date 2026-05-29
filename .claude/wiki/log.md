@@ -12,6 +12,7 @@
 - Mensagem curta: uma linha; detalhes vão para nota dedicada no diretório do domínio
 [2026-05-25T03:00:00-03:00] [product-owner-agent] [task-6] 15 user stories assume/devolver escritas em docs/user-stories/assume-devolver-US.md. 1 bug (US-AD-012 snoozed_until nao limpo no assume) + 5 gaps identificados.
 - Todos os teammates anexam aqui ao concluir tarefa ou tomar decisão relevante
+[2026-05-28T00:00:00-03:00] [frontend-agent] [impeccable-polish] 4 tasks de polish pós-audit REDESIGN_FINAL_AUDIT: T1 typeset (--text-secondary #475569→#334155 light mode em index.html+settings.html, text-wrap balance/pretty), T2 shadow tokens (--shadow-accent-glow/success-pulse/danger-pulse no dark root + light root, refatoração accentGlow+pulseRing), T3 substituição #2481cc→#3B6BDF em 6 ocorrências de app.js, T4 thread-status classes (.status-bot/.status-aguardando/.status-humano) ativadas via classList em syncComposerState() + exibe nome do atendente para outroAtendente. Sem alteração Python. 3 arquivos: index.html, settings.html, app.js.
 [2026-05-27T00:00:00-03:00] [product-owner-agent] [task-10] Backlog priorizado de features produzido em .claude/wiki/frontend/FEATURE_BACKLOG.md. 14 features (P1-P4), 4 seeds descartadas (1 rejeitada definitivamente por BR-001). Top 3: F-01 SLA badges, F-04 nao-lidos por aba, F-02 reabertura rapida.
 
 ## Entries

@@ -85,6 +85,9 @@
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.18);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.2);
       --shadow-lg: 0 8px 28px rgba(0,0,0,0.38), 0 4px 8px rgba(0,0,0,0.22);
+      --shadow-accent-glow: 0 0 14px 3px rgba(59,107,223,0.14);
+      --shadow-success-pulse: 0 0 0 6px rgba(16,185,129,0);
+      --shadow-danger-pulse: 0 0 0 6px rgba(239,68,68,0);
 
       /* Bolha */
       --bubble-gap: 6px;
@@ -129,7 +132,7 @@
       --danger-text: #dc2626;
       --danger-subtle: rgba(220,38,38,0.10);
       --text-primary: #0f172a;
-      --text-secondary: #475569;
+      --text-secondary: #334155;
       --text-muted: #64748B;
       --border: #e2e8f0;
       --border-soft: #e2e8f0;
@@ -145,6 +148,7 @@
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
       --shadow-md: 0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
       --shadow-lg: 0 8px 28px rgba(0,0,0,0.15), 0 4px 8px rgba(0,0,0,0.10);
+      --shadow-accent-glow: 0 0 14px 3px rgba(59,107,223,0.18);
       --duration-instant: 80ms;
       --duration-fast: 120ms; --duration-normal: 200ms; --duration-slow: 320ms;
       --duration-slower: 460ms;
@@ -180,7 +184,7 @@
 
     @keyframes pulseRing {
       0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); }
-      70%  { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+      70%  { box-shadow: var(--shadow-danger-pulse); }
       100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
     }
     .pulse-red { animation: pulseRing 1.6s ease-out infinite; }
@@ -205,8 +209,8 @@
       to   { opacity: 1; transform: none; }
     }
     @keyframes accentGlow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(78,122,231,0); }
-      50%       { box-shadow: 0 0 12px 2px rgba(78,122,231,0.14); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59,107,223,0); }
+      50%      { box-shadow: var(--shadow-accent-glow); }
     }
     @keyframes shimmerSlide {
       from { background-position: -400px 0; }
@@ -2107,6 +2111,10 @@
       letter-spacing: 0.07em;
       color: var(--text-muted);
     }
+
+    /* Typeset a11y — text wrapping */
+    h1, h2, h3 { text-wrap: balance; }
+    p, li, .bolha-text, .info-sobre-texto { text-wrap: pretty; }
   </style>
 </head>
 <body id="app-body" style="display:grid; grid-template-columns: 360px 1fr; height:100vh; overflow:hidden; background: var(--bg-base); color: var(--text-primary);">

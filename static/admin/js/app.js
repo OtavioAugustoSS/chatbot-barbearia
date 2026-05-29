@@ -65,7 +65,7 @@ function escapeHtml(s) {
   );
 }
 
-const _CORES = ['#2481cc','#1a6eb0','#0984e3','#00b894','#e17055','#d63031','#636e72','#00838f','#8e44ad','#27ae60','#c0392b','#6d28d9'];
+const _CORES = ['#3B6BDF','#1a6eb0','#0984e3','#00b894','#e17055','#d63031','#636e72','#00838f','#8e44ad','#27ae60','#c0392b','#6d28d9'];
 function _hashStr(s) {
   let h = 0;
   for (const c of (s||'')) h = ((h*31) + c.charCodeAt(0)) >>> 0;
@@ -147,7 +147,7 @@ function showToast(texto, tipo = 'info', duracao = 4500) {
   const styles = getComputedStyle(document.documentElement);
   const tok = (v, fallback) => styles.getPropertyValue(v).trim() || fallback;
   const cores = {
-    info: tok('--accent', '#2481cc'),
+    info: tok('--accent', '#3B6BDF'),
     success: tok('--success-text', '#3fb950'),
     error: tok('--danger-text', '#f85149'),
     warning: tok('--warning-text', '#d29922'),
@@ -157,7 +157,7 @@ function showToast(texto, tipo = 'info', duracao = 4500) {
     success: tok('--success-text', '#3fb950'),
     error: tok('--danger-text', '#f85149'),
     transbordo: tok('--warning-text', '#d29922'),
-    info: tok('--accent', '#2481cc'),
+    info: tok('--accent', '#3B6BDF'),
     warning: tok('--warning-text', '#d29922')
   };
   const cont = document.getElementById('toast-container');
@@ -473,7 +473,7 @@ function tagBadgeHTML(tag) {
 function labelChipsHTML(labels) {
   if (!labels || !labels.length) return '';
   return labels.map(l => {
-    const cor = l.cor || '#2481cc';
+    const cor = l.cor || '#3B6BDF';
     const bg = cor + '20';  // alpha 12.5%
     return `<span class="text-xs font-medium px-2 py-0.5 rounded-full" style="background:${bg};color:${cor};">${escapeHtml(l.nome)}</span>`;
   }).join(' ');
@@ -481,7 +481,7 @@ function labelChipsHTML(labels) {
 
 // Chip removível (com X) para o info panel
 function labelChipRemovableHTML(label) {
-  const cor = label.cor || '#2481cc';
+  const cor = label.cor || '#3B6BDF';
   const bg = cor + '20';
   return `<span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full" style="background:${bg};color:${cor};">
     ${escapeHtml(label.nome)}
@@ -1279,19 +1279,30 @@ function syncComposerState(u) {
   const attachBtn = document.getElementById('attach-btn');
   if (attachBtn) attachBtn.disabled = false;
 
+  // Reset thread-status classes
+  if (threadStatus) threadStatus.classList.remove('status-bot', 'status-aguardando', 'status-humano');
+
   const meuAtendimento = u.atendente_id === state.eu.id;
   const outroAtendente = u.atendente_id && u.atendente_id !== state.eu.id;
 
   if (meuAtendimento) {
     // É minha conversa
-    if (threadStatus) threadStatus.textContent = 'Você está atendendo';
+    if (threadStatus) {
+      threadStatus.classList.add('status-humano');
+      threadStatus.textContent = 'Você está atendendo';
+    }
     btnDevolver?.classList.remove('hidden');
     btnTransferir?.classList.remove('hidden');
     if (msgInput) { msgInput.disabled = false; msgInput.focus(); }
     if (sendBtn) sendBtn.disabled = false;
   } else if (outroAtendente) {
     // Outro atendente
-    if (threadStatus) threadStatus.textContent = 'Outro atendente';
+    if (threadStatus) {
+      threadStatus.classList.add('status-humano');
+      const atd = state.allAtendentes.find(a => a.id === u.atendente_id);
+      const nomeAtd = atd?.nome || 'Atendente';
+      threadStatus.textContent = `${nomeAtd} atendendo`;
+    }
     if (banner) {
       banner.textContent = 'Esta conversa está sendo atendida por outro operador.';
       banner.classList.remove('hidden');
@@ -1301,7 +1312,10 @@ function syncComposerState(u) {
     if (attachBtn) attachBtn.disabled = true;
   } else if (u.aguardando_humano) {
     // Aguardando humano — compositor desbloqueado, enviar assume automaticamente
-    if (threadStatus) threadStatus.textContent = 'Aguardando atendimento';
+    if (threadStatus) {
+      threadStatus.classList.add('status-aguardando');
+      threadStatus.textContent = 'Aguardando humano';
+    }
     btnAssumir?.classList.remove('hidden');
     if (banner) {
       banner.textContent = 'Cliente aguardando atendimento — enviar mensagem vai assumir automaticamente.';
@@ -1311,7 +1325,10 @@ function syncComposerState(u) {
     if (sendBtn) sendBtn.disabled = false;
   } else if (u.bot_ativo) {
     // Bot ativo — compositor desbloqueado, enviar interrompe e assume
-    if (threadStatus) threadStatus.textContent = 'Bot ativo';
+    if (threadStatus) {
+      threadStatus.classList.add('status-bot');
+      threadStatus.textContent = 'Bot ativo';
+    }
     btnInterromper?.classList.remove('hidden');
     if (banner) {
       banner.textContent = 'Bot ativo — enviar vai interrompê-lo e assumir automaticamente.';
@@ -1647,7 +1664,7 @@ async function aplicarLabel(labelId) {
 }
 
 async function criarEAplicarLabel(nome) {
-  const cores = ['#2481cc','#10b981','#f59e0b','#ef4444','#a855f7','#3b82f6','#ec4899','#14b8a6'];
+  const cores = ['#3B6BDF','#10b981','#f59e0b','#ef4444','#a855f7','#3b82f6','#ec4899','#14b8a6'];
   const cor = cores[Math.floor(Math.random() * cores.length)];
   try {
     const nova = await api.criarLabel(nome, cor);
