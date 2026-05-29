@@ -658,13 +658,24 @@ function atualizarBadges(totais) {
     badgeMeus.classList.toggle('hidden', !totais.meus);
   }
 
-  // RD-2: metric cards
-  const valAg = document.getElementById('metric-val-aguardando');
-  if (valAg) valAg.textContent = totais.aguardando || 0;
-  const valAt = document.getElementById('metric-val-atendendo');
-  if (valAt) valAt.textContent = totais.meus || 0;
-  const valBot = document.getElementById('metric-val-bot');
-  if (valBot) valBot.textContent = totais.bot || 0;
+  // RD-2: metric cards (status summary editorial) — pulse on change + is-zero state
+  function _setMetric(el, nextValue) {
+    if (!el) return;
+    const next = Number(nextValue) || 0;
+    const prev = Number(el.textContent) || 0;
+    el.textContent = next;
+    el.classList.toggle('is-zero', next === 0);
+    if (next !== prev) {
+      el.classList.remove('pulse');
+      // force reflow para reiniciar animação se ainda em curso
+      void el.offsetWidth;
+      el.classList.add('pulse');
+      setTimeout(() => el.classList.remove('pulse'), 420);
+    }
+  }
+  _setMetric(document.getElementById('metric-val-aguardando'), totais.aguardando);
+  _setMetric(document.getElementById('metric-val-atendendo'), totais.meus);
+  _setMetric(document.getElementById('metric-val-bot'), totais.bot);
 
   // QW-F2: badge no título da aba (US-127)
   const aguardando = totais.aguardando || 0;
