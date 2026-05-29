@@ -2203,6 +2203,212 @@
     .bolha-label { letter-spacing: var(--tracking-normal); }
     /* A3: logo-text wider tracking via token */
     .logo-text { letter-spacing: var(--tracking-wider); }
+
+    /* ===================================================================
+       BATCH 2 — COLORIZE + ANIMATE (sensory layer)
+       Tasks C1–C6 (color) + D1–D6 (motion)
+       Register: product — restrained, semantic-first.
+       Princípio: cor expressa significado, motion expressa causa-efeito.
+    =================================================================== */
+
+    /* -----------------------------------------------------------------
+       C1: Stat cards — tinted backgrounds semânticos por role
+       Somente "Atend. humanos" (resolvidas/contatos recebidos = êxito)
+       recebe success-tint. Os outros ficam neutros (evitar cor arbitrária).
+       Pegadinha: `data-stat` foi adicionado nos 4 stat-cards no HTML.
+    ----------------------------------------------------------------- */
+    .stat-card[data-stat="mensagens"],
+    .stat-card[data-stat="primeiro-contato"],
+    .stat-card[data-stat="ultimo-contato"] {
+      background: var(--bg-card);
+      border-color: var(--border);
+    }
+    .stat-card[data-stat="atend-humanos"] {
+      background: linear-gradient(135deg, var(--bg-card) 0%, var(--success-subtle) 100%);
+      border-color: rgba(16,185,129,0.15);
+    }
+    .stat-card[data-stat="atend-humanos"] .stat-value {
+      color: var(--success-text);
+    }
+
+    /* -----------------------------------------------------------------
+       C2: Avatar fallback — gradiente colorido quando JS não seta bg
+       (fallback CSS-only; JS em renderConvCard() já faz corDoCliente()
+        via style="background:...", então este CSS atinge avatares onde
+        o estilo inline não existe — ex: skeletons ou futuras variantes)
+    ----------------------------------------------------------------- */
+    .conv-card .avatar:not([style*="background"]) {
+      background: linear-gradient(135deg, var(--accent-subtle) 0%, var(--accent-border) 100%);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* -----------------------------------------------------------------
+       C3: Section accordion headers — hover semântico no chevron
+       Preserva o `transform: rotate(-90deg)` existente para collapsed;
+       adiciona translateX(2px) + cor accent ao hover.
+    ----------------------------------------------------------------- */
+    .info-section-header:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+    .info-section-header:hover .info-section-chevron {
+      color: var(--accent);
+      transform: translateX(2px);
+    }
+    /* collapsed: chevron rotacionado (preservado; especificidade maior que hover) */
+    .info-section.collapsed .info-section-header:hover .info-section-chevron {
+      transform: rotate(-90deg) translateX(2px);
+    }
+
+    /* -----------------------------------------------------------------
+       C4: Tag chips — dot semântico via ::before (a11y: cor não é
+       único indicador — agora sempre tem dot + cor)
+    ----------------------------------------------------------------- */
+    .tag-chip::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+
+    /* -----------------------------------------------------------------
+       C5: Filter tab active — gradiente downward sutil
+       Reforça que a tab ativa está "sustentada" pelo accent abaixo.
+       O .tab-indicator JS já faz a linha; este CSS reforça o fundo.
+    ----------------------------------------------------------------- */
+    .active-tab {
+      color: var(--text-primary) !important;
+      font-weight: var(--font-weight-semibold) !important;
+      background: linear-gradient(180deg, transparent 0%, var(--accent-subtle) 100%) !important;
+    }
+
+    /* -----------------------------------------------------------------
+       C6: System pills — variante "info" (azul accent)
+       Uso futuro: "Bot reativado", "Conversa marcada como resolvida".
+       JS futuro deve adicionar class `system-info` ou `evento-info`.
+       CSS-only aqui — sem JS hook, ficará dormant até implementação.
+    ----------------------------------------------------------------- */
+    .msg-system-pill.system-info,
+    .bolha-sistema.evento-info {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border-color: var(--accent-border);
+    }
+    /* Ícone info (i circular) para variante info */
+    .msg-system-pill.system-info::before,
+    .bolha-sistema.evento-info::before {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%233B6BDF' stroke-width='2'><path stroke-linecap='round' stroke-linejoin='round' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'/></svg>");
+    }
+
+    /* -----------------------------------------------------------------
+       D1: Toast notifications — enter/exit polish
+       Classe real: `.toast-item` (confirmado em app.js linha 166).
+       A entrada já usa toastSlideIn (X axis). Ajuste: Y+scale para
+       feedback mais "popping" sem bounce (product register).
+       Saída: `.toast-leaving` já existe com toastSlideOut — mantido.
+    ----------------------------------------------------------------- */
+    @keyframes toastSlideIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    /* Override da animação anterior (X axis → Y axis + scale) */
+    .toast-item {
+      animation: toastSlideIn 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    /* Saída polish (complementa .toast-leaving já existente) */
+    @keyframes toastSlideOut {
+      to { opacity: 0; transform: translateY(8px) scale(0.97); }
+    }
+    .toast-leaving {
+      animation: toastSlideOut 175ms cubic-bezier(0.4, 0, 1, 1) both !important;
+    }
+
+    /* -----------------------------------------------------------------
+       D2: Send button — confirmation pulse após envio bem-sucedido
+       DORMANT: JS futuro adiciona/remove `.success-flash` após api.enviar().
+       Atualmente `enviarMensagem()` não adiciona a classe; esta regra
+       fica pronta para quando for conectada.
+    ----------------------------------------------------------------- */
+    @keyframes sendSuccess {
+      0%   { transform: scale(1); background: var(--accent); }
+      35%  { transform: scale(1.12); background: var(--success); }
+      100% { transform: scale(1); background: var(--accent); }
+    }
+    #send-btn.success-flash {
+      animation: sendSuccess 600ms var(--ease-out) both;
+    }
+
+    /* -----------------------------------------------------------------
+       D3: Conv-card SSE new-message highlight
+       DORMANT: SSE handler `sse:nova_mensagem` hoje atualiza preview
+       com `.preview-updating` mas não adiciona `.new-message` no card.
+       CSS definido e pronto; JS futuro pode adicionar `.new-message`
+       momentaneamente ao card para disparar a animação.
+    ----------------------------------------------------------------- */
+    @keyframes convNewMessage {
+      0%   { background: var(--accent-subtle); }
+      100% { background: transparent; }
+    }
+    .conv-card.new-message {
+      animation: convNewMessage 1.6s ease-out;
+    }
+
+    /* -----------------------------------------------------------------
+       D4: Section accordion — expand/collapse suave via max-height
+       Substitui o `display: none` snap existente em
+       `.info-section.collapsed .info-section-body { display: none; }`.
+       max-height 2000px é suficiente para o conteúdo do info panel.
+    ----------------------------------------------------------------- */
+    .info-section-body {
+      overflow: hidden;
+      max-height: 2000px;
+      transition: max-height var(--duration-normal) var(--ease-out),
+                  opacity var(--duration-fast) var(--ease-out),
+                  padding-top var(--duration-normal) var(--ease-out),
+                  padding-bottom var(--duration-normal) var(--ease-out);
+    }
+    .info-section.collapsed .info-section-body {
+      display: block !important;  /* override do display:none anterior */
+      max-height: 0 !important;
+      opacity: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      pointer-events: none;
+    }
+
+    /* -----------------------------------------------------------------
+       D5: Skeleton shimmer — verificação de cobertura prefers-reduced-motion
+       `.skeleton-shimmer` e `.skeleton-pulse` / `skeletonPulse` já cobertos
+       pela regra global `@media (prefers-reduced-motion: reduce)` acima
+       que zera `animation-duration`. Adicionado `.skeleton-shimmer` à
+       lista de classes que recebem `animation: none` no bloco reduced.
+       Adição abaixo — complementa o bloco existente sem duplicar.
+    ----------------------------------------------------------------- */
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton-shimmer,
+      .skeleton-avatar-el,
+      .skeleton-line-el,
+      .skeleton-msg-bubble {
+        animation: none !important;
+        background: var(--bg-card) !important;
+      }
+    }
+
+    /* -----------------------------------------------------------------
+       D6: Focus ring — transição suave em outline-offset
+       Já existe `*:focus-visible` com `transition: outline-offset`.
+       Verificado na linha 1196–1205. O bloco está correto; sem duplicação.
+       Adição: outline-color também transiciona para smooth de cores.
+    ----------------------------------------------------------------- */
+    *:focus-visible {
+      transition: outline-offset var(--duration-fast) var(--ease-out),
+                  outline-color var(--duration-fast) var(--ease-out);
+    }
   </style>
 </head>
 <body id="app-body" style="display:grid; grid-template-columns: 360px 1fr; height:100vh; overflow:hidden; background: var(--bg-base); color: var(--text-primary);">
@@ -2654,19 +2860,19 @@
             <!-- Os IDs antigos (info-criado-em, info-ultima, info-total-msgs, info-atend-humanos)
                  são preservados dentro do grid para retrocompatibilidade com o JS -->
             <div class="stats-grid">
-              <div class="stat-card">
+              <div class="stat-card" data-stat="mensagens">
                 <div id="info-total-msgs" class="stat-value">—</div>
                 <div class="stat-label">Mensagens</div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card" data-stat="atend-humanos">
                 <div id="info-atend-humanos" class="stat-value">—</div>
                 <div class="stat-label">Atend. humanos</div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card" data-stat="primeiro-contato">
                 <div id="info-criado-em" class="stat-value" style="font-size:13px; font-weight:600; letter-spacing:0;">—</div>
                 <div class="stat-label">1º contato</div>
               </div>
-              <div class="stat-card">
+              <div class="stat-card" data-stat="ultimo-contato">
                 <div id="info-ultima" class="stat-value" style="font-size:13px; font-weight:600; letter-spacing:0;">—</div>
                 <div class="stat-label">Último contato</div>
               </div>
