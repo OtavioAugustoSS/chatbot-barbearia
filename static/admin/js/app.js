@@ -1226,6 +1226,89 @@ function resolverBolhaPendente(tempId, ok) {
 }
 
 // ============================================================
+// FEATURE 3 — UNDO SEND: soft-delete visual 5s
+// ============================================================
+
+// Aviso de primeira-vez: explica limitação da operação
+function _ensureUndoWarning() {
+  if (localStorage.getItem('bolshoi_undo_warning_seen')) return;
+  localStorage.setItem('bolshoi_undo_warning_seen', 'true');
+  showToast('Desfazer remove a mensagem apenas da sua tela — o cliente já recebeu via WhatsApp.', 'info');
+}
+
+function softDeleteMessage(msgEl, telefone, conteudo) {
+  if (!msgEl) return;
+  _ensureUndoWarning();
+
+  // Remove a bolha do DOM
+  const row = msgEl.closest('.row') || msgEl;
+  const parent = row.parentNode;
+  if (!parent) return;
+
+  // Cria pill de sistema-warning no lugar
+  const agora = new Date();
+  const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const pill = document.createElement('div');
+  pill.className = 'msg-system-pill system-warning';
+  pill.setAttribute('role', 'status');
+  pill.setAttribute('title', 'O cliente já recebeu a mensagem no WhatsApp — desfazer remove apenas da sua visualização. Use para sinalizar erro ao próximo operador.');
+  pill.style.cssText = 'cursor: help;';
+  pill.textContent = `Mensagem retraída pelo operador · ${hora}`;
+  parent.insertBefore(pill, row);
+  row.remove();
+  showToast('Marcada como retraída na sua visualização', 'success');
+}
+
+// showUndoToast — exibido após envio bem-sucedido
+// messageId: usado para localizar a bolha no DOM via [data-temp-id] ou fallback
+function showUndoToast(resolvedMsgRef, telefone, conteudo) {
+  // Remove toast anterior se ainda existir
+  document.getElementById('undo-toast-active')?.remove();
+
+  const toast = document.createElement('div');
+  toast.id = 'undo-toast-active';
+  toast.className = 'undo-toast';
+  toast.setAttribute('role', 'status');
+  toast.innerHTML = `
+    <span class="undo-toast-success-icon" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </span>
+    <span style="flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Mensagem enviada</span>
+    <button class="undo-toast-action" title="Remove só da sua tela — cliente já recebeu" aria-label="Desfazer envio — remove apenas da sua visualização">Desfazer</button>
+    <div class="undo-toast-progress" aria-hidden="true"></div>
+  `;
+  document.body.appendChild(toast);
+
+  let dismissed = false;
+  function _dismiss() {
+    if (dismissed) return;
+    dismissed = true;
+    clearTimeout(autoDismissTimer);
+    toast.remove();
+  }
+
+  const autoDismissTimer = setTimeout(_dismiss, 5100);
+
+  // Hover pausa o timer (via CSS animation-play-state) — basta não auto-dismiss durante hover
+  // O CSS já faz pause via `.undo-toast:hover .undo-toast-progress`
+
+  toast.querySelector('.undo-toast-action').addEventListener('click', () => {
+    _dismiss();
+    // Tenta encontrar a bolha mais recente do operador no thread atual
+    const msgArea = document.getElementById('messages-area');
+    if (!msgArea) return;
+    // Procura a última .row-human no messages-area
+    const rows = msgArea.querySelectorAll('.row-human');
+    if (!rows.length) {
+      showToast('Não foi possível localizar a mensagem para retrair', 'error');
+      return;
+    }
+    const lastRow = rows[rows.length - 1];
+    softDeleteMessage(lastRow, telefone, conteudo);
+  });
+}
+
+// ============================================================
 // Abrir conversa
 // ============================================================
 async function abrirConversa(telefone) {
@@ -1511,10 +1594,13 @@ async function enviarMensagem() {
 
   appendMensagemIncremental(texto, 'humano', null, tempId);
 
+  const telefoneEnvio = state.conversaAtual;
   try {
-    await api.enviar(state.conversaAtual, texto);
+    await api.enviar(telefoneEnvio, texto);
     resolverBolhaPendente(tempId, true);
     carregarConversas();
+    // FEATURE 3: undo toast após envio bem-sucedido
+    showUndoToast(tempId, telefoneEnvio, texto);
   } catch(e) {
     resolverBolhaPendente(tempId, false);
     showToast('Falha ao enviar mensagem', 'error');
@@ -2197,6 +2283,39 @@ async function bulkSnooze() {
   } catch (e) {
     console.error('bulkSnooze:', e);
     showToast('Erro ao adiar', 'error');
+  }
+}
+
+// FEATURE 2: Devolver ao bot em massa — loop sequencial com toast de progresso
+async function bulkDevolver() {
+  const telefones = Array.from(state.bulkSelecionadas);
+  if (!telefones.length) return;
+  // Confirmação para lotes maiores que 3
+  if (telefones.length > 3) {
+    const ok = await abrirModalConfirmar(
+      `Devolver ${telefones.length} conversa(s) ao bot?`,
+      'O bot voltará a responder automaticamente a estes clientes.'
+    );
+    if (!ok) return;
+  }
+  let sucesso = 0;
+  let falha = 0;
+  for (let i = 0; i < telefones.length; i++) {
+    showToast(`Devolvendo ${i + 1}/${telefones.length}…`, 'info');
+    try {
+      await api.devolver(telefones[i]);
+      sucesso++;
+    } catch (e) {
+      console.error('bulkDevolver:', e);
+      falha++;
+    }
+  }
+  limparBulkSelecao();
+  carregarConversas();
+  if (falha === 0) {
+    showToast(`${sucesso} conversa(s) devolvida(s) ao bot`, 'success');
+  } else {
+    showToast(`${sucesso} devolvida(s)${falha ? ` — ${falha} falharam` : ''}`, sucesso > 0 ? 'info' : 'error');
   }
 }
 
@@ -3084,6 +3203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Bulk actions: botões
   document.getElementById('bulk-resolver')?.addEventListener('click', bulkResolver);
+  document.getElementById('bulk-devolver')?.addEventListener('click', bulkDevolver);  // FEATURE 2
   document.getElementById('bulk-snooze')?.addEventListener('click', bulkSnooze);
   document.getElementById('bulk-cancelar')?.addEventListener('click', limparBulkSelecao);
 
@@ -3192,6 +3312,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Esc fecha modais/popovers (funciona mesmo dentro de inputs)
     if (e.key === 'Escape') {
+      // FEATURE 2: Esc com seleção bulk ativa → limpa seleção primeiro
+      if (state.bulkSelecionadas && state.bulkSelecionadas.size > 0) {
+        limparBulkSelecao();
+        return;
+      }
       document.getElementById('modal-shortcuts')?.classList.add('hidden');
       document.getElementById('canned-popover')?.classList.add('hidden');
       document.getElementById('label-picker')?.classList.add('hidden');
@@ -3264,6 +3389,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('modal-shortcuts')?.classList.remove('hidden');
         break;
       }
+      case 'a': {
+        // FEATURE 2: Ctrl+A na conv-list seleciona todas visíveis (cap 50)
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          const cards = Array.from(document.querySelectorAll('.conv-card'));
+          const cap = 50;
+          cards.slice(0, cap).forEach(card => {
+            const tel = card.dataset.tel;
+            if (tel) state.bulkSelecionadas.add(tel);
+          });
+          atualizarBulkBar();
+          renderConvList();
+          showToast(`${Math.min(cards.length, cap)} conversa(s) selecionada(s)`, 'info');
+        }
+        break;
+      }
     }
   });
 
@@ -3276,6 +3417,38 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('modal-shortcuts').classList.add('hidden');
     }
   });
+
+  // FEATURE 1: Help FAB
+  document.getElementById('help-fab')?.addEventListener('click', () => {
+    document.getElementById('modal-shortcuts')?.classList.remove('hidden');
+    // Ao abrir via FAB, também esconde o hint se ainda estiver visível
+    document.getElementById('help-hint')?.style && (document.getElementById('help-hint').style.display = 'none');
+  });
+
+  // FEATURE 1: First-run hint — aparece uma vez após login, auto-dismiss 6s
+  (function _initFirstRunHint() {
+    if (localStorage.getItem('bolshoi_help_hint_seen')) return;
+    const hint = document.getElementById('help-hint');
+    if (!hint) return;
+    hint.style.display = 'block';
+    const dismissHint = () => {
+      localStorage.setItem('bolshoi_help_hint_seen', 'true');
+      hint.style.opacity = '0';
+      hint.style.transition = 'opacity 300ms ease';
+      setTimeout(() => { hint.style.display = 'none'; }, 310);
+    };
+    const hintTimer = setTimeout(dismissHint, 6000);
+    document.getElementById('help-hint-dismiss')?.addEventListener('click', () => {
+      clearTimeout(hintTimer);
+      dismissHint();
+    });
+    hint.addEventListener('click', (e) => {
+      if (e.target !== document.getElementById('help-hint-dismiss')) {
+        clearTimeout(hintTimer);
+        dismissHint();
+      }
+    });
+  })();
 
   // SP-1 / ADR-008: click no overlay dos modais fecha (simula cancelar)
   document.getElementById('modal-snooze')?.addEventListener('click', (e) => {
