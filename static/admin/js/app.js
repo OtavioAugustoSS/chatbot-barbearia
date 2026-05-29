@@ -3220,6 +3220,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Botão sair (logout)
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    let confirmou = false;
+    try {
+      if (typeof abrirModalConfirmar === 'function') {
+        confirmou = await abrirModalConfirmar('Sair do sistema?', 'Você será desconectado e voltará à tela de login.');
+      } else {
+        confirmou = window.confirm('Sair do sistema?');
+      }
+    } catch (_) {
+      confirmou = window.confirm('Sair do sistema?');
+    }
+    if (!confirmou) return;
+    // Flush draft antes de sair (US-116 pattern)
+    try {
+      const input = document.getElementById('msg-input');
+      if (input && state.conversaAtual && typeof _salvarDraft === 'function') {
+        _salvarDraft(state.conversaAtual, input.value);
+      }
+    } catch (_) {}
+    if (typeof _logout === 'function') {
+      _logout();
+    } else {
+      localStorage.clear();
+      location.href = '/static/admin/login.html';
+    }
+  });
+
   // Click fora fecha mentions popover
   document.addEventListener('click', (e) => {
     const pop = document.getElementById('mentions-popover');
