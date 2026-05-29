@@ -2409,6 +2409,176 @@
       transition: outline-offset var(--duration-fast) var(--ease-out),
                   outline-color var(--duration-fast) var(--ease-out);
     }
+
+    /* =================================================================
+       BATCH 3 — Delight + Bolder (2026-05-28)
+    ================================================================= */
+
+    /* -----------------------------------------------------------------
+       E1: Empty state link CTA — "Ver aguardando" em filtro Meus
+    ----------------------------------------------------------------- */
+    .empty-state-link {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: inherit;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-decoration-color: var(--accent-border);
+      text-underline-offset: 2px;
+      transition: color var(--duration-fast);
+    }
+    .empty-state-link:hover { color: var(--accent-hover); }
+
+    /* -----------------------------------------------------------------
+       E3: Send success second-layer ripple
+       DORMANT: JS adiciona/remove `.success-flash` após envio OK.
+       Ripple sai do botão de forma concêntrica, desaparece em 600ms.
+    ----------------------------------------------------------------- */
+    @keyframes sendRipple {
+      0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0.5; }
+      100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+    }
+    #send-btn { position: relative; overflow: visible; }
+    #send-btn.success-flash::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: var(--accent);
+      pointer-events: none;
+      animation: sendRipple 600ms ease-out;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #send-btn.success-flash::after { animation: none; }
+    }
+
+    /* -----------------------------------------------------------------
+       E4: System pill celebration — devolver ao bot
+       `.system-success` ganha scale-in sutil (0.94→1.02→1).
+       NÃO usa bounce easing — cubic-bezier(0.16, 1, 0.3, 1) apenas.
+       A variante já existe no Batch 2; este bloco adiciona APENAS o
+       keyframe de entrada, sem duplicar as propriedades de cor/bg.
+    ----------------------------------------------------------------- */
+    @keyframes systemPillCelebrate {
+      0%   { transform: scale(0.94); opacity: 0; }
+      60%  { transform: scale(1.02); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    .msg-system-pill.system-success,
+    .bolha-sistema.evento-success {
+      animation: systemPillCelebrate 380ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .msg-system-pill.system-success,
+      .bolha-sistema.evento-success { animation: none; }
+    }
+
+    /* -----------------------------------------------------------------
+       F1: Thread status badge — weight + tracking mais decisivo
+       Era font-weight 600 + padding 3px 10px + tracking-wide (0.04em).
+       Agora: 700 + padding 4px 12px + tracking 0.08em.
+    ----------------------------------------------------------------- */
+    #thread-status:not(:empty) {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 4px 12px;
+    }
+    #thread-status.status-bot,
+    #thread-status.status-aguardando,
+    #thread-status.status-humano {
+      font-weight: 700;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+    }
+
+    /* -----------------------------------------------------------------
+       F2: Conv card active — border 4px + inset ring + name semibold
+       Avatar ring reforça avatar existente do Batch 2.
+    ----------------------------------------------------------------- */
+    .conv-card.active-conv {
+      border-left-width: 4px !important;
+      box-shadow: inset 0 0 0 1px var(--accent-border);
+    }
+    .conv-card.active-conv .conv-name {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .conv-card.active-conv .avatar {
+      box-shadow: 0 0 0 2px var(--accent-subtle), 0 0 0 3px var(--accent-border);
+    }
+
+    /* -----------------------------------------------------------------
+       F3: Send button — shadow accent (presença) + hover com translateY
+       Mantém os estados :active e :disabled existentes; adiciona sombra
+       e hover com elevação leve.
+    ----------------------------------------------------------------- */
+    #send-btn {
+      box-shadow:
+        0 1px 2px rgba(59,107,223,0.30),
+        0 0 0 0 var(--accent-subtle);
+    }
+    #send-btn:hover:not(:disabled) {
+      box-shadow:
+        0 4px 12px rgba(59,107,223,0.35),
+        0 0 0 4px var(--accent-subtle);
+      transform: translateY(-1px);
+    }
+    #send-btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.96);
+      box-shadow: 0 0 0 2px var(--accent-subtle);
+      transition-duration: var(--duration-instant);
+    }
+
+    /* -----------------------------------------------------------------
+       F4: Sidebar nav active state — strip vertical à esquerda
+       DORMANT: JS ou navegação futura deve adicionar `.active` ou
+       `aria-current="page"` ao botão corrente.
+       Strip de 3px×24px à esquerda — pattern Linear/Notion.
+       Botões sidebar têm `position: relative` (V3 já setou).
+    ----------------------------------------------------------------- */
+    .sidebar-nav-btn.active,
+    .sidebar-nav-btn[aria-current="page"] {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      position: relative;
+    }
+    .sidebar-nav-btn.active::before,
+    .sidebar-nav-btn[aria-current="page"]::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px; height: 24px;
+      background: var(--accent);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    /* -----------------------------------------------------------------
+       F6: Filter tab badge counters — pop sem ferir
+       Aguardando > 0: destaque warning (urgência).
+       Active tab: mantém accent.
+       Todos: font-weight 700.
+    ----------------------------------------------------------------- */
+    .filter-tab .tab-count:not(:empty),
+    .filter-tab #badge-aguardando:not(.hidden),
+    .filter-tab #badge-meus:not(.hidden) {
+      font-weight: 700;
+    }
+    .filter-tab[data-filter="aguardando"] #badge-aguardando:not(.hidden) {
+      background: var(--warning-subtle);
+      color: var(--warning-text);
+      border: 1px solid rgba(245,158,11,0.20);
+    }
+    .active-tab #badge-aguardando:not(.hidden),
+    .active-tab #badge-meus:not(.hidden) {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: none;
+    }
   </style>
 </head>
 <body id="app-body" style="display:grid; grid-template-columns: 360px 1fr; height:100vh; overflow:hidden; background: var(--bg-base); color: var(--text-primary);">
@@ -2628,8 +2798,8 @@
         <line x1="9" y1="10" x2="15" y2="10"/>
         <line x1="9" y1="14" x2="13" y2="14"/>
       </svg>
-      <span class="empty-state-title">Nenhuma conversa selecionada</span>
-      <span class="empty-state-subtitle">Escolha uma conversa ao lado para começar</span>
+      <span class="empty-state-title">Selecione uma conversa pra começar</span>
+      <span class="empty-state-subtitle" id="empty-state-hint">Escolha uma conversa na lista ao lado</span>
     </div>
 
     <!-- Task 1.5: Animated empty state -->
@@ -2640,6 +2810,7 @@
       <p>Selecione uma conversa</p>
       <span>Escolha uma conversa na lista para iniciar o atendimento</span>
     </div>
+
 
     <!-- JWT expiry warning banner — G4a / US-115 -->
     <div id="jwt-expiry-banner" class="hidden w-full px-4 py-2 text-xs font-medium text-center" style="background:#7f1d1d;color:#fca5a5;border-bottom:1px solid #991b1b;">
@@ -3027,5 +3198,15 @@
   <script src="js/api.js"></script>
   <script src="js/sse.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- E5: Console love note — easter egg para devs que abrem DevTools -->
+  <script>
+    console.log(
+      '%cBolshoi Atendimento %cv0.4.0\n%cDúvida ou bug? Fale com Fred · (38) 99897-0661',
+      'font: bold 14px monospace; color: #3B6BDF;',
+      'font: 12px monospace; color: #6B7280;',
+      'font: 11px sans-serif; color: #9CA3AF;'
+    );
+  </script>
 </body>
 </html>

@@ -330,6 +330,30 @@
       outline-offset: 3px;
     }
 
+    /* -----------------------------------------------------------------
+       E2: Login success transition — fade-out suave antes do redirect
+       DORMANT: JS pode adicionar `.success-redirecting` ao `.login-card`
+       após salvar o token e antes de `location.href = ...` pra suavizar
+       a transição. Ex: card.classList.add('success-redirecting');
+       A animação dura 280ms; redirecionar após esse intervalo.
+    ----------------------------------------------------------------- */
+    @keyframes loginSuccessFade {
+      from { opacity: 1; }
+      to   { opacity: 0.6; filter: blur(2px); }
+    }
+    .login-card.success-redirecting {
+      animation: loginSuccessFade 280ms ease-out forwards;
+      pointer-events: none;
+    }
+
+    /* F5: Brand name — confirma 700 / 3xl (já setado; bloco explícito) */
+    .brand-name {
+      font-size: var(--text-3xl);
+      font-weight: 700;
+      letter-spacing: var(--tracking-tight);
+      line-height: var(--leading-tight);
+    }
+
     /* === Reduced motion compliance (WCAG, HIG, MD) === */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {

@@ -403,16 +403,55 @@ function renderSkeletonList(container, count = 5) {
 }
 
 // ============================================================
-// V11: Empty States
+// V11: Empty States — E1 Batch 3: textos contextuais Bolshoi
 // ============================================================
 function renderEmptyConvList() {
+  const filtro = (state && state.filtro) ? state.filtro : 'todas';
+
+  // Ícone bot (calmo) — reutilizado nos estados "tudo bem"
+  const iconBot = `<svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2"/>
+    <path d="M7 11V8a5 5 0 0 1 10 0v3"/>
+    <line x1="12" y1="2" x2="12" y2="4"/>
+    <circle cx="9" cy="15" r="1" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="15" r="1" fill="currentColor" stroke="none"/>
+  </svg>`;
+
+  // Ícone envelope — "nenhuma conversa genérica"
+  const iconEnvelope = `<svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+    <polyline points="22,6 12,13 2,6"/>
+  </svg>`;
+
+  if (filtro === 'aguardando') {
+    return `<div class="empty-state">
+      ${iconBot}
+      <span class="empty-state-title">Nenhuma conversa aguardando</span>
+      <span class="empty-state-subtitle">Bot lidando com tudo no momento.</span>
+    </div>`;
+  }
+
+  if (filtro === 'meus') {
+    return `<div class="empty-state">
+      ${iconEnvelope}
+      <span class="empty-state-title">Nenhuma conversa sua ainda</span>
+      <span class="empty-state-subtitle"><button class="empty-state-link" data-filter-goto="aguardando">Ver aguardando</button></span>
+    </div>`;
+  }
+
+  if (filtro === 'bot') {
+    return `<div class="empty-state">
+      ${iconBot}
+      <span class="empty-state-title">Sem conversas com bot ativo</span>
+      <span class="empty-state-subtitle">Todas as conversas estão em atendimento humano.</span>
+    </div>`;
+  }
+
+  // Fallback genérico (todas / outros)
   return `<div class="empty-state">
-    <svg class="empty-state-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-      <polyline points="22,6 12,13 2,6"/>
-    </svg>
+    ${iconEnvelope}
     <span class="empty-state-title">Nenhuma conversa</span>
-    <span class="empty-state-subtitle">Sem conversas para este filtro</span>
+    <span class="empty-state-subtitle">Sem conversas para este filtro.</span>
   </div>`;
 }
 
@@ -2733,6 +2772,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fecharDrawer();
       }
     });
+
   }
 
   // V8: inicializa accordion do info panel
@@ -3020,6 +3060,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Save view + delete view
   document.getElementById('btn-save-view')?.addEventListener('click', salvarViewAtual);
+
+  // E1 Batch 3: delegated click para CTA "Ver aguardando" dentro do empty state de "Meus"
+  document.getElementById('conv-list')?.addEventListener('click', (e) => {
+    const link = e.target.closest('.empty-state-link[data-filter-goto]');
+    if (!link) return;
+    const alvo = link.dataset.filterGoto;
+    const tab = document.querySelector(`#filter-tabs [data-filter="${alvo}"]`);
+    if (tab) tab.click();
+  });
 
   // Bulk actions: checkbox change
   document.getElementById('conv-list')?.addEventListener('change', (e) => {
