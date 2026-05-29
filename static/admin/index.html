@@ -1809,54 +1809,55 @@
     /* ===== RD-2: Metric cards (spec :92-117) ===== */
     /* Status summary inline editorial — substitui hero-metric template (anti-pattern) */
     #metric-cards {
-      display: flex !important;
-      align-items: center;
-      justify-content: space-around;
-      gap: var(--space-3);
-      padding: var(--space-3) var(--space-4) !important;
+      display: grid !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 4px;
+      padding: 8px 10px !important;
       background: var(--bg-surface);
-      grid-template-columns: none !important;
       border-bottom: 1px solid var(--border-soft, #1F2025);
     }
     .metric-card {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 7px;
-      padding: 4px 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      padding: 4px 2px;
+      min-width: 0;  /* permite shrink */
       background: transparent !important;
       border: none !important;
       border-radius: var(--radius-sm);
       cursor: pointer;
       transition: background var(--duration-fast) var(--ease-out);
       position: relative;
-      overflow: visible !important;
+      overflow: hidden;
     }
     .metric-card::before { display: none !important; }  /* remove side-stripe ban */
     .metric-card:hover { background: var(--bg-card-hover); filter: none !important; }
     .metric-card:active { transform: scale(0.97); }
     .metric-card .metric-icon {
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       color: var(--metric-color);
-      align-self: center;
       flex-shrink: 0;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      opacity: 0.85;
+      opacity: 0.9;
     }
     .metric-value {
       font-family: var(--font-mono);
-      font-size: var(--text-xl);
+      font-size: var(--text-base);
       font-weight: 700;
       font-variant-numeric: tabular-nums;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
       color: var(--text-primary);
       line-height: 1;
       margin-bottom: 0;
+      flex-shrink: 0;
       transition: color var(--duration-normal) var(--ease-out);
     }
-    .metric-value.is-zero { color: var(--text-muted); opacity: 0.55; }
+    .metric-value.is-zero { color: var(--text-muted); opacity: 0.5; }
     .metric-value.pulse {
       animation: metricCountPulse 380ms var(--ease-spring);
     }
@@ -1867,20 +1868,28 @@
     }
     .metric-label {
       font-family: var(--font-mono);
-      font-size: var(--text-2xs);
+      font-size: 9.5px;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: var(--tracking-wide);
+      letter-spacing: 0.04em;
       font-weight: 500;
       line-height: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
     }
-    .metric-divider {
-      color: var(--text-muted);
-      opacity: 0.35;
-      font-size: 14px;
-      user-select: none;
-      pointer-events: none;
-      align-self: center;
+    /* Dividers escondidos — grid 3-col já dá spacing */
+    .metric-divider { display: none !important; }
+    /* Container query: se conv panel < 320px, label some, só ícone + número */
+    #conv-panel { container-type: inline-size; }
+    @container (max-width: 320px) {
+      .metric-label { display: none; }
+      .metric-card { gap: 3px; padding: 4px 1px; }
+    }
+    /* Mobile drawer ainda renderiza compacto: fallback @media */
+    @media (max-width: 767px) {
+      #metric-cards { padding: 6px 8px !important; gap: 2px; }
     }
     #metric-aguardando { --metric-color: var(--warning-text, #FBBF24); }
     #metric-atendendo  { --metric-color: var(--accent); }
