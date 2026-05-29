@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     // Aplica tema antes do render para evitar flash
     (function() {
@@ -69,13 +69,42 @@
       --bubble-human-label: #BFDBFE;
 
       /* === DESIGN SYSTEM TOKENS === */
-      /* Espaçamento */
-      --space-1: 4px; --space-2: 8px; --space-3: 12px;
-      --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
+      /* Espaçamento — escala completa */
+      --space-0: 0;
+      --space-1: 0.25rem;  /* 4px */
+      --space-2: 0.5rem;   /* 8px */
+      --space-3: 0.75rem;  /* 12px */
+      --space-4: 1rem;     /* 16px */
+      --space-5: 1.25rem;  /* 20px */
+      --space-6: 1.5rem;   /* 24px */
+      --space-8: 2rem;     /* 32px */
+      --space-10: 2.5rem;  /* 40px */
+      --space-12: 3rem;    /* 48px */
+      --space-16: 4rem;    /* 64px */
 
-      /* Tipografia */
-      --text-xs: 11px; --text-sm: 13px; --text-base: 14px; --text-lg: 16px; --text-xl: 18px;
-      --leading-tight: 1.3; --leading-normal: 1.5; --leading-relaxed: 1.62;
+      /* Tipografia — escala 1.125 ratio (product register) */
+      --text-2xs: 0.6875rem;  /* 11px — badges, micro labels */
+      --text-xs:  0.75rem;    /* 12px — captions, helper */
+      --text-sm:  0.8125rem;  /* 13px — secondary UI */
+      --text-base: 0.875rem;  /* 14px — body (UI) */
+      --text-md:  0.9375rem;  /* 15px — emphasized body */
+      --text-lg:  1rem;       /* 16px — subheadings */
+      --text-xl:  1.125rem;   /* 18px — section titles */
+      --text-2xl: 1.375rem;   /* 22px — display, h1 painel */
+      --text-3xl: 1.75rem;    /* 28px — login brand title */
+
+      /* Line-height system */
+      --leading-tight:   1.25;   /* headings */
+      --leading-snug:    1.4;    /* labels */
+      --leading-normal:  1.5;    /* body */
+      --leading-relaxed: 1.65;   /* prose long */
+
+      /* Letter-spacing system */
+      --tracking-tight:  -0.015em;  /* h1, h2 */
+      --tracking-normal: 0;
+      --tracking-wide:   0.04em;    /* uppercase badges */
+      --tracking-wider:  0.08em;    /* tiny mono labels */
+
       --font-weight-normal: 400; --font-weight-medium: 500; --font-weight-semibold: 600;
 
       /* Border radius */
@@ -139,10 +168,16 @@
       --border-muted: #cbd5e1;
 
       /* Design tokens (mesmos valores, tema claro) */
-      --space-1: 4px; --space-2: 8px; --space-3: 12px;
-      --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px;
-      --text-xs: 11px; --text-sm: 13px; --text-base: 14px; --text-lg: 16px; --text-xl: 18px;
-      --leading-tight: 1.3; --leading-normal: 1.5; --leading-relaxed: 1.62;
+      --space-0: 0;
+      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
+      --space-4: 1rem; --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem;
+      --space-10: 2.5rem; --space-12: 3rem; --space-16: 4rem;
+      --text-2xs: 0.6875rem; --text-xs: 0.75rem; --text-sm: 0.8125rem;
+      --text-base: 0.875rem; --text-md: 0.9375rem; --text-lg: 1rem;
+      --text-xl: 1.125rem; --text-2xl: 1.375rem; --text-3xl: 1.75rem;
+      --leading-tight: 1.25; --leading-snug: 1.4; --leading-normal: 1.5; --leading-relaxed: 1.65;
+      --tracking-tight: -0.015em; --tracking-normal: 0;
+      --tracking-wide: 0.04em; --tracking-wider: 0.08em;
       --font-weight-normal: 400; --font-weight-medium: 500; --font-weight-semibold: 600;
       --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-full: 9999px;
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.08);
@@ -160,10 +195,33 @@
 
     * { box-sizing: border-box; }
 
-    /* Tipografia global */
-    body { font-family: var(--font-body); }
-    h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); font-weight: 600; letter-spacing: -0.01em; }
+    /* A1: Variable font features */
+    body {
+      font-family: var(--font-body);
+      font-optical-sizing: auto;
+      font-kerning: normal;
+      font-variant-numeric: lining-nums;
+      line-height: var(--leading-normal);
+    }
+
+    /* A3: Heading hierarchy */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-heading);
+      font-weight: 600;
+      letter-spacing: var(--tracking-tight);
+      line-height: var(--leading-tight);
+    }
+
     kbd, code, .font-mono { font-family: var(--font-mono); }
+
+    /* A1: Geist Mono slashed-zero + tabular-nums everywhere it matters */
+    .font-mono, kbd, code, .bolha-ts, #thread-telefone,
+    .conv-time, .badge-count, [class*="badge"],
+    #char-counter, .waiting-badge {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "ss01" on, "cv11" on;
+    }
+
     /* Geist Mono para dados técnicos */
     .bolha-label, .filter-tab, .sidebar-nav-btn,
     .waiting-badge, .conv-time, #thread-telefone,
@@ -551,10 +609,10 @@
       align-items: center;
       gap: 4px;
       padding: 2px 6px;
-      font-size: 9.5px;
+      font-size: var(--text-2xs);
       font-family: var(--font-mono);
       font-weight: 600;
-      letter-spacing: 0.04em;
+      letter-spacing: var(--tracking-wide);
       border-radius: var(--radius-full);
       background: var(--warning-subtle);
       color: var(--warning-text);
@@ -715,10 +773,10 @@
       align-items: center;
       gap: 5px;
       padding: 3px 10px;
-      font-size: 10.5px;
+      font-size: var(--text-2xs);
       font-weight: 600;
       font-family: var(--font-body);
-      letter-spacing: 0.03em;
+      letter-spacing: var(--tracking-wide);
       border-radius: var(--radius-full);
       white-space: nowrap;
       text-transform: uppercase;
@@ -748,15 +806,16 @@
       flex-shrink: 0;
     }
 
-    /* thread-nome usa font-heading semibold */
+    /* B3: thread-nome — emphasized body, semibold */
     #thread-nome {
       font-family: var(--font-heading);
-      font-weight: var(--font-weight-semibold);
+      font-size: var(--text-md);
+      font-weight: 600;
     }
-    /* thread-telefone mono muted 11px — override do inline style */
+    /* B3: thread-telefone mono muted xs */
     #thread-telefone {
       font-family: var(--font-mono) !important;
-      font-size: 11px !important;
+      font-size: var(--text-xs) !important;
       color: var(--text-muted) !important;
     }
 
@@ -768,10 +827,10 @@
       align-items: center;
       gap: 6px;
       padding: 3px 10px;
-      font-size: 11px;
+      font-size: var(--text-2xs);
       font-weight: 600;
       font-family: var(--font-mono);
-      letter-spacing: 0.04em;
+      letter-spacing: var(--tracking-wide);
       border-radius: var(--radius-full);
       white-space: nowrap;
       text-transform: uppercase;
@@ -822,8 +881,8 @@
     .header-btn-group {
       display: flex;
       align-items: center;
-      gap: 2px;
-      padding: 0 4px;
+      gap: var(--space-1);
+      padding: 0 var(--space-1);
       border-left: 1px solid var(--border);
     }
     .header-btn-group:first-child { border-left: none; }
@@ -903,14 +962,13 @@
       font-variant-numeric: tabular-nums;
       transition: color var(--duration-fast);
     }
-    #thread-telefone { font-variant-numeric: tabular-nums; }
-    .conv-time { font-variant-numeric: tabular-nums; }
+    /* font-variant-numeric: tabular-nums now covered by unified A1 block above */
     #char-counter.warn { color: var(--warning-text, #d29922); }
     #char-counter.danger { color: var(--danger-text, #f85149); }
 
-    /* Fase 4.5: Send button — 40px circular, spring animation */
+    /* B4: Send button — 44px circular (touch target), spring animation */
     #send-btn {
-      width: 40px; height: 40px;
+      width: 44px; height: 44px;
       border-radius: var(--radius-full);
       background: var(--accent);
       transition: transform var(--duration-fast) var(--ease-spring),
@@ -1113,7 +1171,7 @@
       /* padding via inline style no HTML */
     }
     #conv-panel-header h2 {
-      font-size: 15px;
+      font-size: var(--text-md);
       font-weight: 600;
       color: var(--text-primary);
     }
@@ -1326,14 +1384,12 @@
       font-family: var(--font-mono);
       font-size: 10px;
     }
-    /* Thread nome: Plus Jakarta Sans semibold */
-    #thread-nome {
-      font-family: var(--font-heading);
-    }
+    /* Thread nome: Plus Jakarta Sans semibold (see A4 block above for full spec) */
+    #thread-nome { font-family: var(--font-heading); }
     /* Conv name */
     .conv-name {
       font-family: var(--font-heading);
-      font-size: 13px;
+      font-size: var(--text-sm);
     }
 
     /* ===== FE-2b: Command Palette ===== */
@@ -1920,15 +1976,15 @@
     }
     #info-nome {
       font-family: var(--font-heading);
-      font-size: 18px;
+      font-size: var(--text-xl);
       font-weight: 600;
       color: var(--text-primary);
       margin: 0 0 4px;
-      letter-spacing: -0.01em;
+      letter-spacing: var(--tracking-tight);
     }
     #info-telefone {
       font-family: var(--font-mono) !important;
-      font-size: 12px !important;
+      font-size: var(--text-xs) !important;
       color: var(--text-muted) !important;
       font-variant-numeric: tabular-nums;
       margin-bottom: 12px;
@@ -2115,6 +2171,38 @@
     /* Typeset a11y — text wrapping */
     h1, h2, h3 { text-wrap: balance; }
     p, li, .bolha-text, .info-sobre-texto { text-wrap: pretty; }
+
+    /* B4: info-action-btn mobile touch target */
+    @media (max-width: 767px) {
+      .info-action-btn { width: 44px; height: 44px; }
+    }
+
+    /* B5: Vertical rhythm in messages-area */
+    #messages-area > * + * { margin-top: var(--space-3); }
+    /* Same-origin consecutive: tight grouping (overrides the +* rule via sibling-selector specificity) */
+    #messages-area > .row-client + .row-client,
+    #messages-area > .row-bot    + .row-bot,
+    #messages-area > .row-human  + .row-human { margin-top: var(--space-1); }
+    /* System pills: clear separation */
+    #messages-area > .msg-system-pill,
+    #messages-area > .bolha-sistema { margin-block: var(--space-4); }
+
+    /* B2: Info panel rhythm */
+    .info-panel-header { padding-bottom: var(--space-5); }  /* header prime: 20px breathing */
+    .info-section + .info-section { margin-top: 0; }         /* sections: tight grouping (8px via border) */
+    /* Last section (Notas internas) — extra bottom padding */
+    .info-section:last-child .info-section-body { padding-bottom: var(--space-6); }
+
+    /* A3: cmd-section-header tracking token */
+    .cmd-section-header { letter-spacing: var(--tracking-wider); }
+    /* A3: stat-label tracking token */
+    .stat-label { letter-spacing: var(--tracking-wide); }
+    /* A3: metric-label tracking token */
+    .metric-label { letter-spacing: var(--tracking-wide); }
+    /* A3: bolha-label — body font, tracking-normal */
+    .bolha-label { letter-spacing: var(--tracking-normal); }
+    /* A3: logo-text wider tracking via token */
+    .logo-text { letter-spacing: var(--tracking-wider); }
   </style>
 </head>
 <body id="app-body" style="display:grid; grid-template-columns: 360px 1fr; height:100vh; overflow:hidden; background: var(--bg-base); color: var(--text-primary);">
