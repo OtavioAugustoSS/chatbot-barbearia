@@ -558,6 +558,35 @@
       border-left-color: var(--accent) !important;
       background: var(--accent-subtle) !important;
     }
+
+    /* ANTI-SLOP F: Conv card lateral status micro-stripe via ::before
+       2px stripe (not 3px — border-left already handles active indication)
+       NOTE: This replaces the ::before approach to avoid conflict with
+       border-left. We use a pseudo-element inset from left for status color.
+       JS can set: data-fresh="recent" for temporal warmth tint.
+       Classes: has-unread → accent, is-waiting → warning, bot-active → success */
+    .conv-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      bottom: 8px;
+      width: 2px;
+      background: transparent;
+      border-radius: 0 1px 1px 0;
+      transition: background var(--duration-fast);
+    }
+    .conv-card.has-unread::before { background: var(--accent); }
+    .conv-card.is-waiting::before { background: var(--warning-text); }
+    .conv-card.bot-active::before { background: var(--success); }
+
+    /* Temporal warmth: convs recentes (<1h) ganham hint amber sutil via JS data-fresh */
+    .conv-card[data-fresh="recent"] {
+      background: linear-gradient(90deg, rgba(251,191,36,0.03) 0%, transparent 30%);
+    }
+    .conv-card[data-fresh="recent"]:hover {
+      background: var(--bg-card-hover) !important;
+    }
     .conv-card.unread .conv-name { font-weight: var(--font-weight-semibold); color: var(--text-primary); }
     .conv-card.unread .unread-dot { display: block !important; }
 
@@ -767,6 +796,152 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.2);
     }
 
+    /* ===== ANTI-SLOP B: Thread header 2-row grid ===== */
+    #thread-header.header-grid {
+      display: grid !important;
+      grid-template-areas:
+        "avatar identity actions"
+        "avatar status-row actions";
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-5);
+      background-image:
+        radial-gradient(circle at 92% 50%, var(--accent-subtle) 0%, transparent 30%);
+    }
+    #thread-header.header-grid #thread-avatar { grid-area: avatar; width: 42px; height: 42px; }
+    #thread-identity {
+      grid-area: identity;
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-2);
+      min-width: 0;
+    }
+    #thread-status-row {
+      grid-area: status-row;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    #thread-actions-group {
+      grid-area: actions;
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-shrink: 0;
+      align-self: center;
+      grid-row: 1 / -1;  /* span both rows */
+    }
+    #thread-header.header-grid #thread-nome {
+      font-family: var(--font-heading);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      letter-spacing: var(--tracking-tight);
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #thread-header.header-grid #thread-telefone {
+      font-family: var(--font-mono) !important;
+      font-size: var(--text-xs) !important;
+      color: var(--text-muted) !important;
+      font-variant-numeric: tabular-nums;
+      position: relative;
+      padding-left: var(--space-3);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #thread-header.header-grid #thread-telefone::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transform: translateY(-50%);
+    }
+    /* In the grid header, thread-status is bare text (dot is provided by .thread-status-dot) */
+    #thread-status-row #thread-status {
+      display: inline !important;
+      padding: 0 !important;
+      background: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      font-weight: 500;
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    #thread-status-row #thread-status::before { display: none !important; }
+
+    /* Status row elements */
+    .thread-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent-subtle);
+      flex-shrink: 0;
+      animation: statusPulse 2.5s ease-in-out infinite;
+    }
+    .thread-status-dot.status-bot {
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(16,185,129,0.4);
+    }
+    .thread-status-dot.status-aguardando {
+      background: var(--warning-text);
+      box-shadow: 0 0 8px rgba(245,158,11,0.4);
+    }
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.92); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .thread-status-dot { animation: none !important; }
+    }
+    .thread-status-label {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .thread-status-time {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .thread-status-time::before {
+      content: '·';
+      margin: 0 6px;
+      opacity: 0.5;
+    }
+    /* Mobile/tablet: collapse status-time; hamburger btn adds to grid */
+    @media (max-width: 1023px) {
+      #thread-header.header-grid {
+        grid-template-areas:
+          "hamburger avatar identity actions"
+          ".         avatar status-row actions";
+        grid-template-columns: auto auto 1fr auto;
+        padding: var(--space-2) var(--space-3);
+        gap: var(--space-2);
+      }
+      #thread-header.header-grid #mobile-drawer-toggle {
+        grid-area: hamburger;
+      }
+    }
+    @media (max-width: 767px) {
+      .thread-status-time { display: none; }
+    }
+    @media (min-width: 1024px) {
+      #thread-header.header-grid #mobile-drawer-toggle {
+        display: none !important;
+      }
+    }
+
     /* Thread status badge pill — semântico conforme estado da conversa */
     #thread-status-badge {
       display: inline-flex;
@@ -929,6 +1104,27 @@
       border-top: 1px solid var(--border-muted);
       background: var(--bg-composer);
       padding: var(--space-2) var(--space-3) var(--space-3);
+      position: relative;
+    }
+    /* ANTI-SLOP D: Composer focus underline accent */
+    #composer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%);
+      opacity: 0;
+      transition: opacity var(--duration-normal) var(--ease-out);
+      pointer-events: none;
+      z-index: 1;
+    }
+    #composer:focus-within::before {
+      opacity: 0.55;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #composer::before { transition: none !important; }
     }
     /* Toolbar do composer: row com ícones à esquerda + AI Assist à direita */
     #composer-toolbar {
@@ -952,8 +1148,10 @@
       placeholder: "Digite uma mensagem ou /comando…";
     }
     #msg-input:focus {
-      border-color: var(--accent) !important;
-      box-shadow: 0 0 0 3px var(--accent-subtle);
+      border-color: var(--accent-border) !important;
+      box-shadow:
+        0 0 0 3px var(--accent-subtle),
+        inset 0 1px 0 rgba(255,255,255,0.04);
     }
     #char-counter {
       font-size: 10px;
@@ -1343,6 +1541,81 @@
       filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
     }
 
+    /* ANTI-SLOP E: Sidebar logo glow + section labels */
+    .sidebar-logo-wrapper {
+      position: relative;
+      flex-shrink: 0;
+    }
+    .sidebar-logo-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 14px;
+      background: radial-gradient(circle, var(--accent-subtle) 0%, transparent 60%);
+      z-index: -1;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* Sidebar section label — shown between groups in the conv-panel header icon row */
+    .sidebar-section-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-wider);
+      color: var(--text-muted);
+      padding: var(--space-2) 0 var(--space-1);
+      text-align: center;
+      border-top: 1px solid var(--border);
+      margin-top: var(--space-2);
+      display: block;
+      width: 100%;
+    }
+    .sidebar-section-label:first-child { border-top: none; margin-top: 0; }
+
+    /* Active sidebar nav button — strip at left edge (overrides F4 left:-8px for full visibility) */
+    .sidebar-nav-btn.active,
+    .sidebar-nav-btn[aria-current="page"] {
+      background: var(--accent-subtle);
+      color: var(--accent);
+    }
+    .sidebar-nav-btn.active::before,
+    .sidebar-nav-btn[aria-current="page"]::before {
+      content: '';
+      position: absolute;
+      left: -2px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 22px;
+      background: var(--accent);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+
+    /* Filter tab section label — separates tab groups within conv-panel */
+    .filter-section-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-wider);
+      color: var(--text-muted);
+      padding: var(--space-1) var(--space-3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-base);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .filter-section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
     /* === Design polish: OLED depth + Geist Mono accent === */
     /* Subtle gradient on sidebar (Fase 3: mantém gradiente mas sem sobrescrever padding) */
     #conv-panel-header {
@@ -1427,6 +1700,23 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--text-muted);
+    }
+
+    /* ===== ANTI-SLOP C: Directional bubble shadows ===== */
+    /* Direction of shadow reinforces origin: client from left → shadow left; bot/op from right → shadow right */
+    .bolha-incoming {
+      box-shadow: -1px 1px 2px rgba(0,0,0,0.14), -2px 2px 6px rgba(0,0,0,0.09);
+    }
+    .bolha-outgoing-bot,
+    .bolha-outgoing-humano {
+      box-shadow: 1px 1px 2px rgba(0,0,0,0.14), 2px 2px 6px rgba(0,0,0,0.09);
+    }
+    [data-theme="light"] .bolha-incoming {
+      box-shadow: -1px 1px 2px rgba(0,0,0,0.10), -2px 2px 6px rgba(0,0,0,0.06);
+    }
+    [data-theme="light"] .bolha-outgoing-bot,
+    [data-theme="light"] .bolha-outgoing-humano {
+      box-shadow: 1px 1px 2px rgba(0,0,0,0.10), 2px 2px 6px rgba(0,0,0,0.06);
     }
 
     /* ===== RD-3: Bubble tails — clip-path WhatsApp style (spec :428-463) ===== */
@@ -2532,6 +2822,27 @@
       transition-duration: var(--duration-instant);
     }
 
+    /* ANTI-SLOP D: Send button arc decoration on hover */
+    #send-btn::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 1px dashed var(--accent-border);
+      opacity: 0;
+      transition: opacity var(--duration-fast), transform var(--duration-normal) var(--ease-out);
+      pointer-events: none;
+      transform: rotate(0deg);
+    }
+    #send-btn:hover:not(:disabled)::after {
+      opacity: 0.5;
+      transform: rotate(180deg);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #send-btn::after { transition: none !important; transform: none !important; }
+      #send-btn:hover:not(:disabled)::after { opacity: 0.4; transform: none; }
+    }
+
     /* -----------------------------------------------------------------
        F4: Sidebar nav active state — strip vertical à esquerda
        DORMANT: JS ou navegação futura deve adicionar `.active` ou
@@ -2774,8 +3085,10 @@
 
     <!-- Sidebar header: identidade do operador + título Conversas (Fase 3.3) -->
     <div id="conv-panel-header" style="padding: 12px 14px; border-bottom: 1px solid var(--border-soft, #1F2025); display: flex; align-items: center; gap: 8px;">
-      <!-- Logo Bolshoi 40px -->
-      <img src="/static/admin/img/logo-bolshoi.png" alt="Bolshoi" class="sidebar-logo">
+      <!-- Logo Bolshoi 40px with glow wrapper -->
+      <div class="sidebar-logo-wrapper">
+        <img src="/static/admin/img/logo-bolshoi.png" alt="Bolshoi" class="sidebar-logo">
+      </div>
       <!-- Título "Conversas" -->
       <h2 style="flex:1; min-width:0; font-size:15px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--font-heading); margin:0;">Conversas</h2>
       <div style="display:flex; gap:2px; align-items:center;">
@@ -2973,24 +3286,28 @@
     </div>
 
     <!-- Thread header (hidden inicialmente) -->
-    <header id="thread-header" class="hidden flex-shrink-0 flex items-center gap-3 px-4 py-3" style="background: var(--bg-surface); border-bottom: 1px solid var(--border);">
-      <!-- G2/V14: botao mobile hamburger animado para abrir conv-panel como drawer -->
+    <header id="thread-header" class="hidden flex-shrink-0 header-grid" style="background: var(--bg-surface); border-bottom: 1px solid var(--border);">
+      <!-- G2/V14: botao mobile hamburger animado — fora do grid via display none (CSS lida com display:flex em mobile) -->
       <button id="mobile-drawer-toggle" class="hamburger-btn flex-shrink-0" aria-label="Menu" title="Conversas">
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
       </button>
-      <div id="thread-avatar" class="flex-shrink-0"></div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2">
-          <h3 id="thread-nome" class="font-semibold text-sm truncate" style="color: var(--text-primary);"></h3>
-          <span id="thread-tag-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full"></span>
-        </div>
-        <p id="thread-telefone" class="text-xs truncate" style="color: var(--text-secondary);"></p>
+      <div id="thread-avatar" style="grid-area: avatar; flex-shrink:0;"></div>
+      <!-- Identity row: nome + telefone inline -->
+      <div id="thread-identity">
+        <h3 id="thread-nome" style="color: var(--text-primary); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></h3>
+        <span id="thread-tag-badge" class="hidden text-xs font-bold px-2 py-0.5 rounded-full"></span>
+        <span id="thread-telefone"></span>
       </div>
-      <!-- Thread actions -->
-      <div class="flex items-center gap-2 flex-shrink-0">
-        <span id="thread-status" class="text-xs" style="color: var(--text-secondary);"></span>
+      <!-- Status row: dot + label + elapsed time -->
+      <div id="thread-status-row">
+        <span class="thread-status-dot" id="thread-status-dot" aria-hidden="true"></span>
+        <span id="thread-status" class="thread-status-label"></span>
+        <span id="thread-status-time" class="thread-status-time" aria-live="off"></span>
+      </div>
+      <!-- Actions group (right column, spans both rows) -->
+      <div id="thread-actions-group">
         <button id="btn-assumir" data-tooltip="Assumir conversa" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--accent); color: white;">Assumir</button>
         <button id="btn-interromper" data-tooltip="Interromper bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--warning-text, #d29922); color: #1a1a1a;"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Interromper bot</button>
         <button id="btn-devolver" data-tooltip="Devolver ao bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border);"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Devolver ao bot</button>
@@ -3362,6 +3679,91 @@
       'font: 12px monospace; color: #6B7280;',
       'font: 11px sans-serif; color: #9CA3AF;'
     );
+  </script>
+
+  <!-- ANTI-SLOP: Thread header status-dot sync + elapsed time -->
+  <script>
+  (function() {
+    // Patch syncComposerState to also update #thread-status-dot and #thread-status-time
+    // Runs after app.js loads; wraps the existing function.
+    let _assumeTimestamp = null;
+
+    function _syncStatusDot(u) {
+      const dot = document.getElementById('thread-status-dot');
+      if (!dot) return;
+      dot.classList.remove('status-bot', 'status-aguardando');
+      if (!u) return;
+      const meu = u.atendente_id === (window.state && window.state.eu && window.state.eu.id);
+      const outro = u.atendente_id && !meu;
+      if (u.aguardando_humano && !u.atendente_id) {
+        dot.classList.add('status-aguardando');
+      } else if (u.bot_ativo && !u.atendente_id) {
+        dot.classList.add('status-bot');
+      }
+      // humano (meu ou outro): default accent color — no extra class needed
+    }
+
+    function _relativeTime(ts) {
+      if (!ts) return '';
+      const diff = Math.floor((Date.now() - ts) / 1000);
+      if (diff < 60) return 'há ' + diff + 's';
+      const mins = Math.floor(diff / 60);
+      if (mins < 60) return 'há ' + mins + ' min';
+      const hrs = Math.floor(mins / 60);
+      return 'há ' + hrs + 'h';
+    }
+
+    function _updateStatusTime() {
+      const el = document.getElementById('thread-status-time');
+      if (!el) return;
+      if (_assumeTimestamp) {
+        el.textContent = _relativeTime(_assumeTimestamp);
+      } else {
+        el.textContent = '';
+      }
+    }
+
+    // Patch: override syncComposerState after DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Wait one tick for app.js to define the function
+      setTimeout(function patchSync() {
+        if (typeof syncComposerState !== 'function') { setTimeout(patchSync, 100); return; }
+        const orig = syncComposerState;
+        window.syncComposerState = function(u) {
+          orig.call(this, u);
+          _syncStatusDot(u || (window.state && window.state.usuarioAtual));
+        };
+        // Patch abrirConversa to set timestamp
+        if (typeof abrirConversa === 'function') {
+          const origAbrir = abrirConversa;
+          window.abrirConversa = async function(telefone) {
+            await origAbrir.call(this, telefone);
+            // If current conv is now mine, record timestamp
+            const u = window.state && window.state.usuarioAtual;
+            const myId = window.state && window.state.eu && window.state.eu.id;
+            if (u && u.atendente_id && myId && u.atendente_id === myId) {
+              _assumeTimestamp = Date.now();
+            } else {
+              _assumeTimestamp = null;
+            }
+            _updateStatusTime();
+          };
+        }
+        // Patch assumirConversa to set timestamp
+        if (typeof assumirConversa === 'function') {
+          const origAssumir = assumirConversa;
+          window.assumirConversa = async function(telefone) {
+            await origAssumir.call(this, telefone);
+            _assumeTimestamp = Date.now();
+            _updateStatusTime();
+          };
+        }
+      }, 50);
+    });
+
+    // Tick every 30s to keep elapsed time fresh
+    setInterval(_updateStatusTime, 30000);
+  })();
   </script>
 </body>
 </html>

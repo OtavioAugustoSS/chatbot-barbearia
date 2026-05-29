@@ -278,25 +278,81 @@
       box-shadow: 0 0 6px rgba(16,185,129,0.6);
     }
 
-    /* Features list */
-    .features-list {
-      margin-top: 40px;
-      display: flex; flex-direction: column; gap: 16px;
-      max-width: 280px;
+    /* Hero quote block */
+    .login-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-4);
+      max-width: 420px;
     }
-    .feature-item {
-      display: flex; align-items: center; gap: 12px;
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
+    .login-hero-quote {
+      position: relative;
+      margin-top: var(--space-8);
+      padding: var(--space-6);
+      border-left: 2px solid var(--accent);
+      font-family: var(--font-heading);
+      text-align: left;
+      background: var(--bg-card);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      width: 100%;
     }
-    .feature-icon {
-      width: 32px; height: 32px;
-      border-radius: var(--radius-sm);
-      background: var(--accent-subtle);
-      border: 1px solid var(--accent-border);
-      display: flex; align-items: center; justify-content: center;
+    .quote-mark {
+      font-family: 'Plus Jakarta Sans', serif;
+      font-size: 64px;
+      line-height: 0;
       color: var(--accent);
+      position: absolute;
+      top: 28px;
+      left: var(--space-4);
+      opacity: 0.4;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    .quote-body {
+      font-size: var(--text-lg);
+      line-height: var(--leading-snug);
+      color: var(--text-primary);
+      font-weight: 500;
+      margin: 0 0 var(--space-3);
+      padding-left: var(--space-6);
+      letter-spacing: var(--tracking-tight);
+    }
+    .quote-author {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-wide);
+      padding-left: var(--space-6);
+      display: block;
+    }
+    .login-hero-meta {
+      margin-top: var(--space-12);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: var(--tracking-wider);
+      text-transform: uppercase;
+    }
+    .meta-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 6px rgba(16,185,129,0.5);
+      animation: metaPulse 3s ease-in-out infinite;
       flex-shrink: 0;
+    }
+    @keyframes metaPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .meta-dot { animation: none !important; }
     }
 
     /* F2: Screen-reader only labels */
@@ -316,7 +372,7 @@
         border-bottom: 1px solid var(--border-muted);
       }
       .login-right { padding: 32px 24px; }
-      .features-list { display: none; }
+      .login-hero-meta { margin-top: var(--space-6); }
     }
 
     /* F: Focus-visible outline */
@@ -378,29 +434,21 @@
 
   <!-- Painel esquerdo — branding -->
   <div class="login-left">
-    <img src="/static/admin/img/logo-bolshoi.png" alt="Barbearia Bolshoi" class="brand-logo">
-    <p class="brand-sub">Painel de Atendimento WhatsApp</p>
+    <div class="login-hero">
+      <img src="/static/admin/img/logo-bolshoi.png" alt="Barbearia Bolshoi" class="brand-logo">
+      <p class="brand-sub">Atendimento WhatsApp</p>
 
-    <ul class="features-list">
-      <li class="feature-item">
-        <div class="feature-icon">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-        </div>
-        Atendimento em tempo real via WhatsApp
-      </li>
-      <li class="feature-item">
-        <div class="feature-icon">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        </div>
-        Handoff seguro entre bot e atendentes
-      </li>
-      <li class="feature-item">
-        <div class="feature-icon">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-        </div>
-        Histórico completo de conversas
-      </li>
-    </ul>
+      <div class="login-hero-quote">
+        <span class="quote-mark" aria-hidden="true">"</span>
+        <p class="quote-body">O bot lida com 80% das mensagens. Você lida com os 20% que importam.</p>
+        <span class="quote-author">— Painel de operadores Bolshoi</span>
+      </div>
+
+      <div class="login-hero-meta">
+        <span class="meta-dot" aria-hidden="true"></span>
+        <span class="meta-label">v0.4.0 · Unaí, MG · Online</span>
+      </div>
+    </div>
   </div>
 
   <!-- Painel direito — formulário -->
