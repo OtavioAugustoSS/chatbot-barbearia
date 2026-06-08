@@ -127,6 +127,9 @@ class AtribuirIn(BaseModel):
 
 class PresenceIn(BaseModel):
     status: Literal["online", "away", "offline"]
+    # P2-7b: JWT no body (e não em query) como fallback p/ navigator.sendBeacon,
+    # que não envia headers. Body não vaza em access log; query param vazava.
+    token: str | None = None
 
 
 class BulkIn(BaseModel):
@@ -709,24 +712,24 @@ def atualizar_presence(
     payload: PresenceIn,
     request: Request,
     db: Session = Depends(get_db),
-    token: str | None = Query(None, description="JWT via query param (fallback para navigator.sendBeacon)"),
 ):
     """
     Heartbeat de presença do atendente. Chamar a cada 30s ou em visibility change.
-    Aceita auth via header Authorization (default) ou query param ?token=... como
-    fallback para navigator.sendBeacon (que não suporta headers customizados em beforeunload).
+    Aceita auth via header Authorization (default) ou via `token` no body (P2-7b),
+    fallback para navigator.sendBeacon, que não suporta headers customizados em
+    beforeunload. O token no body não vaza em access log (a query param vazava).
     """
     from api.auth import _decodificar, JWT_SECRET
     if not JWT_SECRET:
         raise HTTPException(status_code=503, detail="JWT_SECRET não configurado")
 
-    # Tenta header Authorization primeiro
+    # Tenta header Authorization primeiro; senão, token no body (sendBeacon).
     raw_token = None
     auth_header = request.headers.get("authorization", "")
     if auth_header.lower().startswith("bearer "):
         raw_token = auth_header[7:].strip()
-    elif token:
-        raw_token = token
+    elif payload.token:
+        raw_token = payload.token
 
     if not raw_token:
         raise HTTPException(status_code=401, detail="Token ausente")
