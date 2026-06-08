@@ -1316,6 +1316,13 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     if user.status_conversa in ("snoozed", "resolved"):
         user.status_conversa = "open"
         user.snoozed_until = None
+        # P1-5: se reabre SEM operador ativo mas com bot inativo (ex.: handoff anterior
+        # resolvido sem devolver), reativa o bot — senão a nova mensagem cairia no caminho
+        # "bot inativo" e o cliente ficaria sem resposta.
+        if user.atendente_id is None and not user.bot_ativo:
+            user.bot_ativo = True
+            user.bot_desativado_em = None
+            user.aguardando_humano = False
         db.commit()
         if MODO_HIBRIDO:
             try:

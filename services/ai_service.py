@@ -46,6 +46,17 @@ _FRASE_REDIRECT_APPBARBER = (
     "Para agendamentos, acesse nosso aplicativo oficial: https://sites.appbarber.com.br/bolshoi"
 )
 
+# P1-7: o telefone PESSOAL do Fred só pode ser compartilhado se o cliente PEDIR
+# explicitamente (BR-002). Guard determinístico (análogo ao anti-agendamento): se a IA
+# vazar o número sem pedido explícito, neutralizamos. Pega variações de (38) 99897-0661.
+_REGEX_NUMERO_FRED = re.compile(r"\(?\s*38\s*\)?[\s.\-]*9\s*9897[\s.\-]?0661")
+_REGEX_PEDIU_CONTATO_FRED = re.compile(
+    r"(telefone|n[uú]mero|contato|whats(app)?|zap|celular)\b.{0,25}\bfred\b|"
+    r"\bfred\b.{0,25}(telefone|n[uú]mero|contato|whats(app)?|zap|celular)|"
+    r"(falar|chamar|ligar)\s+(com\s+|pra\s+|para\s+)?(o\s+)?fred\b",
+    re.IGNORECASE,
+)
+
 # Brasil é UTC-3 fixo (sem horário de verão desde 2019). Offset hardcoded
 # evita dependência de tzdata em Windows e elimina ambiguidade.
 _TZ_BR = timezone(timedelta(hours=-3), name="America/Sao_Paulo")
@@ -309,8 +320,9 @@ class AIService:
             timeout=30,
         )
 
-    def _validar_resposta(self, dados: dict) -> dict:
-        """Sanitiza resposta da IA: enum válido + bloqueio de promessas de agendamento."""
+    def _validar_resposta(self, dados: dict, mensagem_cliente: str = "") -> dict:
+        """Sanitiza resposta da IA: enum válido + bloqueio de promessas de agendamento
+        + guard do telefone do Fred (BR-002)."""
         intencao = dados.get("intencao", "tirar_duvida")
         if intencao not in INTENCOES_VALIDAS:
             log.warning("Intenção fora do enum (%s) - rebaixando para 'tirar_duvida'.", intencao)
@@ -322,6 +334,16 @@ class AIService:
             resposta = (
                 f"Não realizamos agendamentos pelo chat.<br><br>{_FRASE_REDIRECT_APPBARBER}"
             )
+
+        # P1-7: guard do telefone pessoal do Fred — só compartilha se o cliente PEDIU
+        # explicitamente (BR-002). Drift da IA que vaze o número é neutralizado.
+        if isinstance(resposta, str) and _REGEX_NUMERO_FRED.search(resposta):
+            if not (mensagem_cliente and _REGEX_PEDIU_CONTATO_FRED.search(mensagem_cliente)):
+                log.warning("IA incluiu telefone do Fred sem pedido explícito - neutralizado (BR-002).")
+                resposta = (
+                    "Posso te ajudar com informações da barbearia, nossos serviços e o agendamento "
+                    "pelo app. Como posso ajudar?"
+                )
 
         # QW-B2: sanitização técnica contra service description leakage.
         # Remove " | ref: dura Xmin; desc: ..." que pode vazar se o modelo sofrer drift
@@ -456,7 +478,7 @@ class AIService:
                 inner = dados["choices"][0]["message"]["content"]
                 dados = json.loads(inner) if isinstance(inner, str) else inner
 
-            return self._validar_resposta(dados)
+            return self._validar_resposta(dados, mensagem_atual)
 
         except json.JSONDecodeError as e:
             log.error("Falha ao parsear JSON da IA: %s", e)
@@ -468,7 +490,10 @@ class AIService:
                 "resposta_sugerida": "Estou enfrentando uma instabilidade. Só um instante, estou conectando você à recepção para continuarmos."
             }
         except Exception as e:
-            log.exception("Erro inesperado em processar_intencao")
+            # P1-1: alerta DISTINTO e acionável de IA indisponível (após retries) —
+            # catchável por monitor de log / Sentry. Handoff (transbordo_falha) é acionado abaixo.
+            log.error("[IA INDISPONÍVEL] Falha ao processar intenção (após retries): %s — acionando handoff.", e)
+            log.exception("Detalhe do erro em processar_intencao")
             self._registrar_erro_debug(f"[ERRO AI SERVICE NVIDIA] {e}")
             return {
                 "intencao": "transbordo_falha",

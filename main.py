@@ -30,6 +30,18 @@ logging.basicConfig(
 _log = logging.getLogger("barbearia")
 _log.info("Modo de operação: %s", MODO_OPERACAO)
 
+# Observabilidade opcional (P1-1): ativa Sentry SOMENTE se SENTRY_DSN estiver definido.
+# Sem DSN (modo de testes/dev) é no-op. Requer `pip install sentry-sdk` se for usar.
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=_sentry_dsn, traces_sample_rate=0.0, environment=os.getenv("APP_ENV", "production"))
+        _log.info("Sentry ativado para captura de erros.")
+    except ImportError:
+        _log.warning("SENTRY_DSN definido mas 'sentry-sdk' não instalado — rode: pip install sentry-sdk")
+
+
 def _exigir_meta_secret(meta_secret: str, allow_unsigned: str) -> None:
     """Aborta o boot se META_APP_SECRET ausente em producao."""
     if not meta_secret:
