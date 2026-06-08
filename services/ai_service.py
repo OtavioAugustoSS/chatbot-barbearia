@@ -16,6 +16,7 @@ from sqlalchemy.orm import joinedload
 from core.prompts import SYSTEM_PROMPT_BARBEARIA, ANCORA_ANTI_DRIFT
 from core.config import MODO_HIBRIDO
 from db.models import Servico, Barbeiro, Horario
+from services.circuit_breaker import CircuitBreaker, CircuitOpenError
 
 log = logging.getLogger("barbearia.ai")
 
@@ -224,6 +225,10 @@ class AIService:
             api_key=os.getenv("NVIDIA_API_KEY")
         )
         self.model_name = "meta/llama-3.1-70b-instruct"
+        # P2-1: circuit breaker em volta da chamada ao NIM. Após 3 falhas consecutivas
+        # (cada uma já esgotou os 3 retries do tenacity), abre por 30s e as mensagens
+        # seguintes caem direto no handoff em vez de pendurar ~24s cada.
+        self._breaker = CircuitBreaker(failure_threshold=3, reset_timeout=30.0, name="nim-llm")
         # Cache simples de serviços/barbeiros (mudam raramente; revalida a cada N segundos).
         self._cache_db = {"data": None, "expira_em": 0.0}
         self._cache_ttl_segundos = 300  # 5 min
@@ -406,7 +411,9 @@ class AIService:
             messages_payload.append({"role": "user", "content": mensagem_atual})
 
             t0 = time.time()
-            completion = self._chamar_llm(messages_payload)
+            # P2-1: via circuit breaker — se aberto, levanta CircuitOpenError na hora,
+            # que cai no `except Exception` abaixo e aciona o handoff sem esperar retries.
+            completion = self._breaker.call(self._chamar_llm, messages_payload)
             elapsed = time.time() - t0
             log.info("IA completion ok em %.2fs (msgs=%d)", elapsed, len(messages_payload))
 
@@ -488,6 +495,14 @@ class AIService:
             return {
                 "intencao": "transbordo_falha",
                 "resposta_sugerida": "Estou enfrentando uma instabilidade. Só um instante, estou conectando você à recepção para continuarmos."
+            }
+        except CircuitOpenError as e:
+            # P2-1: circuito aberto (NIM em outage) — handoff imediato. O alerta forte
+            # já foi logado quando o circuito abriu; aqui não repetimos como erro novo.
+            log.warning("[IA DEGRADADA] %s — handoff direto sem esperar retries.", e)
+            return {
+                "intencao": "transbordo_falha",
+                "resposta_sugerida": "Estou com uma instabilidade momentânea. Vou te conectar à recepção para não te deixar esperando."
             }
         except Exception as e:
             # P1-1: alerta DISTINTO e acionável de IA indisponível (após retries) —
