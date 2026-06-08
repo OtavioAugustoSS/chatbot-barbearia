@@ -80,8 +80,8 @@ com nomes novos apenas quando não existe equivalente.
 |---|---|---|---|---|
 | `--acc-deep` | `#2F58CC` | `#2D5BCC` | sim | Fill de bolha humano + CTA com texto branco. Dark 6.19:1; light 6.32:1 (branco) |
 | `--text-faint` | `#54575F` | `#94A3B8` | sim | Separadores visuais e dividers APENAS — nunca usar como texto legível |
-| `--success-text-strong` | `#46C699` | `#059669` | sim | Texto de sucesso garantido AA em ambos os temas |
-| `--warning-text-strong` | `#E6B860` | `#B45309` | sim | Texto de warning garantido AA em ambos os temas |
+| `--success-text-strong` | `#46C699` | `#065F46` | sim | Texto de sucesso garantido AA sobre `*-subtle` em ambos os temas (ver Amendment 2026-06-08) |
+| `--warning-text-strong` | `#E6B860` | `#92400E` | sim | Texto de warning garantido AA sobre `*-subtle` em ambos os temas (ver Amendment 2026-06-08) |
 | `--sheen-avatar` | `inset 0 1px 0 rgba(255,255,255,0.12)` | `inset 0 1px 0 rgba(255,255,255,0.60)` | sim | Highlight superior em avatares/badges circulares |
 | `--inset-input` | `inset 0 1px 3px rgba(0,0,0,0.30), inset 0 0 0 1px rgba(0,0,0,0.18)` | `inset 0 1px 3px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.06)` | sim | Campo de texto recuado (compositor, inputs de login) |
 | `--inset-panel` | `inset 0 2px 6px rgba(0,0,0,0.22)` | `inset 0 2px 6px rgba(0,0,0,0.06)` | sim | Área de chat (canvas recuado) |
@@ -93,10 +93,10 @@ com nomes novos apenas quando não existe equivalente.
 - `--acc-deep` dark `#2F58CC` vs light `#2D5BCC`: diferença é 1 ponto de L no canal azul — ambos resultam em branco 6.19:1/6.32:1; os valores são praticamente equivalentes e intercambiáveis. Usar o literal correto em cada tema.
 - `--text-faint #54575F` dark: L≈0.097 → 1.88:1 on #15161A. **Intencionalmente sub-AA** — é válido só para elementos não-textuais (linhas, separadores, track de scrollbar). Nunca aplicar em `color:` de texto.
 - `--text-faint #94A3B8` light: L≈0.317 → 3.67:1 on #ffffff — sub-AA deliberado para uso idêntico (separadores) no tema claro.
-- `--success-text-strong #46C699` dark: L≈0.465 → 8.73:1 on #15161A ✓.
-- `--success-text-strong #059669` light: L≈0.101 → 5.67:1 on #f8fafc ✓.
-- `--warning-text-strong #E6B860` dark: L≈0.495 → 9.29:1 on #15161A ✓.
-- `--warning-text-strong #B45309` light: L≈0.116 → 6.36:1 on #f8fafc ✓ (amber escuro, mantém legibilidade).
+- `--success-text-strong #46C699` dark: 5.94:1 sobre `--success-subtle` em `--bg-card` ✓ (medido no browser).
+- `--success-text-strong #065F46` light: 6.27:1 sobre `--success-subtle` em `--bg-card` ✓ (ver Amendment 2026-06-08).
+- `--warning-text-strong #E6B860` dark: 6.53:1 sobre `--warning-subtle` em `--bg-card` ✓ (medido no browser).
+- `--warning-text-strong #92400E` light: 5.84:1 sobre `--warning-subtle` em `--bg-card` ✓ (amber escuro, mantém legibilidade; ver Amendment 2026-06-08).
 - Sombras depth: em dark, opacidades ~0.22–0.38 (preto sobre preto, sutil mas visível). Em light, ~40–60% de redução de opacidade, espelhando o padrão já estabelecido em `--shadow-sm`/`--shadow-md`/`--shadow-lg` (dark usa 0.28/0.32/0.38; light usa 0.10/0.12/0.15).
 
 ---
@@ -137,3 +137,43 @@ Resultado: atualizar só `--duration-fast` (120→150) e `--duration-normal` (20
 2. **Manter `--text-muted #6B7280`**: descartado — falha AA documentada; não aceitável dado PRODUCT.md "WCAG 2.1 AA mínimo".
 3. **Usar `color-mix()` para bubbles**: descartado — suporte parcial em produção (não há polyfill no projeto); `rgba()` é equivalente funcional sem dependência nova.
 4. **Adotar valores de duração do concept sem avaliação**: descartado — 80ms para instant é melhor que 90ms (ver Bloco 3).
+
+---
+
+## Amendment — 2026-06-08 (correção de regressão P1-4)
+
+A auditoria de prontidão (`docs/review/production-readiness-2026-06.md`, P1-4) e o QA pegaram um bug
+**introduzido por esta própria ADR** no tema claro:
+
+1. **Superfície de validação errada.** O Bloco 2 original validou `*-text-strong` contra `--bg-base`
+   (`#f8fafc`, a superfície mais clara da página). Mas esses tokens são usados como texto sobre os
+   chips `*-subtle` (badge de espera, status do thread, pills de evento), que compõem sobre `--bg-card`
+   (`#f1f5f9`) — uma superfície **mais escura** que reduz o contraste. Medido na superfície real:
+   - `--warning-text` base `#d97706` sobre `--warning-subtle`/card: **2.62:1 (FALHA AA)**.
+   - `--success-text` base `#059669` sobre `--success-subtle`/card: **3.08:1 (FALHA AA)**.
+2. **Valor light de sucesso redundante.** `--success-text-strong` light era `#059669` — **idêntico**
+   ao `--success-text` base. Não fornecia reforço algum.
+3. **Tokens nunca aplicados.** Os `*-text-strong` foram definidos mas **nenhum call-site os usava** —
+   o port shipou os chips com os tokens base, então a falha de contraste vazou para a branch.
+
+**Correção aplicada (validada no browser, Playwright, compondo `*-subtle` sobre `--bg-card`):**
+
+| Token | Light antigo | Light novo | Contraste light (sobre `*-subtle`/card) |
+|---|---|---|---|
+| `--success-text-strong` | `#059669` | `#065F46` | 3.08 → **6.27:1 ✓** |
+| `--warning-text-strong` | `#B45309` | `#92400E` | 2.62 → **5.84:1 ✓** |
+
+Valores dark inalterados (`#46C699` / `#E6B860`; medidos 5.94 / 6.53:1 sobre subtle — AA mantido).
+
+**Call-sites cabeados aos `*-text-strong`** (antes usavam os tokens base, falhando AA no light):
+`.waiting-badge`, `.filter-tab[data-filter="aguardando"] #badge-aguardando`, `#thread-status-badge.badge-aguardando`,
+`#thread-status-badge.badge-bot`, `#thread-status.status-bot`, `#thread-status.status-aguardando`,
+`.system-warning`/`.evento-warning`, `.system-success`/`.evento-success`, `.btn-success`,
+e as entradas "Aguardando"/"Devolver" do glossário.
+
+Fills gráficos (dots de presença, barra `.is-waiting::before`, accent de métrica, botões com bg colorido
+e texto escuro por cima como `#btn-interromper`) **mantêm os tokens base** — onde a cor vívida é
+intencional e o contraste é graphical (≥3:1) ou inverte (texto escuro sobre fill claro).
+
+**Regra para o futuro:** validar contraste de texto sempre contra a **superfície de uso real**
+(o chip `*-subtle` composto sobre seu container), nunca contra `--bg-base`.

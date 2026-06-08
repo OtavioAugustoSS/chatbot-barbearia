@@ -206,8 +206,8 @@
       /* ADR-013: novos tokens de profundidade e semântica (light) */
       --acc-deep: #2D5BCC;
       --text-faint: #94A3B8;
-      --success-text-strong: #059669;
-      --warning-text-strong: #B45309;
+      --success-text-strong: #065F46;
+      --warning-text-strong: #92400E;
       --sheen-avatar: inset 0 1px 0 rgba(255,255,255,0.60);
       --inset-input: inset 0 1px 3px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.06);
       --inset-panel: inset 0 2px 6px rgba(0,0,0,0.06);
@@ -678,7 +678,7 @@
       letter-spacing: 0.03em;
       border-radius: var(--radius-full);
       background: var(--warning-subtle);
-      color: var(--warning-text);
+      color: var(--warning-text-strong);
       border: 1px solid rgba(245,158,11,0.20);
     }
 
@@ -1010,12 +1010,12 @@
     }
     #thread-status-badge.badge-aguardando {
       background: var(--warning-subtle);
-      color: var(--warning-text);
+      color: var(--warning-text-strong);
       border: 1px solid rgba(245,158,11,0.28);
     }
     #thread-status-badge.badge-bot {
       background: var(--success-subtle);
-      color: var(--success-text);
+      color: var(--success-text-strong);
       border: 1px solid rgba(16,185,129,0.28);
     }
     #thread-status-badge.badge-humano {
@@ -1078,7 +1078,7 @@
     /* Estado: bot ativo */
     #thread-status.status-bot {
       background: var(--success-subtle);
-      color: var(--success-text);
+      color: var(--success-text-strong);
       border-color: rgba(16,185,129,0.28);
     }
     #thread-status.status-bot::before {
@@ -1088,7 +1088,7 @@
     /* Estado: aguardando atendimento humano */
     #thread-status.status-aguardando {
       background: var(--warning-subtle);
-      color: var(--warning-text);
+      color: var(--warning-text-strong);
       border-color: rgba(245,158,11,0.28);
     }
     #thread-status.status-aguardando::before {
@@ -1484,7 +1484,7 @@
     .btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
     .btn-danger { background: var(--danger-subtle, rgba(248,81,73,0.12)); color: var(--danger-text, #f85149); border: 1px solid rgba(248,81,73,0.2); }
     .btn-danger:hover { background: var(--danger); color: var(--danger-text, #f85149); }
-    .btn-success { background: var(--success-subtle, rgba(35,134,54,0.15)); color: var(--success-text, #3fb950); border: 1px solid rgba(59,176,80,0.2); }
+    .btn-success { background: var(--success-subtle, rgba(35,134,54,0.15)); color: var(--success-text-strong, #3fb950); border: 1px solid rgba(59,176,80,0.2); }
     .btn-sm { padding: 4px 10px; font-size: var(--text-xs); border-radius: var(--radius-sm); }
     .btn-xs { padding: 2px 8px; font-size: 11px; border-radius: var(--radius-sm); }
     .btn-icon { min-width: 44px; min-height: 44px; width: 44px; height: 44px; padding: 0; border-radius: var(--radius-md); }
@@ -2234,7 +2234,7 @@
     .msg-system-pill.system-warning,
     .bolha-sistema.evento-warning {
       background: var(--warning-subtle);
-      color: var(--warning-text);
+      color: var(--warning-text-strong);
       border-color: rgba(245,158,11,0.28);
     }
     .msg-system-pill.system-warning::before,
@@ -2244,7 +2244,7 @@
     .msg-system-pill.system-success,
     .bolha-sistema.evento-success {
       background: var(--success-subtle);
-      color: var(--success-text);
+      color: var(--success-text-strong);
       border-color: rgba(16,185,129,0.28);
     }
     .msg-system-pill.system-success::before,
@@ -2959,7 +2959,7 @@
     }
     .filter-tab[data-filter="aguardando"] #badge-aguardando:not(.hidden) {
       background: var(--warning-subtle);
-      color: var(--warning-text);
+      color: var(--warning-text-strong);
       border: 1px solid rgba(245,158,11,0.20);
     }
     .active-tab #badge-aguardando:not(.hidden),
@@ -3107,7 +3107,7 @@
             <span style="font-size: var(--text-sm); color: var(--text-secondary);">IA respondendo automaticamente ao cliente</span>
           </div>
           <div class="flex items-start gap-3 py-2 border-b" style="border-color: var(--border);">
-            <span style="min-width: 90px; font-size: var(--text-sm); font-weight: 600; color: var(--warning-text);">Aguardando</span>
+            <span style="min-width: 90px; font-size: var(--text-sm); font-weight: 600; color: var(--warning-text-strong);">Aguardando</span>
             <span style="font-size: var(--text-sm); color: var(--text-secondary);">Cliente pediu atendimento humano — ninguém assumiu ainda</span>
           </div>
           <div class="flex items-start gap-3 py-2 border-b" style="border-color: var(--border);">
@@ -3115,7 +3115,7 @@
             <span style="font-size: var(--text-sm); color: var(--text-secondary);">Você vira o responsável — bot para de responder</span>
           </div>
           <div class="flex items-start gap-3 py-2 border-b" style="border-color: var(--border);">
-            <span style="min-width: 90px; font-size: var(--text-sm); font-weight: 600; color: var(--success-text);">Devolver</span>
+            <span style="min-width: 90px; font-size: var(--text-sm); font-weight: 600; color: var(--success-text-strong);">Devolver</span>
             <span style="font-size: var(--text-sm); color: var(--text-secondary);">Retorna o controle da conversa para o bot</span>
           </div>
           <div class="flex items-start gap-3 py-2 border-b" style="border-color: var(--border);">
