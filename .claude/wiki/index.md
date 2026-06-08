@@ -22,6 +22,8 @@
 - [BR-011: Decisoes sobre GAP-06 e GAP-08](business-rules/BR-011-gap06-gap08-decisoes.md) — PO — GAP-06: sem auto-atribuicao, alerta visual de tempo de espera (Sprint 0.3.0); GAP-08: reativacao silenciosa mantida + frase de contexto na primeira msg apos timeout
 - [BR-012: Personalizacao por Nome do Cliente](business-rules/BR-012-personalizacao-nome-cliente.md) — PO — nome injetado via sistema quando disponivel; usar com moderacao; apenas primeiro nome; origem do dado: contacts[].profile.name do Meta
 - [BR-013: Cobertura de FAQ pelas Respostas Canonicas](business-rules/BR-013-canonicas-cobertura-faq.md) — PO — auditoria de 6 gaps; acoes: expandir regex FAQ_ESTRUTURA para "crianca", adicionar regra de feriados ao prompt; telefone comercial pendente de confirmacao
+- [BR-014: Dashboard — Taxonomia de Ícones, Status e Tags](business-rules/BR-014-dashboard-icons-status-taxonomy.md) — PO — emojis aposentados do dashboard; SVG scissors (barbearia) + sparkles (estética); 5 estados de status com ícone+cor+texto; separação Tipo A (categoria) vs Tipo B (interna) nas tags
+- [BR-015: Dashboard — Labels de Ação e Métricas Operacionais](business-rules/BR-015-dashboard-labels-metricas.md) — PO — "Pausar bot"/"Devolver ao bot" como par canônico; hero-grid de métricas removido; números migram para cnt badges nos 3 tabs (Bot tab ganha cnt badge)
 
 ## Decisões Arquiteturais — ADRs (Architect)
 
@@ -37,6 +39,7 @@
 - [ADR-010: Tratamento de Exceções em Background Tasks do Webhook](decisions/ADR-010-background-task-exception-handling.md) — architect — política de captura de exceção raiz em tarefa_em_segundo_plano_ia; documenta risco de starvation de lock e mitigação futura (TD-013)
 - [ADR-011: Ausência de RBAC nos Endpoints Admin](decisions/ADR-011-rbac-absence-admin-endpoints.md) — architect — documenta 5 categorias de endpoints sem restrição de role; aceita débito com mitigações compensatórias; define critérios para implementar RBAC
 - [ADR-012: Fix Compositor Layout + Mídia Async + Assume/Devolver Gaps](decisions/ADR-012-compositor-layout-midia-async.md) — architect — 5 decisões: renomear CSS #composer-area→#composer (D1); mídia endpoint sync confirmado correto (D2); canned popover position:fixed+JS (D3); remover double border attach-preview (D4); uniformizar botões compositor 36px (D5)
+- [ADR-013: Re-tune do Sistema de Tokens do Dashboard — WCAG AA + Camada de Profundidade](decisions/ADR-013-token-retune-dashboard.md) — architect — fix crítico --text-muted (2.62→5.64:1), re-tune de 8 tokens existentes, 9 tokens novos (acc-deep, text-faint, success/warning-strong, 5 sombras depth), re-tune de bubbles bot→green-tint/human→acc-deep; tabela copiável dark+light para redesign/admin-dashboard
 
 ## Análises Técnicas (Architect)
 
