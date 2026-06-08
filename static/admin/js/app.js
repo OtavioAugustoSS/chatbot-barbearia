@@ -2280,15 +2280,15 @@ function iniciarPresenceTracking() {
     if (inp && state.conversaAtual) _salvarDraft(state.conversaAtual, inp.value);
   });
 
-  // Beacon ao fechar a aba: sendBeacon não suporta headers, então passa token como query param.
-  // Backend /admin/presence aceita ?token= como fallback (auth dupla).
+  // Beacon ao fechar a aba: sendBeacon não suporta headers, então o token vai no
+  // BODY (P2-7b) — não na query, que vazava em access log. Backend lê payload.token.
   window.addEventListener('beforeunload', () => {
     try {
       const t = localStorage.getItem('token');
       if (!t) return;
       navigator.sendBeacon(
-        '/admin/presence?token=' + encodeURIComponent(t),
-        new Blob([JSON.stringify({ status: 'offline' })], { type: 'application/json' })
+        '/admin/presence',
+        new Blob([JSON.stringify({ status: 'offline', token: t })], { type: 'application/json' })
       );
     } catch (_) {}
   });
