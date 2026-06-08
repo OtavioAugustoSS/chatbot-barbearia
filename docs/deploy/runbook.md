@@ -33,8 +33,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # 2. Config
 cp .env.example .env && nano .env   # preencher conforme o checklist acima
 
-# 3. Seed inicial do banco (horários, etc.)
-.venv/bin/python scripts/seed_horarios.py
+# 3. Banco: ver seção "Migrations (Alembic)" abaixo.
+#    Banco do zero → bootstrap (create_all + `alembic stamp head` + seed_horarios).
+#    Banco existente → `.venv/bin/alembic upgrade head`.
 
 # 4. Serviço (auto-restart em crash)
 sudo cp deploy/barbearia-bot.service /etc/systemd/system/
@@ -66,6 +67,44 @@ curl -s http://localhost:8000/health
 
 - systemd: `journalctl -u barbearia-bot -f`
 - Docker: `docker logs -f barbearia-bot` (e `docker inspect --format '{{.State.Health.Status}}' barbearia-bot`)
+
+---
+
+## Migrations (Alembic — ADR-014)
+
+`db/models.py` é a fonte de verdade do schema. A baseline (`alembic/versions/ec0e2afe99be_*`)
+é **vazia de propósito**: representa o schema que `create_all` constrói a partir dos models.
+
+### Bootstrap de um banco MySQL do zero
+Faça **uma vez** ao provisionar um banco novo:
+```bash
+# 1. Suba a app uma vez — o create_all do boot cria as tabelas a partir dos models
+.venv/bin/python -c "import main"        # ou apenas inicie o serviço e pare em seguida
+# 2. Carimbe a baseline (registra o ponto de partida, sem rodar SQL)
+.venv/bin/alembic stamp head
+# 3. Seed inicial
+.venv/bin/python scripts/seed_horarios.py
+```
+> ⚠️ `alembic upgrade head` **sozinho NÃO cria as tabelas** (baseline vazia). O bootstrap é sempre
+> `create_all` (no boot) **+** `alembic stamp head`. Depois disso, só deltas via `upgrade head`.
+
+### Deploy normal (banco já com baseline carimbada)
+Antes de subir/reiniciar a aplicação:
+```bash
+.venv/bin/alembic upgrade head   # idempotente; aplica migrations pendentes (nada se já no head)
+```
+
+### Mudar o schema (workflow de desenvolvimento)
+```bash
+# 1. Edite db/models.py
+# 2. Gere a migration a partir do diff models↔banco:
+alembic revision --autogenerate -m "descricao_da_mudanca"
+# 3. REVISE o script em alembic/versions/ (autogenerate erra charset/ENUM/Numeric no MySQL)
+# 4. Aplique:
+alembic upgrade head
+# 5. Commite db/models.py + o arquivo de versão juntos
+```
+SQL manual em `scripts/migrations/` foi descontinuado — está em `scripts/archive/migrations_legacy/`.
 
 ---
 
