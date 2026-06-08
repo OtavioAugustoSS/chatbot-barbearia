@@ -190,6 +190,10 @@ class CannedResponse(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     atalho = Column(String(30), nullable=False)
     texto = Column(Text, nullable=False)
+    # P2-2: o CASCADE só dispararia num HARD-delete de atendente — que não existe
+    # (atendentes são soft-deleted via PATCH /atendentes/{id}/desativar → ativo=False).
+    # Risco teórico. Se um dia houver hard-delete, reavaliar SET NULL (canned vira
+    # global) vs. CASCADE. Ver auditoria docs/review/production-readiness-2026-06.md (P2-2).
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='CASCADE'), nullable=True)
     criado_em = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     atualizado_em = Column(DateTime, nullable=True, default=None)
@@ -202,6 +206,9 @@ class FiltroSalvo(Base):
     __tablename__ = 'filtros_salvos'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    # P2-2: CASCADE inócuo (sem hard-delete de atendente; ver CannedResponse). Aqui é
+    # NOT NULL — uma view sem dono não faz sentido — então CASCADE é o correto se um
+    # dia houver hard-delete. SET NULL não se aplica.
     atendente_id = Column(Integer, ForeignKey('atendentes.id', ondelete='CASCADE'), nullable=False)
     nome = Column(String(50), nullable=False)
     # JSON em texto (SQLAlchemy JSON type funciona em MySQL 5.7+, mas usamos Text por compat)
