@@ -514,7 +514,8 @@ function labelChipsHTML(labels) {
   return labels.map(l => {
     const cor = l.cor || '#3B6BDF';
     const bg = cor + '20';  // alpha 12.5%
-    return `<span class="text-xs font-medium px-2 py-0.5 rounded-full" style="background:${bg};color:${cor};">${escapeHtml(l.nome)}</span>`;
+    const iconHtml = l.icone ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${l.icone}</svg>` : '';
+    return `<span class="tag-chip label-chip" style="background:${bg};color:${cor};border-color:${cor}40;">${iconHtml}${escapeHtml(l.nome)}</span>`;
   }).join(' ');
 }
 
@@ -571,6 +572,13 @@ function renderConvList() {
     const tempo = horarioRelativo(c.ultima_mensagem_em);
 
     // V4: Status badge no avatar
+    const _BADGE_ARIA = {
+      aguardando: 'Aguardando atendimento',
+      humano:     'Em atendimento com você',
+      outro:      'Atendida por outro operador',
+      bot:        'Bot ativo',
+      encerrado:  'Conversa encerrada',
+    };
     let avatarStatusClass = '';
     let pulseClass = '';
     let dotColor = 'var(--text-muted)';
@@ -605,7 +613,7 @@ function renderConvList() {
         <input type="checkbox" class="bulk-check flex-shrink-0 mt-3 ${bulkActive ? '' : 'hidden'}" data-tel="${escapeHtml(c.telefone)}" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation();" style="accent-color: var(--accent);">
         <div class="relative ${pulseClass} flex-shrink-0" onclick="event.stopPropagation(); toggleBulkSelecao('${escapeHtml(c.telefone)}')" title="Clique para selecionar">
           <div class="avatar w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold text-white select-none" style="background:${cor}">${escapeHtml(ini)}</div>
-          ${avatarStatusClass ? `<div class="avatar-status-badge ${avatarStatusClass}"></div>` : ''}
+          ${avatarStatusClass ? `<div class="avatar-status-badge ${avatarStatusClass}" role="img" aria-label="${_BADGE_ARIA[avatarStatusClass] || avatarStatusClass}" title="${_BADGE_ARIA[avatarStatusClass] || avatarStatusClass}"></div>` : ''}
         </div>
         <div class="flex-1 min-w-0" onclick="abrirConversa('${escapeHtml(c.telefone)}')">
           <div class="flex items-center justify-between gap-1 mb-0.5">
@@ -656,6 +664,12 @@ function atualizarBadges(totais) {
     _badgePop(badgeMeus, totais.meus || 0);
     badgeMeus.textContent = totais.meus || '';
     badgeMeus.classList.toggle('hidden', !totais.meus);
+  }
+  const badgeBot = document.getElementById('badge-bot');
+  if (badgeBot) {
+    _badgePop(badgeBot, totais.bot || 0);
+    badgeBot.textContent = totais.bot || '';
+    badgeBot.classList.toggle('hidden', !totais.bot);
   }
 
   // RD-2: metric cards (status summary editorial) — pulse on change + is-zero state
@@ -882,10 +896,10 @@ function _timestampCompleto(iso) {
 }
 
 const _SVG_TICK_CLOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>`;
-// double-check: primeiro check (esquerda) + segundo check (deslocado +5px à direita), sem sobreposição
-const _SVG_TICK_DELIVERED = `<svg width="18" height="11" viewBox="0 0 18 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,6 3.5,9 8,2"/><polyline points="6,6 8.5,9 13,2"/></svg>`;
-// mesmo desenho, cor aplicada via classe .tick-read no CSS
-const _SVG_TICK_READ = `<svg width="18" height="11" viewBox="0 0 18 11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,6 3.5,9 8,2"/><polyline points="6,6 8.5,9 13,2"/></svg>`;
+// check único: entregue usa cor padrão (rgba branco); lida usa .tick-read (#53bdeb) via CSS
+const _SVG_TICK_DELIVERED = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg>`;
+// mesmo SVG — cor diferenciada via .tick-read no CSS
+const _SVG_TICK_READ = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l4.5 4.5L19 7"/></svg>`;
 const _SVG_TICK_FAIL = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 
 function _tickSvg(entregue, lida) {

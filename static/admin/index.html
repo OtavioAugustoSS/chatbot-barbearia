@@ -33,8 +33,8 @@
 
       /* Bolhas */
       --bg-bubble-client: #25272C;
-      --bg-bubble-bot: #064E3B;
-      --bg-bubble-human: #3B6BDF;
+      --bg-bubble-bot: rgba(43,167,123,0.10);
+      --bg-bubble-human: var(--acc-deep);
       --bg-bubble-system: rgba(59,107,223,0.10);
 
       /* Accent — balanceado, menos saturado */
@@ -55,12 +55,12 @@
       --danger-subtle: rgba(239,68,68,0.10);
 
       /* Tipografia */
-      --text-primary: #E5E7EB;
-      --text-secondary: #9CA3AF;
-      --text-muted: #6B7280;
-      --border: #2A2C32;
-      --border-soft: #1F2025;
-      --border-muted: #34363D;
+      --text-primary: #E8EAEE;
+      --text-secondary: #A6AAB3;
+      --text-muted: #8A8E98;
+      --border: #26282F;
+      --border-soft: #1F2127;
+      --border-muted: #2F323A;
 
       /* Tokens semânticos de bolha */
       --bubble-label-nome: #FBBF24;
@@ -123,12 +123,23 @@
 
       /* Animações */
       --duration-instant: 80ms;
-      --duration-fast: 120ms; --duration-normal: 200ms; --duration-slow: 320ms;
+      --duration-fast: 150ms; --duration-normal: 240ms; --duration-slow: 320ms;
       --duration-slower: 460ms;
       --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
       --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
       --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+      /* ADR-013: novos tokens de profundidade e semântica (dark) */
+      --acc-deep: #2F58CC;
+      --text-faint: #54575F;
+      --success-text-strong: #46C699;
+      --warning-text-strong: #E6B860;
+      --sheen-avatar: inset 0 1px 0 rgba(255,255,255,0.12);
+      --inset-input: inset 0 1px 3px rgba(0,0,0,0.30), inset 0 0 0 1px rgba(0,0,0,0.18);
+      --inset-panel: inset 0 2px 6px rgba(0,0,0,0.22);
+      --shadow-bubble: 0 1px 4px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.12);
+      --lift-active: 0 4px 16px rgba(0,0,0,0.38), 0 1px 4px rgba(0,0,0,0.22);
     }
 
     /* Tema claro */
@@ -141,7 +152,7 @@
       --bg-composer: #FAFBFC;
       --bg-bubble-client: #e2e8f0;
       --bg-bubble-bot: #D1FAE5;
-      --bg-bubble-human: #3B6BDF;
+      --bg-bubble-human: var(--acc-deep);
       /* Tokens semânticos de bolha (tema claro) */
       --bubble-label-nome: #a16207;
       --bubble-label-bot-ts: #059669;
@@ -185,12 +196,23 @@
       --shadow-lg: 0 8px 28px rgba(0,0,0,0.15), 0 4px 8px rgba(0,0,0,0.10);
       --shadow-accent-glow: 0 0 14px 3px rgba(59,107,223,0.18);
       --duration-instant: 80ms;
-      --duration-fast: 120ms; --duration-normal: 200ms; --duration-slow: 320ms;
+      --duration-fast: 150ms; --duration-normal: 240ms; --duration-slow: 320ms;
       --duration-slower: 460ms;
       --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
       --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
       --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
       --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+      /* ADR-013: novos tokens de profundidade e semântica (light) */
+      --acc-deep: #2D5BCC;
+      --text-faint: #94A3B8;
+      --success-text-strong: #059669;
+      --warning-text-strong: #B45309;
+      --sheen-avatar: inset 0 1px 0 rgba(255,255,255,0.60);
+      --inset-input: inset 0 1px 3px rgba(0,0,0,0.08), inset 0 0 0 1px rgba(0,0,0,0.06);
+      --inset-panel: inset 0 2px 6px rgba(0,0,0,0.06);
+      --shadow-bubble: 0 1px 4px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06);
+      --lift-active: 0 4px 16px rgba(0,0,0,0.16), 0 1px 4px rgba(0,0,0,0.08);
     }
 
     * { box-sizing: border-box; }
@@ -297,23 +319,20 @@
     /* Botão micro-interaction */
     button:not(:disabled):active { transform: scale(0.96); }
 
-    /* Fase 4.1: Bolhas de mensagem — squared corners + cores + direção */
+    /* Fase 4.1: Bolhas de mensagem — cores + direção (cantos plenos, sem rabicho) */
     .bolha-incoming {
-      background: var(--bg-bubble-client);  /* #25272C cool neutral */
+      background: var(--bg-bubble-client);  /* cool neutral */
       color: var(--text-primary);
-      border-top-left-radius: 4px !important;  /* squared no canto chegada (esquerda) */
       align-self: flex-start;
     }
     .bolha-outgoing-bot {
-      background: var(--bg-bubble-bot);  /* #064E3B verde profundo saturado */
-      color: #ECFDF5;  /* mint claro pra contraste no verde escuro */
-      border-top-right-radius: 4px !important;  /* squared no canto saída (direita) */
+      background: var(--bg-bubble-bot);  /* green-tint rgba */
+      color: #DCEFE7;
       align-self: flex-end;
     }
     .bolha-outgoing-humano {
-      background: var(--bg-bubble-human);  /* #4E7AE7 accent */
+      background: var(--bg-bubble-human);  /* acc-deep */
       color: #FFFFFF;
-      border-top-right-radius: 4px !important;  /* squared no canto saída (direita) */
       align-self: flex-end;
     }
 
@@ -455,7 +474,8 @@
     /* Tab count inline — reestiliza os badges existentes dentro das tabs (só quando visíveis) */
     .filter-tab .tab-count,
     .filter-tab #badge-aguardando:not(.hidden),
-    .filter-tab #badge-meus:not(.hidden) {
+    .filter-tab #badge-meus:not(.hidden),
+    .filter-tab #badge-bot:not(.hidden) {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -471,7 +491,8 @@
       line-height: 1;
     }
     .active-tab #badge-aguardando:not(.hidden),
-    .active-tab #badge-meus:not(.hidden) {
+    .active-tab #badge-meus:not(.hidden),
+    .active-tab #badge-bot:not(.hidden) {
       background: var(--accent-subtle);
       color: var(--accent);
     }
@@ -596,6 +617,18 @@
       background: var(--accent); flex-shrink: 0;
     }
 
+    /* ===== ADR-013: Avatar sheen + sombra ===== */
+    .conv-card .avatar {
+      box-shadow: var(--sheen-avatar), 0 2px 6px rgba(0,0,0,0.30);
+    }
+    #thread-avatar > * {
+      box-shadow: var(--sheen-avatar), 0 2px 8px rgba(0,0,0,0.28);
+    }
+    [data-theme="light"] .conv-card .avatar,
+    [data-theme="light"] #thread-avatar > * {
+      box-shadow: var(--sheen-avatar), 0 1px 4px rgba(0,0,0,0.12);
+    }
+
     /* ===== Fase 3.2: Avatar 40px no conv-card ===== */
     .conv-card .avatar {
       width: 40px !important;
@@ -612,46 +645,16 @@
       flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
     }
-    /* bot = verde (ativo) */
-    .avatar-status-badge.bot {
-      background: var(--success, #10B981);
-      color: #fff;
-    }
-    .avatar-status-badge.bot::before {
-      content: '';
-      display: block;
-      width: 8px; height: 8px;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='1.8'><rect x='3' y='5' width='10' height='8' rx='2'/><path d='M8 5V3'/><circle cx='6' cy='9' r='0.6' fill='white'/><circle cx='10' cy='9' r='0.6' fill='white'/></svg>");
-      background-repeat: no-repeat; background-size: contain;
-    }
+    /* bot = verde (ativo) — disco sólido sem glyph (ADR-013 redesign) */
+    .avatar-status-badge.bot { background: var(--success, #10B981); }
     /* aguardando = amarelo/warning */
-    .avatar-status-badge.aguardando {
-      background: var(--warning, #F59E0B);
-      color: #fff;
-    }
-    .avatar-status-badge.aguardando::before {
-      content: '';
-      display: block;
-      width: 8px; height: 8px;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='1.8'><circle cx='8' cy='8' r='6'/><path d='M8 5v3l2 1'/></svg>");
-      background-repeat: no-repeat; background-size: contain;
-    }
-    /* humano = azul accent */
-    .avatar-status-badge.humano {
-      background: var(--accent);
-      color: #fff;
-    }
-    .avatar-status-badge.humano::before {
-      content: '';
-      display: block;
-      width: 8px; height: 8px;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='1.8'><path d='M3 9a5 5 0 0110 0v3a2 2 0 01-2 2H10v-4h2M3 9v3a2 2 0 002 2h1v-4H3'/></svg>");
-      background-repeat: no-repeat; background-size: contain;
-    }
+    .avatar-status-badge.aguardando { background: var(--warning, #F59E0B); }
+    /* humano = azul acc-deep */
+    .avatar-status-badge.humano { background: var(--acc-deep, #2F58CC); }
     /* outro = cinza muted (atendente de outro operador) */
-    .avatar-status-badge.outro { background: var(--text-muted, #6B7280); }
+    .avatar-status-badge.outro { background: var(--text-muted); }
     /* encerrado = cinza muted */
-    .avatar-status-badge.encerrado { background: var(--text-muted, #6B7280); }
+    .avatar-status-badge.encerrado { background: var(--text-muted); }
 
     .conv-preview {
       display: -webkit-box;
@@ -663,7 +666,7 @@
       font-size: var(--text-xs);
     }
 
-    /* ===== Fase 3.6: Waiting badge chip amarelo uppercase ===== */
+    /* ===== Fase 3.6: Waiting badge chip amarelo (de-eyebrowed ADR-013) ===== */
     .waiting-badge {
       display: inline-flex;
       align-items: center;
@@ -672,15 +675,25 @@
       font-size: var(--text-2xs);
       font-family: var(--font-mono);
       font-weight: 600;
-      letter-spacing: var(--tracking-wide);
+      letter-spacing: 0.03em;
       border-radius: var(--radius-full);
       background: var(--warning-subtle);
       color: var(--warning-text);
       border: 1px solid rgba(245,158,11,0.20);
-      text-transform: uppercase;
     }
 
     /* ===== Fase 3.5: Tag chips removíveis ===== */
+    .tag-chip svg { width: 11px; height: 11px; flex-shrink: 0; }
+    /* label-chip: estilo base compartilhado com tag-chip; ícone opcional via l.icone */
+    .label-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      border-radius: var(--radius-full);
+      border: 1px solid transparent;
+    }
     .tag-chip {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 2px 8px;
@@ -724,12 +737,12 @@
     .conv-card-enter:nth-child(8) { animation-delay: 210ms; }
     .conv-card-enter:nth-child(n+9) { animation-delay: 240ms; }
 
-    /* ===== Fase 4.1: Message Bubbles — squared corners + cores corretas ===== */
+    /* ===== Fase 4.1: Message Bubbles — cores corretas + shadow-bubble ===== */
     .bolha-base {
       font-size: 14.2px;
       line-height: 1.45;
       border-radius: 12px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+      box-shadow: var(--shadow-bubble);
       max-width: 72%;
       padding: 8px 12px 10px;
       word-wrap: break-word;
@@ -824,7 +837,7 @@
     #thread-header {
       border-bottom: 1px solid var(--border);
       background: var(--bg-surface);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      box-shadow: var(--inset-panel), 0 1px 4px rgba(0,0,0,0.2);
     }
 
     /* ===== ANTI-SLOP B: Thread header 2-row grid ===== */
@@ -1190,8 +1203,8 @@
     #msg-input:focus {
       border-color: var(--accent-border) !important;
       box-shadow:
-        0 0 0 3px var(--accent-subtle),
-        inset 0 1px 0 rgba(255,255,255,0.04);
+        var(--inset-input),
+        0 0 0 3px var(--accent-subtle);
     }
     #char-counter {
       font-size: 10px;
@@ -1215,9 +1228,16 @@
                   opacity var(--duration-fast) var(--ease-out);
       flex-shrink: 0;
     }
-    #send-btn:hover:not(:disabled) { transform: scale(1.08); background: var(--accent-hover); box-shadow: 0 0 0 4px var(--accent-subtle); }
+    /* ADR-013: glossy topo + glow quando ativo */
+    #send-btn:not(:disabled) {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(59,107,223,0.24);
+    }
+    [data-theme="light"] #send-btn:not(:disabled) {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.40), 0 2px 8px rgba(59,107,223,0.18);
+    }
+    #send-btn:hover:not(:disabled) { transform: scale(1.08); background: var(--accent-hover); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 4px var(--accent-subtle), 0 4px 12px rgba(59,107,223,0.32); }
     #send-btn:active:not(:disabled) { transform: scale(0.92); transition-duration: var(--duration-instant); }
-    #send-btn:disabled { background: var(--bg-card); opacity: 0.4; transform: none; }
+    #send-btn:disabled { background: var(--bg-card); opacity: 0.4; transform: none; box-shadow: none; }
     #attach-btn { color: var(--text-secondary); }
     #attach-btn:hover { background: rgba(255,255,255,0.05); }
 
@@ -1369,8 +1389,16 @@
     #messages-area {
       position: relative;
       background-color: var(--bg-chat);
+      /* ADR-013: inset depth panel */
+      box-shadow: var(--inset-panel);
+      /* subtle radial warmth — dark */
+      background-image: radial-gradient(130% 90% at 50% -5%, rgba(59,107,223,0.04) 0%, transparent 60%);
     }
-    [data-theme="light"] #messages-area { background-color: var(--bg-chat); }
+    [data-theme="light"] #messages-area {
+      background-color: var(--bg-chat);
+      box-shadow: var(--inset-panel);
+      background-image: radial-gradient(130% 90% at 50% -5%, rgba(59,107,223,0.03) 0%, transparent 60%);
+    }
     #messages-area::before {
       content: '';
       position: absolute; inset: 0;
@@ -1394,9 +1422,10 @@
       font-weight: 600;
       color: var(--text-primary);
     }
+    .search-wrapper { box-shadow: var(--inset-input); }
     .search-wrapper:focus-within {
       border-color: var(--accent) !important;
-      box-shadow: 0 0 0 3px var(--accent-subtle);
+      box-shadow: var(--inset-input), 0 0 0 3px var(--accent-subtle);
     }
     #search-input::placeholder { color: var(--text-muted); }
     #search-clear-btn:not(.hidden) { display: inline-flex !important; }
@@ -1648,12 +1677,13 @@
     /* Stronger border contrast for panel dividers */
     #thread-header {
       border-bottom-color: var(--border) !important;
-      box-shadow: 0 1px 0 rgba(78,122,231,0.06);
+      box-shadow: var(--inset-panel), 0 1px 4px rgba(0,0,0,0.20), 0 1px 0 rgba(78,122,231,0.06);
     }
-    /* Active conv: glowing left border + background */
+    /* Active conv: glowing left border + background + lift */
     .conv-card.active-conv {
       border-left-color: var(--accent) !important;
       background: linear-gradient(90deg, var(--accent-subtle) 0%, transparent 60%) !important;
+      box-shadow: var(--lift-active);
     }
     /* Metric cards: subtle accent glow on hover */
     [id^="metric-"] {
@@ -1723,74 +1753,22 @@
       color: var(--text-muted);
     }
 
-    /* ===== ANTI-SLOP C: Directional bubble shadows ===== */
-    /* Direction of shadow reinforces origin: client from left → shadow left; bot/op from right → shadow right */
-    .bolha-incoming {
-      box-shadow: -1px 1px 2px rgba(0,0,0,0.14), -2px 2px 6px rgba(0,0,0,0.09);
-    }
-    .bolha-outgoing-bot,
-    .bolha-outgoing-humano {
-      box-shadow: 1px 1px 2px rgba(0,0,0,0.14), 2px 2px 6px rgba(0,0,0,0.09);
-    }
-    [data-theme="light"] .bolha-incoming {
-      box-shadow: -1px 1px 2px rgba(0,0,0,0.10), -2px 2px 6px rgba(0,0,0,0.06);
-    }
-    [data-theme="light"] .bolha-outgoing-bot,
-    [data-theme="light"] .bolha-outgoing-humano {
-      box-shadow: 1px 1px 2px rgba(0,0,0,0.10), 2px 2px 6px rgba(0,0,0,0.06);
-    }
+    /* ANTI-SLOP C: shadow-bubble via token (ADR-013 — unificado em .bolha-base) */
 
-    /* ===== RD-3: Bubble tails — clip-path WhatsApp style (TAREFA 6 fix) ===== */
+    /* ===== RD-3: Bubble tails removidos (ADR-013 redesign — bordas plenas) ===== */
     .bolha-base { position: relative; }
-
-    /* Cliente: tail no canto top-left, aponta para a esquerda
-       clip-path: triângulo com vértice no canto externo (esquerda) */
-    .bolha-incoming::before {
-      content: '';
-      position: absolute;
-      top: 0; left: -7px;
-      width: 8px; height: 12px;
-      background: var(--bg-bubble-client);
-      clip-path: polygon(100% 0, 100% 100%, 0 0);
-    }
-    /* Bot: tail no canto top-right, aponta para a direita */
-    .bolha-outgoing-bot::before {
-      content: '';
-      position: absolute;
-      top: 0; right: -7px;
-      width: 8px; height: 12px;
-      background: var(--bg-bubble-bot);
-      clip-path: polygon(0 0, 0 100%, 100% 0);
-    }
-    /* Humano: tail no canto top-right */
-    .bolha-outgoing-humano::before {
-      content: '';
-      position: absolute;
-      top: 0; right: -7px;
-      width: 8px; height: 12px;
-      background: var(--bg-bubble-human);
-      clip-path: polygon(0 0, 0 100%, 100% 0);
-    }
 
     /* ===== RD-3: Row layout + CSS sibling-selector grouping (spec) ===== */
     .row { display: flex; }
     .row-left  { justify-content: flex-start; }
     .row-right { justify-content: flex-end; }
 
-    /* Consecutive same-origin rows: tighten gap, hide tail, restore corner radius */
+    /* Consecutive same-origin rows: tighten gap */
     .row-client + .row-client,
     .row-bot    + .row-bot,
     .row-human  + .row-human {
       margin-top: 2px;
     }
-    .row-client + .row-client .bolha-incoming::before,
-    .row-bot    + .row-bot    .bolha-outgoing-bot::before,
-    .row-human  + .row-human  .bolha-outgoing-humano::before { display: none; }
-
-    /* Consecutive same-origin rows: restore full corner (no tail, no squared) */
-    .row-client + .row-client .bolha-incoming            { border-top-left-radius: 12px !important; }
-    .row-bot    + .row-bot    .bolha-outgoing-bot,
-    .row-human  + .row-human  .bolha-outgoing-humano     { border-top-right-radius: 12px !important; }
 
     /* Hide author label on grouped rows */
     .row-client + .row-client .bolha-label,
@@ -1806,10 +1784,13 @@
     .bolha-tick svg { display: inline; vertical-align: middle; }
     .bolha-outgoing-humano .bolha-tick:not(.tick-read) svg { stroke: rgba(255,255,255,0.92); }
 
-    /* ===== RD-2: Metric cards (spec :92-117) ===== */
-    /* Status summary inline editorial — substitui hero-metric template (anti-pattern) */
+    /* ===== RD-2: Metric cards — ocultos (contadores migrados para tabs, ADR-013) ===== */
     #metric-cards {
-      display: grid !important;
+      display: none !important;
+    }
+    /* Regras originais preservadas abaixo para eventual reativação */
+    .metric-cards-grid-unused {
+      display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       align-items: stretch;
       gap: 4px;
@@ -2132,10 +2113,10 @@
       background-image: linear-gradient(180deg, rgba(0,0,0,0.018) 0%, transparent 30%);
     }
     #msg-input {
-      box-shadow: inset 0 1px 0 rgba(0,0,0,0.14);
+      box-shadow: var(--inset-input);
     }
     [data-theme="light"] #msg-input {
-      box-shadow: inset 0 1px 0 rgba(0,0,0,0.04);
+      box-shadow: var(--inset-input);
       background: white !important;
     }
 
@@ -3216,7 +3197,7 @@
         <!-- Lupa ícone -->
         <svg class="search-icon" style="width:13px;height:13px;color:var(--text-muted);pointer-events:none;flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <!-- Modo chip inline -->
-        <button id="btn-search-mode" title="Modo de busca: Contato = busca pelo nome/telefone | Mensagem = busca no conteúdo das mensagens" style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-subtle);border:none;border-radius:4px;padding:2px 6px;cursor:pointer;flex-shrink:0;white-space:nowrap;">Contato ▾</button>
+        <button id="btn-search-mode" title="Modo de busca: Contato = busca pelo nome/telefone | Mensagem = busca no conteúdo das mensagens" style="font-family:var(--font-mono);font-size:10px;font-weight:600;color:var(--accent);background:var(--accent-subtle);border:none;border-radius:4px;padding:2px 6px;cursor:pointer;flex-shrink:0;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;">Contato<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="9" height="9" style="flex-shrink:0;" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
         <!-- Input -->
         <input id="search-input" type="text" placeholder="Buscar…" autocomplete="off" aria-label="Buscar conversas" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:var(--text-primary);min-width:0;font-family:var(--font-body);">
         <!-- Clear button X -->
@@ -3274,7 +3255,7 @@
         Meus
         <span id="badge-meus" class="hidden"></span>
       </button>
-      <button data-filter="bot" class="filter-tab" aria-label="Conversas com bot ativo">Bot</button>
+      <button data-filter="bot" class="filter-tab" aria-label="Conversas com bot ativo">Bot <span id="badge-bot" class="hidden"></span></button>
       <div id="conn-status" data-state="connected" aria-live="polite" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); pointer-events:none;">
         <span class="conn-dot"></span>
         <span class="conn-dot"></span>
@@ -3413,7 +3394,7 @@
       <!-- Actions group (right column, spans both rows) -->
       <div id="thread-actions-group">
         <button id="btn-assumir" data-tooltip="Assumir conversa" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--accent); color: white;">Assumir</button>
-        <button id="btn-interromper" data-tooltip="Interromper bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--warning-text, #d29922); color: #1a1a1a;"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Interromper bot</button>
+        <button id="btn-interromper" data-tooltip="Pausar bot e assumir conversa manualmente" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--warning-text, #d29922); color: #1a1a1a;"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Pausar bot</button>
         <button id="btn-devolver" data-tooltip="Devolver ao bot" class="hidden px-3 py-1.5 rounded-lg text-xs font-medium transition-colors" style="background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border);"><svg class="btn-mobile-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>Devolver ao bot</button>
 
         <!-- Transferir dropdown -->
