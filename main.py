@@ -9,11 +9,14 @@ if hasattr(time, "tzset"):
     time.tzset()
 
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from api import webhook
-from db.database import engine, Base
+from db.database import engine, Base, get_db
 from core.config import MODO_HIBRIDO, MODO_OPERACAO
 
 # Logging estruturado: substitui prints espalhados.
@@ -26,6 +29,18 @@ logging.basicConfig(
 
 _log = logging.getLogger("barbearia")
 _log.info("Modo de operação: %s", MODO_OPERACAO)
+
+# Observabilidade opcional (P1-1): ativa Sentry SOMENTE se SENTRY_DSN estiver definido.
+# Sem DSN (modo de testes/dev) é no-op. Requer `pip install sentry-sdk` se for usar.
+_sentry_dsn = os.getenv("SENTRY_DSN")
+if _sentry_dsn:
+    try:
+        import sentry_sdk
+        sentry_sdk.init(dsn=_sentry_dsn, traces_sample_rate=0.0, environment=os.getenv("APP_ENV", "production"))
+        _log.info("Sentry ativado para captura de erros.")
+    except ImportError:
+        _log.warning("SENTRY_DSN definido mas 'sentry-sdk' não instalado — rode: pip install sentry-sdk")
+
 
 def _exigir_meta_secret(meta_secret: str, allow_unsigned: str) -> None:
     """Aborta o boot se META_APP_SECRET ausente em producao."""
@@ -71,6 +86,22 @@ if MODO_HIBRIDO:
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    """Health-check para orquestração/monitoramento (systemd/Docker/load balancer).
+    Testa a conexão real com o banco: 200 = saudável, 503 = banco indisponível."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        _log.error("Health check falhou (banco indisponível): %s", e)
+        raise HTTPException(status_code=503, detail="database unavailable")
+    return {
+        "status": "healthy",
+        "modo": MODO_OPERACAO,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
 
 @app.get("/")
 def read_root():

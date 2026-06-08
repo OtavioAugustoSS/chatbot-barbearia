@@ -1,0 +1,36 @@
+# Nunca enviar segredos / dados pessoais pra imagem
+.env
+.env.*
+erro_ia_debug.txt
+*.log
+logs/
+backup_*.sql
+*.dump
+
+# Ambientes e caches
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Git / IDE / OS
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Ferramentas locais (não vão pra produção)
+.claude/
+.playwright-mcp/
+
+# Mockups de design (não usados em produção)
+static/admin/_concept.html
+static/admin/_concept-console.html

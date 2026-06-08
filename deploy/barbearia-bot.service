@@ -1,0 +1,20 @@
+[Unit]
+Description=Barbearia Bolshoi - Bot WhatsApp + Dashboard (FastAPI)
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=barbearia
+WorkingDirectory=/opt/barbearia
+EnvironmentFile=/opt/barbearia/.env
+# 1 worker apenas — estado em memória (SSE/lock/rate-limit) não suporta multi-worker.
+# Ver P1-10 em docs/review/production-readiness-2026-06.md.
+ExecStart=/opt/barbearia/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

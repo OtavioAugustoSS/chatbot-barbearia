@@ -12,8 +12,10 @@ DB_PASS = os.getenv("DB_PASS", "")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_NAME = os.getenv("DB_NAME", "barbearia_bot_db")
 
-# URL de conexão para MySQL utilizando pymysql (driver recomendado)
-SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+# URL de conexão para MySQL utilizando pymysql (driver recomendado).
+# charset=utf8mb4 garante emoji/acentos em nome_cliente e mensagens (P1-2) — sem isso,
+# servidor MySQL com default latin1 pode truncar ou dar "Incorrect string value".
+SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}?charset=utf8mb4"
 
 # Engine com pool tuning:
 # - pool_pre_ping: detecta conexões mortas antes de usar

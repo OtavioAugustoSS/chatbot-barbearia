@@ -117,10 +117,35 @@ RESPOSTA_DISPONIBILIDADE_FRED = (
     f"{_FECHAMENTO}"
 )
 
+# LGPD (Lei 13.709/2018): direito de acesso/exclusão de dados pessoais.
+# Não expõe contato direto do Fred (BR-002) — usa o próprio canal de atendimento.
+# Em modo híbrido, a equipe cumpre a exclusão via DELETE /admin/cliente/{telefone}.
+RESPOSTA_APAGAR_DADOS = (
+    "*Privacidade e seus dados (LGPD)*<br><br>"
+    "Guardamos apenas o necessário para te atender: seu contato e o histórico desta conversa.<br><br>"
+    "Se quiser *acessar* ou *apagar* seus dados, é só pedir por aqui que nossa equipe "
+    "providencia a remoção conforme a LGPD.<br><br>"
+    f"{_FECHAMENTO}"
+)
+
 # Cada entrada: (regex_compilado, resposta_canonica)
 # Padrões são case-insensitive e usam fronteiras de palavra para evitar falsos positivos.
 # ORDEM IMPORTA: padrões mais específicos antes dos genéricos (ex.: cancelar antes de agendar).
 _PADROES = [
+    # LGPD: direito de exclusão/acesso de dados pessoais — verificado cedo (termos específicos).
+    (
+        re.compile(
+            r"\b("
+            r"(apagar|deletar|excluir|remover)\s+(meus?\s+|minha\s+)?(dados|informa[çc][oõ]es|hist[oó]rico|conta|cadastro)|"
+            r"esquec(er|am)\s+(meus?\s+)?dados|"
+            r"(lgpd|prote[çc][aã]o\s+de\s+dados|direito\s+de\s+exclus[aã]o)|"
+            r"pol[ií]tica\s+de\s+privacidade|"
+            r"que\s+dados\s+(voc[eê]s\s+)?(t[eê]m|guardam|armazenam)"
+            r")\b",
+            re.IGNORECASE,
+        ),
+        RESPOSTA_APAGAR_DADOS,
+    ),
     # Cancelamento / remarcação — ANTES de agendamento (palavras-chave podem coincidir).
     (
         re.compile(
@@ -267,7 +292,45 @@ _PADRAO_DISPONIBILIDADE_FRED = re.compile(
 )
 
 
-def detectar_resposta_canonica(texto_cliente: str) -> str | None:
+# Dias da semana em PT para montar o horário dinâmico (0=segunda ... 6=domingo).
+_DIAS_SEMANA_PT = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+
+
+def _gerar_corpo_horario(db=None) -> str:
+    """Monta o corpo do horário a partir da tabela `horarios` (fonte única, a mesma
+    que a IA usa em ai_service). Fallback para o texto fixo `_CORPO_HORARIO` se o banco
+    estiver vazio/indisponível — assim o comportamento sem-DB (testes) é idêntico ao
+    antigo hardcode. Aceita uma sessão `db` (caller/testes) ou abre uma própria e fecha.
+    """
+    sessao_propria = False
+    try:
+        if db is None:
+            from db.database import SessionLocal
+            db = SessionLocal()
+            sessao_propria = True
+        from db.models import Horario
+        registros = {r.dia_semana: r for r in db.query(Horario).all()}
+        if not registros:
+            return _CORPO_HORARIO
+        partes = []
+        for dia in range(7):
+            reg = registros.get(dia)
+            if reg is None or reg.fechado or not reg.abertura or not reg.fechamento:
+                partes.append(f"{_DIAS_SEMANA_PT[dia]}: fechado")
+            else:
+                partes.append(f"{_DIAS_SEMANA_PT[dia]}: {reg.abertura} às {reg.fechamento}")
+        return "*Nosso horário de funcionamento:*<br><br>" + "<br>".join(partes)
+    except Exception:
+        return _CORPO_HORARIO
+    finally:
+        if sessao_propria and db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass
+
+
+def detectar_resposta_canonica(texto_cliente: str, db=None) -> str | None:
     """
     Recebe a mensagem bruta do cliente. Devolve resposta canônica com tags <br>
     se algum padrão casar; caso contrário, devolve None (fluxo segue para IA).
@@ -289,5 +352,9 @@ def detectar_resposta_canonica(texto_cliente: str) -> str | None:
         return None
     for regex, resposta in _PADROES:
         if regex.search(texto_cliente):
+            # Horário: monta dinamicamente da tabela `horarios` (fonte única).
+            # Fallback interno reproduz exatamente RESPOSTA_HORARIO se o banco estiver vazio.
+            if resposta is RESPOSTA_HORARIO:
+                return f"{_gerar_corpo_horario(db)}<br><br>{_FECHAMENTO}"
             return resposta
     return None
