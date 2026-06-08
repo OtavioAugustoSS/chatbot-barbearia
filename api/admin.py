@@ -86,6 +86,14 @@ class CriarAtendenteIn(BaseModel):
     usuario_login: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-z0-9_]+$')
     senha: str = Field(..., min_length=8, max_length=128)
 
+    @field_validator("nome")
+    @classmethod
+    def nome_nao_vazio(cls, v: str) -> str:
+        # min_length=1 não barra " " (só-espaços), que viraria "" após strip no endpoint.
+        if not v.strip():
+            raise ValueError("Nome não pode conter apenas espaços")
+        return v.strip()
+
 
 class LabelIn(BaseModel):
     nome: str = Field(..., min_length=1, max_length=50, pattern=r'^[a-z0-9_\-]+$')
@@ -1018,6 +1026,8 @@ def enviar_midia(
 ):
     """Atendente envia arquivo de mídia para um cliente. Faz upload para Meta e envia via WhatsApp."""
     conteudo = file.file.read()
+    if not conteudo:
+        raise HTTPException(400, "Arquivo vazio")
     if len(conteudo) > _MAX_MIDIA_BYTES:
         raise HTTPException(400, "Arquivo muito grande (máx 16 MB)")
     mime = file.content_type or ""
