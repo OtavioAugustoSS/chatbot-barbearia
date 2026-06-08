@@ -133,6 +133,14 @@ def _carregar_horarios_db() -> dict:
         db.close()
 
 
+def invalidar_cache_horarios() -> None:
+    """Zera o cache de horários — a próxima leitura recarrega do banco.
+    Chamado pelo endpoint admin de edição de horário (reflete a mudança na hora)."""
+    with _cache_horarios_lock:
+        _cache_horarios["data"] = None
+        _cache_horarios["expira_em"] = 0.0
+
+
 def _construir_contexto_temporal() -> str:
     """
     Mensagem do sistema com data/hora atual (Brasília) e status de funcionamento.
@@ -452,7 +460,9 @@ class AIService:
 
         except json.JSONDecodeError as e:
             log.error("Falha ao parsear JSON da IA: %s", e)
-            self._registrar_erro_debug(f"[ERRO JSON] {e}\nTexto recebido: {response_text if 'response_text' in locals() else 'N/A'}")
+            # LGPD: trunca o texto da IA (pode ecoar mensagem do cliente = PII) a 200 chars.
+            _trecho = (response_text[:200] if 'response_text' in locals() and response_text else 'N/A')
+            self._registrar_erro_debug(f"[ERRO JSON] {e}\nTexto (primeiros 200 chars): {_trecho}")
             return {
                 "intencao": "transbordo_falha",
                 "resposta_sugerida": "Estou enfrentando uma instabilidade. Só um instante, estou conectando você à recepção para continuarmos."

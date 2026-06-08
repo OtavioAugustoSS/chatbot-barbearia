@@ -32,7 +32,7 @@ def _iso_utc(dt) -> str | None:
     return dt.isoformat()
 
 from db.database import get_db
-from db.models import Atendente, Usuario, HistoricoConversa, NotaInterna, Label, usuario_labels, CannedResponse, MentionNotificacao, FiltroSalvo
+from db.models import Atendente, Usuario, HistoricoConversa, NotaInterna, Label, usuario_labels, CannedResponse, MentionNotificacao, FiltroSalvo, Horario
 import json as _json_lib
 from services.whatsapp import WhatsAppSender
 from services.notificador import notificador
@@ -1382,6 +1382,98 @@ def deletar_label(
         raise HTTPException(404, "Label não encontrada")
     label.ativo = False
     db.commit()
+    return None
+
+
+# ============================================================
+# Horários de funcionamento (fonte única editável — P0-4)
+# ============================================================
+_DIAS_SEMANA = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+
+
+class HorarioPatchIn(BaseModel):
+    abertura: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$", description="HH:MM")
+    fechamento: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$", description="HH:MM")
+    fechado: Optional[bool] = None
+
+
+@router.get("/horarios")
+def listar_horarios(
+    db: Session = Depends(get_db),
+    _me: Atendente = Depends(atendente_atual),
+):
+    """Lista o horário de funcionamento dos 7 dias (0=segunda ... 6=domingo)."""
+    regs = {r.dia_semana: r for r in db.query(Horario).all()}
+    return [
+        {
+            "dia_semana": d,
+            "dia_nome": _DIAS_SEMANA[d],
+            "abertura": regs[d].abertura if d in regs else None,
+            "fechamento": regs[d].fechamento if d in regs else None,
+            "fechado": bool(regs[d].fechado) if d in regs else None,
+        }
+        for d in range(7)
+    ]
+
+
+@router.patch("/horarios/{dia_semana}")
+def editar_horario(
+    dia_semana: int,
+    payload: HorarioPatchIn,
+    db: Session = Depends(get_db),
+    _me: Atendente = Depends(atendente_atual),
+):
+    """Edita o horário de um dia (0=segunda ... 6=domingo). Cria o registro se não existir.
+    Invalida o cache de horários da IA pra refletir a mudança imediatamente (P0-4)."""
+    if dia_semana < 0 or dia_semana > 6:
+        raise HTTPException(400, "dia_semana deve estar entre 0 (segunda) e 6 (domingo)")
+    h = db.query(Horario).filter(Horario.dia_semana == dia_semana).first()
+    if not h:
+        h = Horario(dia_semana=dia_semana, fechado=False)
+        db.add(h)
+    if payload.abertura is not None:
+        h.abertura = payload.abertura
+    if payload.fechamento is not None:
+        h.fechamento = payload.fechamento
+    if payload.fechado is not None:
+        h.fechado = payload.fechado
+    db.commit()
+    # Reflete na IA na hora (a canônica já lê fresco; aqui invalidamos o cache do contexto temporal).
+    try:
+        from services.ai_service import invalidar_cache_horarios
+        invalidar_cache_horarios()
+    except Exception:
+        pass
+    notificador.publicar({"tipo": "horarios_atualizados", "dia_semana": dia_semana})
+    return {
+        "dia_semana": h.dia_semana, "dia_nome": _DIAS_SEMANA[dia_semana],
+        "abertura": h.abertura, "fechamento": h.fechamento, "fechado": bool(h.fechado),
+    }
+
+
+# ============================================================
+# LGPD: exclusão de dados de um cliente (P0-1)
+# ============================================================
+@router.delete("/cliente/{telefone}", status_code=204)
+def apagar_cliente(
+    telefone: str,
+    db: Session = Depends(get_db),
+    me: Atendente = Depends(atendente_atual),
+):
+    """LGPD: apaga o cliente e TODOS os seus dados pessoais (histórico, labels, notas,
+    menções). Deleção explícita das dependências — robusta mesmo sem FK cascade no SQLite.
+    Ação de staff; registra quem apagou."""
+    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+    if not user:
+        raise HTTPException(404, "Cliente não encontrado")
+    db.query(MentionNotificacao).filter(MentionNotificacao.telefone_usuario == telefone).delete(synchronize_session=False)
+    db.query(NotaInterna).filter(NotaInterna.telefone_usuario == telefone).delete(synchronize_session=False)
+    db.execute(usuario_labels.delete().where(usuario_labels.c.telefone_usuario == telefone))
+    db.query(HistoricoConversa).filter(HistoricoConversa.telefone_usuario == telefone).delete(synchronize_session=False)
+    db.delete(user)
+    db.commit()
+    log.info("[LGPD] Cliente apagado por atendente_id=%s telefone=%s", me.id, telefone)
+    notificador.publicar({"tipo": "cliente_apagado", "telefone": telefone})
     return None
 
 

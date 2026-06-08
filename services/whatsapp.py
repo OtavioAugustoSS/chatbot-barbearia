@@ -39,6 +39,15 @@ class WhatsAppSender:
             log.error("Falha de rede ao enviar %s para %s: %s", tipo_log, numero, e)
             return False, None
 
+        if response.status_code == 401:
+            # P0-2: token expirado/inválido — alerta DISTINTO e acionável (catchável por monitor/Sentry).
+            # Em sandbox o WHATSAPP_TOKEN vence em 24h; em produção use System User token permanente.
+            log.error(
+                "WHATSAPP_TOKEN EXPIRADO OU INVÁLIDO (401) ao enviar %s. "
+                "O bot NÃO está respondendo aos clientes — renove o WHATSAPP_TOKEN no .env e reinicie.",
+                tipo_log,
+            )
+            return False, None
         if response.status_code >= 400:
             log.error("Meta API erro %s (%s) para %s: %s", response.status_code, tipo_log, numero, response.text[:500])
             return False, None

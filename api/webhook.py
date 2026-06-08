@@ -58,6 +58,8 @@ MENSAGEM_BOAS_VINDAS = (
     "📅 Agendamento de Horários\n"
     "📍 Localização e Funcionamento\n"
     "❓ Dúvidas Frequentes\n\n"
+    "🔒 _Usamos seus dados apenas para este atendimento. "
+    "Digite *apagar meus dados* quando quiser removê-los._\n\n"
     "Sobre qual desses tópicos você gostaria de saber?"
 )
 
@@ -219,7 +221,9 @@ def _montar_body_menu(nome_cliente: str | None, primeiro_contato: bool) -> str:
         return (
             f"{abertura}\n\n"
             "Sou o assistente virtual da casa. Escolha uma das opções abaixo "
-            "ou me envie sua dúvida por mensagem."
+            "ou me envie sua dúvida por mensagem.\n\n"
+            "🔒 _Seus dados são usados só para este atendimento "
+            "(digite *apagar meus dados* para removê-los)._"
         )
     abertura = f"Olá novamente, {primeiro}!" if primeiro else "Olá novamente!"
     return f"{abertura} Escolha uma das opções abaixo ou me envie sua dúvida por mensagem."
@@ -980,9 +984,14 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
     except Exception as exc:
         # ADR-010: captura exceção raiz para garantir visibilidade de falhas silenciosas.
         # O lock é liberado no finally independentemente.
+        # LGPD: telefone mascarado e traceback truncado (últimas 6 linhas) — evita
+        # persistir PII completa no arquivo de debug. As linhas finais têm o ponto
+        # da exceção (mais útil) e menos chance de conter o texto do cliente.
         ts = datetime.now(timezone.utc).isoformat()
-        entrada = f"[{ts}] [BACKGROUND TASK] telefone={telefone} erro={exc}\n{traceback.format_exc()}\n"
-        log.error("Exceção não tratada em tarefa_em_segundo_plano_ia para %s: %s", telefone, exc)
+        tel_mask = (telefone[:4] + "****" + telefone[-2:]) if telefone and len(telefone) >= 6 else "****"
+        tb_resumo = "".join(traceback.format_exc().splitlines(keepends=True)[-6:])
+        entrada = f"[{ts}] [BACKGROUND TASK] telefone={tel_mask} erro={exc}\n{tb_resumo}\n"
+        log.error("Exceção não tratada em tarefa_em_segundo_plano_ia para %s: %s", tel_mask, exc)
         try:
             caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
             with open(caminho, "a", encoding="utf-8") as f:
