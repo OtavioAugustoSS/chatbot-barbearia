@@ -105,3 +105,24 @@ Exploração inicial sugeriu vários gaps; **a maioria estava DESATUALIZADA** (d
 ## 8. Conclusão
 
 O sistema está **completo e funcional no modo dev/test**, com o pipeline do bot e o dashboard verificados ponta-a-ponta contra o ambiente real, **119 testes verdes**, e um único item técnico real pendente (alinhamento de schema) que é **pré-prod, não runtime**. Pronto para uso, testes e melhorias; o caminho para produção está claro e documentado.
+
+---
+
+## 9. Hardening pré-avaliação (rodada noturna 2026-06-08)
+
+Fui brutalmente sincero com o dono: ele **vai achar algumas falhas** ao avaliar amanhã — sobretudo nos endpoints secundários sem teste, no comportamento MySQL-real e na IA real. Ele optou por **"blindar antes"**. Resultado desta rodada:
+
+**Bugs reais encontrados e corrigidos (2):**
+- `criar_atendente`: `nome` só-espaços virava `""` (Pydantic `min_length=1` não pega whitespace) → `field_validator` → 422.
+- `enviar_midia`: arquivo de **0 bytes** passava (só validava tamanho máx) → guard `400 Arquivo vazio`.
+- *(O 3º "bug" sugerido por um agent — pular status update se `recipient_id` None — seria **regressão** (o update é keyed por `wamid`); descartado.)*
+
+**Cobertura:** +23 testes nos endpoints antes sem teste (atendentes, mentions, views, enviar-midia, tag, cliente/info, devolver-silent, status-updates). **Suíte 119 → 142.** Os demais endpoints se comportaram corretamente (nenhum bug novo além dos 2).
+
+**Não é bug:** a ausência de RBAC nos endpoints de atendente é a decisão do **ADR-011** (inbox compartilhado p/ 1-2 operadores), não uma falha.
+
+**Smoke de integração contra MySQL real** (`scripts/smoke_integracao.py`, 14/14 PASS) — **pegou uma divergência SQLite↔MySQL**: o MySQL **enforce** `telefone VARCHAR(20)`, o SQLite ignora. Telefones reais (≤15 dígitos) cabem, então **sem risco de runtime**, mas confirma o ponto cego: a suíte SQLite não pegaria um valor longo demais. É o tipo de coisa que o dono poderia encontrar testando no banco real.
+
+**Schema (Fase B):** removido `index=True` redundante dos PKs (reduz ruído do autogenerate). A migration de drop da coluna morta `usuarios.estado_atual` foi **preparada mas NÃO aplicada** — a coluna **contém dados legados** (`'BOAS_VINDAS'`), e como o drop é irreversível e de valor marginal, fica para aplicação **atendida** com o dono ciente (`alembic/versions/93f27a8a4c60_*`).
+
+**Veredito mantido:** 🟢 GO dev/test, agora com **142 testes** e os endpoints secundários cobertos.
