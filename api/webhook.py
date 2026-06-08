@@ -1121,7 +1121,9 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
 
         # FAQ canônico: horário, endereço, agendamento, pagamento, estrutura.
         # Bypass de IA → custo zero, zero alucinação, formato sempre idêntico.
-        resposta_canonica = detectar_resposta_canonica(texto_cliente)
+        # db é passado para que a resposta de HORÁRIO leia da tabela `horarios`
+        # (fonte única, P0-4) — alinha a canônica à IA. Fallback hardcoded se o DB falhar.
+        resposta_canonica = detectar_resposta_canonica(texto_cliente, db=db)
         if resposta_canonica:
             if user.reativado_por_timeout:
                 resposta_canonica = FRASE_REATIVACAO_TIMEOUT + "<br><br>" + resposta_canonica
