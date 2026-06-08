@@ -198,6 +198,59 @@ function tocarNotificacao() {
  * Abre modal de snooze com presets e datetime-local.
  * Retorna Promise<string|null> — ISO timestamp ou null se cancelado.
  */
+// ============================================================
+// P2-5: acessibilidade de modais — focus-trap + devolução de foco ao ativador
+// ============================================================
+function _focusaveis(container) {
+  return Array.from(container.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null);
+}
+
+// Ativa focus-trap num modal recém-aberto; foca o 1º elemento e prende o Tab
+// dentro do modal. Retorna desativar(): remove o trap E devolve o foco ao ativador.
+function ativarFocusTrap(modal) {
+  const ativador = document.activeElement;
+  const foco = _focusaveis(modal);
+  (foco[0] || modal).focus?.();
+
+  function onTrapKey(e) {
+    if (e.key !== 'Tab') return;
+    const f = _focusaveis(modal);
+    if (!f.length) { e.preventDefault(); return; }
+    const primeiro = f[0], ultimo = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === primeiro) {
+      e.preventDefault(); ultimo.focus();
+    } else if (!e.shiftKey && document.activeElement === ultimo) {
+      e.preventDefault(); primeiro.focus();
+    }
+  }
+  document.addEventListener('keydown', onTrapKey, true);
+
+  return function desativar() {
+    document.removeEventListener('keydown', onTrapKey, true);
+    if (ativador && ativador.isConnected && typeof ativador.focus === 'function') {
+      try { ativador.focus(); } catch (_) {}
+    }
+  };
+}
+
+// modal-shortcuts (ajuda) é toggleado direto pelo classList em vários pontos —
+// centralizamos abrir/fechar para anexar o focus-trap.
+let _shortcutsTrap = null;
+function abrirModalShortcuts() {
+  const m = document.getElementById('modal-shortcuts');
+  if (!m || !m.classList.contains('hidden')) return; // inexistente ou já aberto
+  m.classList.remove('hidden');
+  _shortcutsTrap = ativarFocusTrap(m);
+}
+function fecharModalShortcuts() {
+  const m = document.getElementById('modal-shortcuts');
+  if (!m) return;
+  m.classList.add('hidden');
+  if (_shortcutsTrap) { _shortcutsTrap(); _shortcutsTrap = null; }
+}
+
 function abrirModalSnooze() {
   return new Promise((resolve) => {
     const modal = document.getElementById('modal-snooze');
@@ -220,6 +273,7 @@ function abrirModalSnooze() {
     }
 
     modal.classList.remove('hidden');
+    const _trap = ativarFocusTrap(modal);
 
     // Presets: clique define o datetime-local e resolve imediatamente
     const presetBtns = modal.querySelectorAll('.snooze-preset');
@@ -259,6 +313,7 @@ function abrirModalSnooze() {
       document.removeEventListener('keydown', onKey);
       // Remove preset listeners que restaram (once não previne duplicatas se houver re-abertura)
       presetBtns.forEach(b => b.removeEventListener('click', onPreset));
+      if (_trap) _trap();
     }
 
     document.getElementById('snooze-confirm-btn')?.addEventListener('click', onConfirm);
@@ -287,6 +342,7 @@ function abrirModalConfirmar(titulo, corpo) {
     if (bodyEl)  bodyEl.textContent  = corpo || '';
 
     modal.classList.remove('hidden');
+    const _trap = ativarFocusTrap(modal);
 
     function onOk() { cleanup(); resolve(true); }
     function onCancel() { cleanup(); resolve(false); }
@@ -305,6 +361,7 @@ function abrirModalConfirmar(titulo, corpo) {
       document.getElementById('modal-confirm-cancel')?.removeEventListener('click', onCancel);
       document.removeEventListener('keydown', onKey);
       modal.removeEventListener('click', onOverlay);
+      if (_trap) _trap();
     }
 
     document.getElementById('modal-confirm-ok')?.addEventListener('click', onOk);
@@ -339,6 +396,7 @@ function abrirModalInputTexto(titulo, descricao, placeholder) {
     if (field)   { field.value = ''; field.placeholder = placeholder || ''; }
 
     modal.classList.remove('hidden');
+    const _trap = ativarFocusTrap(modal);
     setTimeout(() => field?.focus(), 50);
 
     function onConfirm() {
@@ -363,6 +421,7 @@ function abrirModalInputTexto(titulo, descricao, placeholder) {
       document.getElementById('modal-input-confirm')?.removeEventListener('click', onConfirm);
       document.getElementById('modal-input-cancel')?.removeEventListener('click', onCancel);
       document.removeEventListener('keydown', onKey);
+      if (_trap) _trap();
     }
 
     document.getElementById('modal-input-confirm')?.addEventListener('click', onConfirm);
@@ -3370,7 +3429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         limparBulkSelecao();
         return;
       }
-      document.getElementById('modal-shortcuts')?.classList.add('hidden');
+      fecharModalShortcuts();
       document.getElementById('canned-popover')?.classList.add('hidden');
       document.getElementById('label-picker')?.classList.add('hidden');
       document.getElementById('status-popover')?.classList.add('hidden');
@@ -3439,7 +3498,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       case '?': {
         e.preventDefault();
-        document.getElementById('modal-shortcuts')?.classList.remove('hidden');
+        abrirModalShortcuts();
         break;
       }
       case 'a': {
@@ -3463,21 +3522,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Fechar modal de atalhos
   document.getElementById('close-shortcuts')?.addEventListener('click', () => {
-    document.getElementById('modal-shortcuts')?.classList.add('hidden');
+    fecharModalShortcuts();
   });
   document.getElementById('modal-shortcuts')?.addEventListener('click', (e) => {
     if (e.target === document.getElementById('modal-shortcuts')) {
-      document.getElementById('modal-shortcuts').classList.add('hidden');
+      fecharModalShortcuts();
     }
   });
 
   // FEATURE 1: Help button (inline no composer toolbar — TAREFA 2)
   document.getElementById('help-toolbar-btn')?.addEventListener('click', () => {
-    document.getElementById('modal-shortcuts')?.classList.remove('hidden');
+    abrirModalShortcuts();
   });
   // Retrocompatibilidade: help-fab agora é elemento vazio mas mantido para não quebrar
   document.getElementById('help-fab')?.addEventListener?.('click', () => {
-    document.getElementById('modal-shortcuts')?.classList.remove('hidden');
+    abrirModalShortcuts();
   });
 
   // FEATURE 1: First-run hint — aparece uma vez após login, auto-dismiss 6s
@@ -3550,7 +3609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     { label: 'Painel de informações', icon: _SVG.info, shortcut: 'i', action: () => { state.infoAberto ? fecharInfoPanel() : abrirInfoPanel(); } },
     { label: 'Assumir conversa', icon: _SVG.user, shortcut: '', action: () => { if (state.conversaAtual) assumirConversa(state.conversaAtual); } },
     { label: 'Devolver ao bot', icon: _SVG.bot, shortcut: '', action: () => { if (state.conversaAtual) devolverAoBot(state.conversaAtual); } },
-    { label: 'Atalhos de teclado', icon: _SVG.keyboard, shortcut: '?', action: () => document.getElementById('modal-shortcuts')?.classList.remove('hidden') },
+    { label: 'Atalhos de teclado', icon: _SVG.keyboard, shortcut: '?', action: () => abrirModalShortcuts() },
   ];
 
   let _paletteOpen = false;
