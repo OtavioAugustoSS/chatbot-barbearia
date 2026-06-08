@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -34,8 +34,18 @@ engine = create_engine(
 # Sessão do banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base para criar os modelos
-Base = declarative_base()
+# Base para criar os modelos.
+# ADR-014: naming_convention determinístico de constraints. Sem ele, o MySQL gera
+# nomes implícitos que o autogenerate do Alembic não resolve, produzindo diffs falsos.
+# Não afeta create_all (testes SQLite) — só nomeia constraints de forma estável.
+_NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+Base = declarative_base(metadata=MetaData(naming_convention=_NAMING_CONVENTION))
 
 # Dependência que gera a sessão para as rotas do FastAPI
 def get_db():

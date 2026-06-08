@@ -1,3 +1,10 @@
+-- ============================================================================
+-- LEGADO — NÃO USAR. Schema inicial (~5 tabelas), desatualizado desde a Sprint 0.1.
+-- Fonte de verdade atual do schema: db/models.py + alembic/versions/ (ADR-014).
+-- Para provisionar um banco: ver docs/deploy/runbook.md (seção Migrations).
+-- Mantido apenas como referência histórica.
+-- ============================================================================
+
 create database barbearia_bot_db;
 
 use barbearia_bot_db;

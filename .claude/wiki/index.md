@@ -40,6 +40,7 @@
 - [ADR-011: Ausência de RBAC nos Endpoints Admin](decisions/ADR-011-rbac-absence-admin-endpoints.md) — architect — documenta 5 categorias de endpoints sem restrição de role; aceita débito com mitigações compensatórias; define critérios para implementar RBAC
 - [ADR-012: Fix Compositor Layout + Mídia Async + Assume/Devolver Gaps](decisions/ADR-012-compositor-layout-midia-async.md) — architect — 5 decisões: renomear CSS #composer-area→#composer (D1); mídia endpoint sync confirmado correto (D2); canned popover position:fixed+JS (D3); remover double border attach-preview (D4); uniformizar botões compositor 36px (D5)
 - [ADR-013: Re-tune do Sistema de Tokens do Dashboard — WCAG AA + Camada de Profundidade](decisions/ADR-013-token-retune-dashboard.md) — architect — fix crítico --text-muted (2.62→5.64:1), re-tune de 8 tokens existentes, 9 tokens novos (acc-deep, text-faint, success/warning-strong, 5 sombras depth), re-tune de bubbles bot→green-tint/human→acc-deep; tabela copiável dark+light para redesign/admin-dashboard
+- [ADR-014: Gestão de Migrations com Alembic — Resolução do Schema Drift (P1-3)](decisions/ADR-014-migrations-alembic.md) — architect — adota Alembic autogenerate sobre Base.metadata; baseline stamp para DB existente; arquiva legado TASK*/0001-0011 SQL; coexistência create_all (testes) vs alembic upgrade head (prod); naming_convention de constraints; 13 passos de implementação
 
 ## Análises Técnicas (Architect)
 

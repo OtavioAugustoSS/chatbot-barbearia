@@ -81,7 +81,16 @@ Copy `.env` structure (no `.env.example` exists):
 
 ## Database
 
-Schema is in `barbearia_bot_db.sql`. SQLAlchemy creates tables automatically on startup via `Base.metadata.create_all()`. Migrations are manual — update models then recreate tables or alter them directly in MySQL.
+`db/models.py` is the single source of truth for the schema. **Migrations use Alembic (ADR-014)**, not hand-written SQL.
+
+Workflow for any schema change:
+1. Edit `db/models.py`.
+2. `alembic revision --autogenerate -m "<descrição>"`
+3. **Review** the generated script in `alembic/versions/` (autogenerate can miss charset/ENUM/`Numeric` details on MySQL).
+4. `alembic upgrade head`
+5. Commit `db/models.py` + the new version file together.
+
+Tests still build the schema via `Base.metadata.create_all()` on SQLite (`conftest.py`) — they do **not** run Alembic. The legacy `barbearia_bot_db.sql` and `scripts/migrations/*.sql` are archived under `scripts/archive/` — do not use them. See `docs/deploy/runbook.md` for provisioning a database and ADR-014 for the rationale.
 
 ## Operation Modes (`MODO_OPERACAO` env)
 
@@ -199,7 +208,7 @@ Filesystem-only (sem MCP no MVP). Todos os teammates seguem o protocolo:
 - Bot **NUNCA agenda** — sempre redirecionar para AppBarber (PO bloqueia)
 - Mudança no **AI Response Contract** (`{intencao, resposta_sugerida}`) exige ADR aprovado pelo humano (Architect bloqueia)
 - Frontend é **vanilla JS** — introduzir framework exige ADR (Architect bloqueia)
-- Migrations **manuais**, SQL em `scripts/migrations/{TASK}-{descricao}.sql` ANTES de alterar `db/models.py`
+- Migrations via **Alembic** (ADR-014): alterar `db/models.py` → `alembic revision --autogenerate` → revisar → `alembic upgrade head`. SQL manual em `scripts/migrations/` foi descontinuado (arquivado em `scripts/archive/`)
 - Operador usa `\n`, IA usa `<br>` — não confundir
 
 ### Como ativar o time

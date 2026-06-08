@@ -61,7 +61,12 @@ _exigir_meta_secret(
     os.getenv("ALLOW_UNSIGNED_WEBHOOK", ""),
 )
 
-# SQLAlchemy cria tabelas que ainda não existem no MySQL (porta 3306).
+# create_all (ADR-014) — MANTIDO sem condição. Papéis por contexto:
+#   - Testes (conftest troca o engine por SQLite antes do import): cria o schema de teste.
+#   - MySQL do zero (bootstrap): cria as tabelas a partir dos models; em seguida
+#     rode `alembic stamp head` para registrar a baseline (ver runbook).
+#   - MySQL já provisionado: inócuo — create_all só cria tabelas ausentes, nunca altera.
+# Mudanças de schema NÃO acontecem aqui: são migrations Alembic (`alembic upgrade head`).
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
