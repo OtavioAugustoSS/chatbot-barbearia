@@ -38,6 +38,8 @@ Sprints A/B/C executados em `main`. Suíte: **84 testes verdes** (47 originais �
 
 **Para ir à produção (futuro, decisão do dono):** token permanente Meta, `META_APP_SECRET`, remover `ALLOW_UNSIGNED_WEBHOOK=1`, hospedagem + TLS, e endereçar os 4 itens ⏳ acima (sobretudo P1-3).
 
+**Verificação de prontidão (2026-06-08):** rodada "Confiança + Cobertura" — ver `readiness-confirmation-2026-06.md`. Smoke ao vivo contra o MySQL real (sem NIM), suíte 94 → **119 testes**, triagem honesta dos gaps (maioria já-feita). Achados: (a) FAQ canônica de horário não passava `db` no webhook → **corrigido** (completa P0-4); (b) `alembic check` revela divergência **representacional** model↔banco (tipos nativos MySQL vs genéricos) — benigna para runtime, mas pede uma migration de **alinhamento revisada à mão** antes de prod (com o swap perigoso `ID`/`id` removido). Veredito: 🟢 GO para dev/test.
+
 ---
 
 ## 2. Transparência: claims do 1º passe REFUTADOS/recontextualizados
