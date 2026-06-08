@@ -13,7 +13,7 @@ barbeiros_servicos = Table(
 class Usuario(Base):
     __tablename__ = 'usuarios'
 
-    telefone = Column(String(20), primary_key=True, index=True)
+    telefone = Column(String(20), primary_key=True)
     nome_cliente = Column(String(100), nullable=True)
     bot_ativo = Column(Boolean, default=True)
     bot_desativado_em = Column(DateTime, nullable=True)
@@ -48,7 +48,7 @@ class Usuario(Base):
 class HistoricoConversa(Base):
     __tablename__ = 'historico_conversas'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     telefone_usuario = Column(String(20), ForeignKey('usuarios.telefone', ondelete='CASCADE'))
     mensagem_cliente = Column(Text, nullable=True)
     resposta_bot = Column(Text, nullable=True)
@@ -81,7 +81,7 @@ class Atendente(Base):
     """Operador humano que assume conversas via dashboard (modo híbrido)."""
     __tablename__ = 'atendentes'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     nome = Column(String(100), nullable=False)
     usuario_login = Column(String(50), unique=True, nullable=False, index=True)
     senha_hash = Column(String(255), nullable=False)
@@ -94,14 +94,14 @@ class MensagemProcessada(Base):
     """Dedupe persistente de message.id da Meta. Sobrevive a restart do servidor."""
     __tablename__ = 'mensagens_processadas'
 
-    message_id = Column(String(100), primary_key=True, index=True)
+    message_id = Column(String(100), primary_key=True)
     processada_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class Servico(Base):
     __tablename__ = 'servicos'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     nome_servico = Column(String(100), nullable=False)
     descricao = Column(Text, nullable=True)
     preco = Column(Numeric(10, 2), nullable=False)
@@ -120,7 +120,7 @@ class Servico(Base):
 class Barbeiro(Base):
     __tablename__ = 'barbeiros'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     nome = Column(String(100), nullable=False)
     dias_trabalho = Column(String(100), nullable=True)
 
