@@ -110,3 +110,27 @@ curl -s http://localhost:8000/health
   `DELETE /admin/cliente/{telefone}` (apaga histórico, labels, notas e menções).
 - **`erro_ia_debug.txt`** fica em disco e contém logs (com PII já mascarada/truncada). Em deploy
   sem volume persistente, é perdido em redeploy — considere enviar logs pra um serviço externo (P1).
+
+---
+
+## Manutenção periódica (P2-3)
+
+A limpeza oportunista (1% das mensagens) não é determinística. Rode `scripts/limpeza.py`
+por cron/timer para garantir a limpeza:
+
+```bash
+# Só dedupe (mensagens_processadas > 2 dias) — seguro, garbage puro:
+python scripts/limpeza.py
+
+# Também minimizar dados pessoais: purga histórico > 180 dias (opt-in, LGPD):
+python scripts/limpeza.py --historico-dias 180
+
+# Ver o que seria removido sem deletar:
+python scripts/limpeza.py --dry-run
+```
+
+Cron diário às 3h (systemd timer ou crontab):
+
+```cron
+0 3 * * *  cd /opt/barbearia-bot && ./venv/bin/python scripts/limpeza.py >> /var/log/barbearia-limpeza.log 2>&1
+```
