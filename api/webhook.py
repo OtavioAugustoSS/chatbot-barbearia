@@ -750,6 +750,20 @@ _PADRAO_SAUDACAO = re.compile(
     re.IGNORECASE,
 )
 
+# P2-6: emojis/símbolos quebravam a saudação pura ("oi 👋" caía na IA em vez do menu).
+# Removidos antes do match. Cobre emoticons, pictogramas, dingbats, bandeiras,
+# símbolos de gênero, variation selectors e ZWJ.
+_REGEX_EMOJI_SIMBOLO = re.compile(
+    "["
+    "🌀-🫿"  # emoticons, pictogramas, suplementares
+    "☀-➿"  # misc symbols + dingbats
+    "🇦-🇿"  # bandeiras regionais
+    "♀-♂"          # simbolos de genero
+    "️‍"           # variation selector + ZWJ
+    "]+",
+    flags=re.UNICODE,
+)
+
 
 def _e_saudacao_pura(texto: str) -> bool:
     """
@@ -758,7 +772,11 @@ def _e_saudacao_pura(texto: str) -> bool:
     """
     if not texto or len(texto) > 60:
         return False
-    return bool(_PADRAO_SAUDACAO.match(texto))
+    # P2-6: remove emojis/símbolos (ex.: "oi 👋") antes de casar o padrão.
+    limpo = _REGEX_EMOJI_SIMBOLO.sub("", texto).strip()
+    if not limpo:
+        return False
+    return bool(_PADRAO_SAUDACAO.match(limpo))
 
 router = APIRouter()
 whatsapp = WhatsAppSender()
@@ -954,7 +972,15 @@ def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: st
     except Exception:
         log.exception("Falha ao publicar evento SSE para %s", telefone)
 
-VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "barbearia_bot_123")
+# P2-7: sem fallback hardcoded. Se WEBHOOK_VERIFY_TOKEN não estiver setado, o
+# handshake de verificação da Meta SEMPRE falha (403) — evita um segredo conhecido
+# no código. Configure WEBHOOK_VERIFY_TOKEN no .env antes de registrar o webhook.
+VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "")
+if not VERIFY_TOKEN:
+    log.warning(
+        "WEBHOOK_VERIFY_TOKEN não configurado — a verificação GET /webhook da Meta "
+        "vai falhar até você definir esse token no .env."
+    )
 
 @router.get("/webhook")
 async def verify_webhook(request: Request):
@@ -963,10 +989,9 @@ async def verify_webhook(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
 
-    if mode and token:
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            return PlainTextResponse(challenge)
-            
+    if mode == "subscribe" and VERIFY_TOKEN and token == VERIFY_TOKEN:
+        return PlainTextResponse(challenge)
+
     raise HTTPException(status_code=403, detail="Token inválido")
 
 def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
@@ -977,7 +1002,17 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
     # e o dedupe de 1h protege contra processamento duplicado nesse cenário.
     adquirido = lock.acquire(timeout=90)
     if not adquirido:
-        log.warning("Lock timeout (90s) para %s — mensagem descartada para evitar starvation.", telefone)
+        # P1-6: antes a mensagem era descartada em silêncio. Agora avisamos o cliente
+        # para que ele não fique no vácuo achando que ninguém leu.
+        log.warning("Lock timeout (90s) para %s — notificando cliente e descartando.", telefone)
+        try:
+            whatsapp.enviar_mensagem_texto(
+                telefone,
+                "Estou finalizando o atendimento da sua mensagem anterior. "
+                "Um instante, por favor — se precisar, envie novamente em alguns segundos."
+            )
+        except Exception:
+            log.exception("Falha ao notificar cliente sobre lock timeout para %s", telefone)
         return
     try:
         _processar_mensagem(telefone, texto_cliente)

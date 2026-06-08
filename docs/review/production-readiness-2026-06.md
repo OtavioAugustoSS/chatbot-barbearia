@@ -14,6 +14,32 @@ A primeira varredura (agentes Explore) pintou um quadro "2/10 catástrofe" que *
 
 ---
 
+## Status de execução (atualizado 2026-06-08)
+
+Sprints A/B/C executados em `main`. Suíte: **84 testes verdes** (47 originais → +37). Para o objetivo atual (modo dev/test completo, sem produção ainda), o que restava está coberto ou conscientemente adiado:
+
+| Item | Status | Onde |
+|---|---|---|
+| **P0-1..P0-4** (LGPD, token 401, deploy/health, horário do banco) | ✅ feito | Sprint A (`c74db64`) |
+| **P1-1,2,5,7,9** (Sentry/alerta IA, utf8mb4, reabertura, guard Fred, testes /enviar+/bulk) | ✅ feito | Sprint B backend (`6ae53d5`) |
+| **P1-4** (contraste tema claro) | ✅ feito + verificado no browser | redesign (`ec84f54`) |
+| **P1-8** (SLA/tempo de espera) | ✅ já existia end-to-end (`transbordo_em`) | — |
+| **P1-10** (1 worker) | ✅ documentado | runbook |
+| **P2-3** (cron de limpeza) | ✅ `scripts/limpeza.py` + runbook | Sprint C |
+| **P2-4** (dep morta google-generativeai) | ✅ removida | Sprint C |
+| **P2-6** (saudação com emoji; `intencao` VARCHAR) | ✅ emoji corrigido; VARCHAR já era 50 | Sprint C |
+| **P2-7a** (fallback hardcoded do VERIFY_TOKEN) | ✅ removido | Sprint C |
+| **P1-6** (descarte silencioso em lock-timeout) | ✅ notifica o cliente | Sprint C |
+| **P2-2** (FK CASCADE em canned/filtros) | ✅ resolvido como **documentar** — atendente só é *soft-deleted* (`/desativar` → `ativo=False`), nunca hard-deleted, então o CASCADE **nunca dispara**. Risco teórico. | — |
+| **P1-3** (schema drift / Alembic) | ⏳ **adiado** — decisão arquitetural; é o maior pendente | — |
+| **P2-1** (circuit breaker NIM/Meta) | ⏳ adiado — resiliência de produção; mexe em estado global (risco p/ suíte) | — |
+| **P2-5** (a11y: focus-return/trap nos modais) | ⏳ adiado — passe de frontend dedicado | — |
+| **P2-7b** (JWT em query no `/presence`) | ⏳ adiado — `sendBeacon` não envia header; baixo impacto (a própria auditoria classificou) | — |
+
+**Para ir à produção (futuro, decisão do dono):** token permanente Meta, `META_APP_SECRET`, remover `ALLOW_UNSIGNED_WEBHOOK=1`, hospedagem + TLS, e endereçar os 4 itens ⏳ acima (sobretudo P1-3).
+
+---
+
 ## 2. Transparência: claims do 1º passe REFUTADOS/recontextualizados
 
 A honestidade brutal começa por aqui — vários "P0" alarmistas do passe inicial **não se sustentaram** na verificação:
