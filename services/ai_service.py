@@ -305,7 +305,14 @@ class AIService:
             self._cache_db = {"data": None, "expira_em": 0.0}
 
     @retry(
-        retry=retry_if_exception_type((openai.APITimeoutError, openai.APIConnectionError)),
+        # P1 (rodada 2): 5xx e 429 transitórios do NIM também são retentados —
+        # antes caíam direto em transbordo_falha e contavam no circuit breaker.
+        retry=retry_if_exception_type((
+            openai.APITimeoutError,
+            openai.APIConnectionError,
+            openai.InternalServerError,
+            openai.RateLimitError,
+        )),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=8),
         reraise=True,
@@ -429,7 +436,8 @@ class AIService:
                     "resposta_sugerida": "Tive um problema técnico momentâneo. Vou conectar você à recepção agora.",
                 }
 
-            response_text = completion.choices[0].message.content.strip()
+            # content pode vir None (JSON mode) — sem o guard vira AttributeError.
+            response_text = (completion.choices[0].message.content or "").strip()
             log.debug("IA raw response: %s", response_text[:300])
 
             if response_text.startswith("```json"):

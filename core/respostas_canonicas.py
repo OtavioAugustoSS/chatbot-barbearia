@@ -117,13 +117,28 @@ RESPOSTA_DISPONIBILIDADE_FRED = (
 
 # LGPD (Lei 13.709/2018): direito de acesso/exclusão de dados pessoais.
 # Não expõe contato direto do Fred (BR-002) — usa o próprio canal de atendimento.
-# Em modo híbrido, a equipe cumpre a exclusão via DELETE /admin/cliente/{telefone}.
+# PEDIDOS DE EXCLUSÃO são interceptados ANTES desta canônica pelo fluxo de
+# confirmação em 2 passos do webhook (REGEX_LGPD_EXCLUSAO) — esta resposta
+# cobre apenas consultas informativas ("política de privacidade", "que dados
+# vocês têm"). A equipe também pode excluir via DELETE /admin/cliente/{telefone}.
 RESPOSTA_APAGAR_DADOS = (
     "*Privacidade e seus dados (LGPD)*<br><br>"
     "Guardamos apenas o necessário para te atender: seu contato e o histórico desta conversa.<br><br>"
-    "Se quiser *acessar* ou *apagar* seus dados, é só pedir por aqui que nossa equipe "
-    "providencia a remoção conforme a LGPD.<br><br>"
+    "Se quiser removê-los, digite *apagar meus dados* e eu cuido do resto.<br><br>"
     f"{_FECHAMENTO}"
+)
+
+# Pedidos EXPLÍCITOS de exclusão de dados — dispara o fluxo de confirmação em
+# 2 passos no webhook (que executa a exclusão de verdade). Mais restrito que o
+# padrão canônico informativo acima: só verbos de remoção + objeto "dados/conta/…".
+REGEX_LGPD_EXCLUSAO = re.compile(
+    r"\b("
+    r"(apagar|apague|deletar|delete|excluir|exclua|remover|remova)\s+"
+    r"(os\s+|as\s+)?(meus?\s+|minhas?\s+)?(dados|informa[çc][oõ]es|hist[oó]rico|conta|cadastro)|"
+    r"esquec(er|am)\s+(os\s+)?(meus?\s+)?dados|"
+    r"direito\s+de\s+exclus[aã]o"
+    r")\b",
+    re.IGNORECASE,
 )
 
 # Cada entrada: (regex_compilado, resposta_canonica)

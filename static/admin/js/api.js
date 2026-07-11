@@ -88,6 +88,10 @@ window.api = {
     _req(`/admin/conversa/${encodeURIComponent(telefone)}/marcar-lida`, { method: 'POST' })
       .catch(() => null),
 
+  // LGPD: exclusão total do cliente (admin-only; 403 para atendente comum).
+  apagarCliente: (telefone) =>
+    _req(`/admin/cliente/${encodeURIComponent(telefone)}`, { method: 'DELETE' }),
+
   getClienteInfo: (telefone) => _req(`/admin/cliente/${encodeURIComponent(telefone)}/info`),
 
   assumir: (telefone) => _req(`/admin/assumir/${encodeURIComponent(telefone)}`, { method:'POST' }),

@@ -39,7 +39,7 @@ def main() -> int:
     from api.auth import hash_senha
 
     # Blindagens: sem NIM, sem rede WhatsApp.
-    wa_mod.WhatsAppSender.upload_midia_whatsapp = lambda self, *a, **k: "media_smoke"
+    wa_mod.WhatsAppSender.upload_midia_whatsapp = lambda self, *a, **k: (True, "media_smoke")
     wa_mod.WhatsAppSender.enviar_mensagem_midia = lambda self, *a, **k: (True, "wamid.s")
     webhook.whatsapp.enviar_mensagem_texto = lambda numero, texto: (True, "wamid.s")
     webhook.whatsapp.enviar_lista_interativa = lambda **k: (True, "wamid.s")

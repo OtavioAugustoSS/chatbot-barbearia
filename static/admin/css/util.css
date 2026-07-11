@@ -160,3 +160,10 @@ img, video { max-width: 100%; height: auto; }
 .z-20{z-index:20}
 .z-30{z-index:30}
 .z-50{z-index:50}
+
+/* --- M5: hovers translúcidos no TEMA CLARO ---------------------------------
+   Overlay branco sobre fundo claro é invisível — no tema claro os mesmos
+   utilitários viram overlay preto sutil. */
+[data-theme="light"] .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.05); }
+[data-theme="light"] .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.08); }
+[data-theme="light"] .hover\:bg-white\/20:hover { background-color: rgba(0, 0, 0, 0.12); }

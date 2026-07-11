@@ -18,6 +18,7 @@ from services.whatsapp import WhatsAppSender, criar_sender, extrair_mensagens
 from services.ai_service import AIService
 from services.notificador import notificador
 from core.respostas_canonicas import (
+    REGEX_LGPD_EXCLUSAO,
     detectar_resposta_canonica,
     RESPOSTA_HORARIO_ENDERECO,
     RESPOSTA_AGENDAMENTO,
@@ -45,6 +46,9 @@ def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> b
     esperado = hmac.new(META_APP_SECRET, raw_body, hashlib.sha256).hexdigest()
     recebido = header_signature.split("=", 1)[1]
     return hmac.compare_digest(esperado, recebido)
+
+# LGPD: minutos que o cliente tem para confirmar a exclusão com "APAGAR".
+_LGPD_JANELA_MINUTOS = 10
 
 FRASE_REATIVACAO_TIMEOUT = (
     "Lamentamos não ter conseguido conectar você com nossa recepção anteriormente. "
@@ -285,7 +289,7 @@ def _enviar_menu_lista(db: Session, user: Usuario, texto_cliente_trigger: str | 
     return True
 
 
-def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
+def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str, texto_cliente_gatilho: str | None = None) -> None:
     """
     Lógica unificada do handoff por solicitação explícita do cliente
     (botão antigo "🙋 Falar c/ Recepção" ou item MENU_RECEPCAO).
@@ -302,11 +306,15 @@ def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
             "nome": user.nome_cliente,
             "motivo": motivo,
         })
-        whatsapp.enviar_mensagem_texto(
-            user.telefone,
+        # T8: registrado no histórico — o atendente que assumir precisa ver que o
+        # bot já respondeu (evita mensagem duplicada/contraditória).
+        _enviar_e_registrar(
+            db, user, texto_cliente_gatilho,
             "Perfeito! Aguarde um instante — um atendente da nossa recepção "
-            "vai assumir o atendimento em breve."
-        )  # wamid ignored: handoff message has no associated HistoricoConversa here
+            "vai assumir o atendimento em breve.",
+            origem="bot",
+            intencao="handoff_recepcao",
+        )
     else:
         mensagem_bot_only = (
             "No momento o atendimento por aqui é feito apenas pelo assistente virtual.\n\n"
@@ -314,7 +322,10 @@ def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
             "Para agendar, acesse nosso app:\n"
             "https://sites.appbarber.com.br/bolshoi"
         )
-        whatsapp.enviar_mensagem_texto(user.telefone, mensagem_bot_only)  # wamid ignored: bot_only
+        _enviar_e_registrar(
+            db, user, texto_cliente_gatilho, mensagem_bot_only.replace("\n", "<br>"),
+            origem="bot", intencao="recepcao_bot_only",
+        )
 
 
 # ============================================================
@@ -1093,6 +1104,56 @@ def _processar_mensagem(telefone: str, texto_cliente: str, message_id: str | Non
         if not user.bot_ativo:
             return
 
+        # ------------------------------------------------------------------
+        # LGPD em 2 passos (P0): a mensagem de boas-vindas promete "digite
+        # apagar meus dados" — este bloco CUMPRE a promessa, com confirmação.
+        # Só roda com bot ativo; com atendente humano, a equipe usa o DELETE
+        # do dashboard. Ordem: confirmação pendente primeiro, depois pedido novo.
+        # ------------------------------------------------------------------
+        if user.exclusao_solicitada_em is not None:
+            solicitado_em = user.exclusao_solicitada_em
+            if solicitado_em.tzinfo is None:
+                solicitado_em = solicitado_em.replace(tzinfo=timezone.utc)
+            dentro_da_janela = (
+                datetime.now(timezone.utc) - solicitado_em <= timedelta(minutes=_LGPD_JANELA_MINUTOS)
+            )
+            if dentro_da_janela and texto_cliente.strip().upper() == "APAGAR":
+                # Despedida ANTES de apagar (o histórico some no mesmo commit).
+                whatsapp.enviar_mensagem_texto(
+                    telefone,
+                    "Pronto! Seus dados e todo o histórico desta conversa foram apagados, "
+                    "conforme a LGPD. Se precisar de algo no futuro, é só mandar mensagem. 👋",
+                )
+                from services.lgpd import apagar_dados_cliente
+
+                apagar_dados_cliente(db, telefone)
+                if MODO_HIBRIDO:
+                    try:
+                        notificador.publicar({"tipo": "cliente_apagado", "telefone": telefone})
+                    except Exception:
+                        log.exception("Falha ao publicar cliente_apagado para %s", telefone)
+                log.info("[LGPD] Exclusão confirmada e executada para %s.", telefone)
+                return
+            # Qualquer outro texto (ou janela expirada) cancela o pedido e segue o fluxo.
+            user.exclusao_solicitada_em = None
+            db.commit()
+            if not dentro_da_janela:
+                log.info("[LGPD] Janela de confirmação expirada para %s — pedido cancelado.", telefone)
+
+        if REGEX_LGPD_EXCLUSAO.search(texto_cliente):
+            user.exclusao_solicitada_em = datetime.now(timezone.utc)
+            db.commit()
+            _enviar_e_registrar(
+                db, user, texto_cliente,
+                "Você pediu a *exclusão dos seus dados* (LGPD).<br><br>"
+                "⚠️ Isso apaga seu cadastro e todo o histórico de conversa, sem volta.<br><br>"
+                f"Para confirmar, responda *APAGAR* em até {_LGPD_JANELA_MINUTOS} minutos. "
+                "Qualquer outra mensagem cancela o pedido.",
+                origem="bot",
+                intencao="lgpd_confirmar",
+            )
+            return
+
         # Janela de contexto: últimas 15 trocas. Mais memória sem inflar tokens demais.
         historico = db.query(HistoricoConversa).filter(
             HistoricoConversa.telefone_usuario == telefone
@@ -1385,6 +1446,31 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
     return {"status": "ok"}
 
 
+def _responder_midia_bg(telefone: str, nome_cliente: str | None, mensagem: str) -> None:
+    """Aviso de mídia não suportada, registrado no histórico (T8).
+
+    Roda como background task: sessão própria. O ramo de mídia executa ANTES do
+    get-or-create de Usuario no pipeline síncrono, então cria o usuário se preciso
+    (a FK de HistoricoConversa exige).
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+        if not user:
+            user = Usuario(telefone=telefone, nome_cliente=nome_cliente, bot_ativo=True)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        _enviar_e_registrar(
+            db, user, "[mídia recebida]", mensagem.replace("\n", "<br>"),
+            origem="bot", intencao="aviso_midia",
+        )
+    except Exception:
+        log.exception("Falha ao responder aviso de mídia para %s", telefone)
+    finally:
+        db.close()
+
+
 def _processar_mensagem_recebida(
     telefone: str,
     texto_cliente: str,
@@ -1419,11 +1505,8 @@ def _processar_mensagem_recebida(
                     db.commit()
             except Exception:
                 db.rollback()
-        background_tasks.add_task(
-            whatsapp.enviar_mensagem_texto,
-            telefone,
-            mensagem_midia,
-        )
+        # T8: registra o aviso no histórico (aparece no thread do dashboard).
+        background_tasks.add_task(_responder_midia_bg, telefone, nome_cliente, mensagem_midia)
         if message_id:
             background_tasks.add_task(whatsapp.marcar_como_lida, message_id, telefone)
         return
@@ -1559,7 +1642,7 @@ def _processar_mensagem_recebida(
         _SUB_ID_FALAR_ATENDENTE: "botao_falar_atendente",
     }
     if texto_cliente in _GATILHOS_HANDOFF:
-        _executar_handoff_recepcao(db, user, _GATILHOS_HANDOFF[texto_cliente])
+        _executar_handoff_recepcao(db, user, _GATILHOS_HANDOFF[texto_cliente], texto_cliente)
         return
 
     log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])

@@ -87,6 +87,8 @@ class CriarAtendenteIn(BaseModel):
     nome: str = Field(..., min_length=1, max_length=100)
     usuario_login: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-z0-9_]+$')
     senha: str = Field(..., min_length=8, max_length=128)
+    # B2: endpoint já é admin-only (admin_requerido) — admin escolhe o perfil.
+    role: Literal["admin", "atendente"] = "atendente"
 
     @field_validator("nome")
     @classmethod
@@ -1592,15 +1594,10 @@ def apagar_cliente(
     """LGPD: apaga o cliente e TODOS os seus dados pessoais (histórico, labels, notas,
     menções). Deleção explícita das dependências — robusta mesmo sem FK cascade no SQLite.
     Ação de staff; registra quem apagou."""
-    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
-    if not user:
+    from services.lgpd import apagar_dados_cliente
+
+    if not apagar_dados_cliente(db, telefone):
         raise HTTPException(404, "Cliente não encontrado")
-    db.query(MentionNotificacao).filter(MentionNotificacao.telefone_usuario == telefone).delete(synchronize_session=False)
-    db.query(NotaInterna).filter(NotaInterna.telefone_usuario == telefone).delete(synchronize_session=False)
-    db.execute(usuario_labels.delete().where(usuario_labels.c.telefone_usuario == telefone))
-    db.query(HistoricoConversa).filter(HistoricoConversa.telefone_usuario == telefone).delete(synchronize_session=False)
-    db.delete(user)
-    db.commit()
     log.info("[LGPD] Cliente apagado por atendente_id=%s telefone=%s", me.id, telefone)
     notificador.publicar({"tipo": "cliente_apagado", "telefone": telefone})
     return None
@@ -1899,11 +1896,11 @@ async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db),
     """Cria um novo atendente. Requer nome, usuario_login e senha (mín. 8 chars)."""
     if db.query(Atendente).filter(Atendente.usuario_login == body.usuario_login).first():
         raise HTTPException(409, "Login já existe")
-    novo = Atendente(nome=body.nome.strip(), usuario_login=body.usuario_login, senha_hash=hash_senha(body.senha), ativo=True)
+    novo = Atendente(nome=body.nome.strip(), usuario_login=body.usuario_login, senha_hash=hash_senha(body.senha), role=body.role, ativo=True)
     db.add(novo)
     db.commit()
     db.refresh(novo)
-    return {"id": novo.id, "nome": novo.nome, "usuario_login": novo.usuario_login}
+    return {"id": novo.id, "nome": novo.nome, "usuario_login": novo.usuario_login, "role": novo.role}
 
 
 @router.patch("/atendentes/{atendente_id}/desativar")
