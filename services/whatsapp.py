@@ -278,8 +278,9 @@ class WhatsAppSender:
         }
         return self._post_com_retry(payload, numero, "botoes_resposta")
 
-    def upload_midia_whatsapp(self, file_bytes: bytes, mime_type: str, filename: str) -> str:
-        """Faz upload de mídia para Meta e retorna media_id."""
+    def upload_midia_whatsapp(self, file_bytes: bytes, mime_type: str, filename: str) -> tuple[bool, str | None]:
+        """Faz upload de mídia para Meta. Retorna (ok, media_id) — mesmo contrato
+        dos demais métodos (B7: antes levantava exceção, contrato inconsistente)."""
         url = f"https://graph.facebook.com/v19.0/{self.phone_id}/media"
         try:
             resp = requests.post(
@@ -290,10 +291,10 @@ class WhatsAppSender:
                 timeout=30,
             )
             resp.raise_for_status()
-        except requests.RequestException as e:
+            return True, resp.json()["id"]
+        except (requests.RequestException, ValueError, KeyError) as e:
             log.error("upload_midia_whatsapp falhou: %s", e)
-            raise
-        return resp.json()["id"]
+            return False, None
 
     def enviar_mensagem_midia(self, telefone: str, media_id: str, media_type: str, caption: str = "") -> tuple[bool, str | None]:
         """Envia mensagem de mídia via WhatsApp Business API. Retorna (ok, wamid)."""
@@ -320,50 +321,75 @@ class WhatsAppSender:
 
 
 
-def extrair_informacoes_mensagem(body: dict):
+def _extrair_uma_mensagem(message: dict, nome_cliente: str):
+    """Converte um item de value.messages em (telefone, texto, nome, message_id)."""
+    numero_cliente = message.get('from')
+    tipo = message.get('type')
+    message_id = message.get('id')
+
+    if tipo == 'text':
+        texto = message.get('text', {}).get('body')
+        return numero_cliente, texto, nome_cliente, message_id
+    elif tipo == 'interactive':
+        interativo = message.get('interactive', {})
+        tipo_interativo = interativo.get('type')
+        if tipo_interativo == 'button_reply':
+            payload = interativo.get('button_reply', {}).get('id')
+            return numero_cliente, payload, nome_cliente, message_id
+        elif tipo_interativo == 'list_reply':
+            # Cliente selecionou item da Interactive List. Devolvemos o ID
+            # da row como "texto" — o webhook decide o que fazer com MENU_*.
+            payload = interativo.get('list_reply', {}).get('id')
+            return numero_cliente, payload, nome_cliente, message_id
+        # Tipo interactive desconhecido (futuro: nfm_reply etc) — ignora.
+        return None, None, None, None
+    else:
+        return numero_cliente, f"MÍDIA_{tipo}", nome_cliente, message_id
+
+
+def extrair_mensagens(body: dict) -> list[tuple]:
     """
-    Função auxiliar padrão Meta Cloud API para extrair dados
-    brutos recebidos pelo webhook do Whatsapp.
-    Retorna: (telefone, texto, nome, message_id)
+    Extrai TODAS as mensagens de um payload Meta Cloud API.
+    A Meta pode agrupar várias mensagens num único POST (batch) — processar só a
+    primeira perdia as demais silenciosamente.
+    Retorna lista de tuplas (telefone, texto, nome, message_id); vazia se nada útil.
     """
     try:
         entry = body.get('entry', [])[0]
         changes = entry.get('changes', [])[0]
         value = changes.get('value', {})
         messages = value.get('messages', [])
-
         if not messages:
-            return None, None, None, None
+            return []
 
-        message = messages[0]
-        numero_cliente = message.get('from')
-        tipo = message.get('type')
-        message_id = message.get('id')
-
-        # Extração de Nome do Perfil
+        # Extração de Nome do Perfil (contato vale para o batch inteiro)
         nome_cliente = ""
         contacts = value.get('contacts', [])
         if contacts:
             nome_cliente = contacts[0].get('profile', {}).get('name', '')
 
-        if tipo == 'text':
-            texto = message.get('text', {}).get('body')
-            return numero_cliente, texto, nome_cliente, message_id
-        elif tipo == 'interactive':
-            interativo = message.get('interactive', {})
-            tipo_interativo = interativo.get('type')
-            if tipo_interativo == 'button_reply':
-                payload = interativo.get('button_reply', {}).get('id')
-                return numero_cliente, payload, nome_cliente, message_id
-            elif tipo_interativo == 'list_reply':
-                # Cliente selecionou item da Interactive List. Devolvemos o ID
-                # da row como "texto" — o webhook decide o que fazer com MENU_*.
-                payload = interativo.get('list_reply', {}).get('id')
-                return numero_cliente, payload, nome_cliente, message_id
-            # Tipo interactive desconhecido (futuro: nfm_reply etc) — ignora.
-            return None, None, None, None
-        else:
-            return numero_cliente, f"MÍDIA_{tipo}", nome_cliente, message_id
-
+        resultado = []
+        for message in messages:
+            try:
+                extraida = _extrair_uma_mensagem(message, nome_cliente)
+            except Exception:
+                log.exception("Falha ao extrair uma mensagem do batch — pulando item.")
+                continue
+            if extraida[0] and extraida[1]:
+                resultado.append(extraida)
+        return resultado
     except Exception:
+        log.exception("Falha ao extrair mensagens do payload Meta.")
+        return []
+
+
+def extrair_informacoes_mensagem(body: dict):
+    """
+    Wrapper de compatibilidade: devolve apenas a PRIMEIRA mensagem do payload.
+    Retorna: (telefone, texto, nome, message_id) — Nones se não houver mensagem.
+    Preferir extrair_mensagens() em código novo.
+    """
+    mensagens = extrair_mensagens(body)
+    if not mensagens:
         return None, None, None, None
+    return mensagens[0]

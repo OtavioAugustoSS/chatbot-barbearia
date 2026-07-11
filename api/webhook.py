@@ -9,11 +9,12 @@ import threading
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db.database import get_db, SessionLocal
 from db.models import Usuario, HistoricoConversa, MensagemProcessada, Servico, Barbeiro
-from services.whatsapp import WhatsAppSender, criar_sender, extrair_informacoes_mensagem
+from services.whatsapp import WhatsAppSender, criar_sender, extrair_mensagens
 from services.ai_service import AIService
 from services.notificador import notificador
 from core.respostas_canonicas import (
@@ -797,27 +798,36 @@ def _ja_processada(db: Session, message_id: str) -> bool:
     """
     Dedupe persistente em DB. Sobrevive a restart do servidor.
     True se message_id já foi processado; caso contrário registra e devolve False.
+
+    INSERT-first: a PK de mensagens_processadas é o teste atômico. O SELECT-então-
+    INSERT anterior tinha race — duas retransmissões simultâneas viam "não existe",
+    a segunda caía em IntegrityError dentro do except genérico e era LIBERADA
+    (resposta duplicada ao cliente). IntegrityError agora significa "duplicada".
     """
     if not message_id:
         return False
     try:
-        existente = db.query(MensagemProcessada).filter(MensagemProcessada.message_id == message_id).first()
-        if existente:
-            return True
         db.add(MensagemProcessada(message_id=message_id))
         db.commit()
+    except IntegrityError:
+        db.rollback()
+        return True
+    except Exception:
+        log.exception("Erro no dedupe DB - permitindo passagem.")
+        db.rollback()
+        return False
 
-        # Limpeza oportunista: 1% das chamadas remove registros expirados.
+    # Limpeza oportunista: 1% das chamadas remove registros expirados.
+    try:
         import random
         if random.random() < 0.01:
             limite = datetime.now(timezone.utc) - timedelta(seconds=_DEDUPE_TTL_SEGUNDOS * 2)
             db.query(MensagemProcessada).filter(MensagemProcessada.processada_em < limite).delete()
             db.commit()
-        return False
     except Exception:
-        log.exception("Erro no dedupe DB - permitindo passagem.")
+        log.exception("Erro na limpeza oportunista do dedupe - ignorando.")
         db.rollback()
-        return False
+    return False
 
 
 def _excedeu_rate_limit(telefone: str) -> bool:
@@ -976,7 +986,7 @@ def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: st
 # P2-7: sem fallback hardcoded. Se WEBHOOK_VERIFY_TOKEN não estiver setado, o
 # handshake de verificação da Meta SEMPRE falha (403) — evita um segredo conhecido
 # no código. Configure WEBHOOK_VERIFY_TOKEN no .env antes de registrar o webhook.
-VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "")
+VERIFY_TOKEN = config.WEBHOOK_VERIFY_TOKEN
 if not VERIFY_TOKEN:
     log.warning(
         "WEBHOOK_VERIFY_TOKEN não configurado — a verificação GET /webhook da Meta "
@@ -990,7 +1000,8 @@ async def verify_webhook(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
 
-    if mode == "subscribe" and VERIFY_TOKEN and token == VERIFY_TOKEN:
+    # compare_digest: comparação constant-time — evita timing attack no token.
+    if mode == "subscribe" and VERIFY_TOKEN and token and hmac.compare_digest(token, VERIFY_TOKEN):
         return PlainTextResponse(challenge)
 
     raise HTTPException(status_code=403, detail="Token inválido")
@@ -1023,15 +1034,16 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
         # LGPD: telefone mascarado e traceback truncado (últimas 6 linhas) — evita
         # persistir PII completa no arquivo de debug. As linhas finais têm o ponto
         # da exceção (mais útil) e menos chance de conter o texto do cliente.
-        ts = datetime.now(timezone.utc).isoformat()
         tel_mask = (telefone[:4] + "****" + telefone[-2:]) if telefone and len(telefone) >= 6 else "****"
         tb_resumo = "".join(traceback.format_exc().splitlines(keepends=True)[-6:])
-        entrada = f"[{ts}] [BACKGROUND TASK] telefone={tel_mask} erro={exc}\n{tb_resumo}\n"
+        entrada = f"[BACKGROUND TASK] telefone={tel_mask} erro={exc}\n{tb_resumo}"
         log.error("Exceção não tratada em tarefa_em_segundo_plano_ia para %s: %s", tel_mask, exc)
         try:
-            caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
-            with open(caminho, "a", encoding="utf-8") as f:
-                f.write(entrada)
+            # Logger único com rotação (core/debug_log.py) — antes um open(...,"a")
+            # cru competia com o RotatingFileHandler do ai_service no mesmo arquivo.
+            from core.debug_log import get_debug_logger
+
+            get_debug_logger().error(entrada)
         except Exception:
             pass
     finally:
@@ -1305,16 +1317,29 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
     if _value.get("statuses"):
         background_tasks.add_task(_processar_status_updates, _value)
 
-    telefone, texto_cliente, nome_cliente, message_id = extrair_informacoes_mensagem(body)
+    # B4: a Meta pode agrupar VÁRIAS mensagens num único POST — todas são
+    # processadas (antes só a primeira; o resto se perdia em silêncio).
+    for telefone, texto_cliente, nome_cliente, message_id in extrair_mensagens(body):
+        _processar_mensagem_recebida(
+            telefone, texto_cliente, nome_cliente, message_id, background_tasks, db
+        )
+    return {"status": "ok"}
 
-    if not telefone or not texto_cliente:
-        return {"status": "ok"}
 
+def _processar_mensagem_recebida(
+    telefone: str,
+    texto_cliente: str,
+    nome_cliente: str,
+    message_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session,
+) -> None:
+    """Pipeline síncrono pré-IA de UMA mensagem (dedupe → mídia → rate limit → ...)."""
     # Dedupe persistente: Meta retransmite quando não recebe ACK rápido. Sem isso, cliente
     # recebe resposta duplicada. Persistido em DB → sobrevive a restart.
     if message_id and _ja_processada(db, message_id):
         log.info("Dedupe: message_id %s já processado, ignorando retransmissão.", message_id)
-        return {"status": "ok"}
+        return
 
     if str(texto_cliente).startswith("MÍDIA_"):
         mensagem_midia = (
@@ -1340,12 +1365,12 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
             telefone,
             mensagem_midia,
         )
-        return {"status": "ok"}
+        return
 
     # Rate limit: protege contra flood (DoS / fatura inflada).
     if _excedeu_rate_limit(telefone):
         log.warning("Rate limit excedido para %s.", telefone)
-        return {"status": "ok"}
+        return
 
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
@@ -1391,7 +1416,7 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
     if _cmd == "!reiniciar":
         if telefone not in ADMIN_PHONES:
             log.warning("Tentativa de !reiniciar por telefone não-admin: %s", telefone)
-            return {"status": "ok"}
+            return
         # Reseta estado completo do usuário: bot ativo, sem handoff pendente, sem atendente.
         user.bot_ativo = True
         user.bot_desativado_em = None
@@ -1405,12 +1430,12 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
         db.commit()
         log.info("!reiniciar executado por admin %s: estado e histórico limpos.", telefone)
         whatsapp.enviar_mensagem_texto(telefone, "Bot reiniciado por admin. Estado e memória limpos.")
-        return {"status": "ok"}
+        return
 
     if _cmd == "!status":
         if telefone not in ADMIN_PHONES:
             log.warning("Tentativa de !status por telefone não-admin: %s", telefone)
-            return {"status": "ok"}
+            return
         # Informa estado atual do usuário sem alterar nada — útil para diagnóstico.
         contagem = db.query(HistoricoConversa).filter(
             HistoricoConversa.telefone_usuario == telefone
@@ -1428,7 +1453,7 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
             f"Modo: {modo}"
         )
         whatsapp.enviar_mensagem_texto(telefone, msg)
-        return {"status": "ok"}
+        return
 
     # Reativação automática do bot após N horas sem atividade humana.
     bot_ativo = _verificar_e_reativar_bot(db, user)
@@ -1453,7 +1478,7 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
             log.info("Modo híbrido: msg de %s persistida para atendimento humano.", telefone)
         else:
             log.info("Mensagem ignorada: bot desativado para %s (modo bot_only).", telefone)
-        return {"status": "ok"}
+        return
 
     # Solicitação de recepção/atendente: botões legados OU itens das listas/botões.
     # Tratado síncrono (antes de enfileirar IA) — handoff é sensível a tempo.
@@ -1466,7 +1491,7 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
     }
     if texto_cliente in _GATILHOS_HANDOFF:
         _executar_handoff_recepcao(db, user, _GATILHOS_HANDOFF[texto_cliente])
-        return {"status": "ok"}
+        return
 
     log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])
     # Publica evento da mensagem do cliente IMEDIATAMENTE no dashboard (modo
@@ -1477,4 +1502,4 @@ async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks
 
     background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
 
-    return {"status": "ok"}
+    return

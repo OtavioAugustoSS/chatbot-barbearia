@@ -1072,7 +1072,9 @@ def enviar_midia(
         notificador.publicar({"tipo": "nova_mensagem", "telefone": telefone, "nome": usuario.nome_cliente, "texto": aviso, "origem": "humano", "atendente_id": me.id, "entregue": bool(ok_aviso)})
 
     try:
-        media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
+        ok_upload, media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
+        if not ok_upload or not media_id:
+            raise RuntimeError("upload de mídia recusado pela Meta")
         ok, wamid_midia = whatsapp.enviar_mensagem_midia(telefone, media_id, media_type, caption)
     except Exception as e:
         # C2: se auto-assumiu mas o upload/envio falhou, desfaz a atribuição para não
@@ -1453,7 +1455,7 @@ def editar_horario(
     db.commit()
     # Reflete na IA na hora (a canônica já lê fresco; aqui invalidamos o cache do contexto temporal).
     try:
-        from services.ai_service import invalidar_cache_horarios
+        from services.horarios import invalidar_cache_horarios
         invalidar_cache_horarios()
     except Exception:
         pass

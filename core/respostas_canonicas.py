@@ -21,13 +21,11 @@ LINK_MAPA = "https://www.google.com/maps/search/?api=1&query=-16.36553001%2C-46.
 
 # Núcleo do conteúdo (sem fechamento). Reaproveitado pela versão completa
 # E pela versão combinada (Horários + Endereço no mesmo item de menu).
-_CORPO_HORARIO = (
-    "*Nosso horário de funcionamento:*<br><br>"
-    "Segunda: 14:00 às 21:00<br>"
-    "Terça a Sexta: 09:00 às 21:00<br>"
-    "Sábado: 09:00 às 18:00<br>"
-    "Domingo: fechado"
-)
+# B9: gerado da fonte única services/horarios.py (HORARIOS_FALLBACK) — antes era
+# um texto fixo que podia divergir do fallback da IA e do seed.
+from services.horarios import corpo_horario_fallback as _corpo_horario_fallback
+
+_CORPO_HORARIO = _corpo_horario_fallback()
 
 _CORPO_ENDERECO = (
     "📍 *Estamos em:*<br><br>"
@@ -198,8 +196,12 @@ _PADROES = [
             r"quero\s+(marcar|agendar|reservar)|"
             r"posso\s+(marcar|agendar|reservar)|"
             r"link\s+(do|de)\s+agendamento|"
-            r"app(barber)?|"
-            r"aplicativo"
+            # B6: "app"/"aplicativo" SOZINHOS geravam falso positivo em qualquer frase
+            # ("meu aplicativo de banco travou"). Agora: "appbarber" sempre casa;
+            # "app/aplicativo" apenas com contexto de agendamento/barbearia.
+            r"appbarber|"
+            r"(baixar|baixo|usar|uso|pelo|link\s+do)\s+(o\s+)?(app|aplicativo)\b|"
+            r"\b(app|aplicativo)\s+(de\s+agendamento|da\s+barbearia|de\s+voc[eê]s|para\s+(agendar|marcar))"
             r")\b",
             re.IGNORECASE,
         ),

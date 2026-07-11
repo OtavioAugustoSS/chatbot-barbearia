@@ -16,7 +16,7 @@ from sqlalchemy.orm import joinedload
 from core.prompts import SYSTEM_PROMPT_BARBEARIA, ANCORA_ANTI_DRIFT
 from core import config
 from core.config import MODO_HIBRIDO
-from db.models import Servico, Barbeiro, Horario
+from db.models import Servico, Barbeiro
 from services.circuit_breaker import CircuitBreaker, CircuitOpenError
 
 log = logging.getLogger("barbearia.ai")
@@ -65,26 +65,34 @@ _TZ_BR = timezone(timedelta(hours=-3), name="America/Sao_Paulo")
 _DIAS_PT = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
 _MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
 
-# Horários por dia da semana. weekday(): 0=segunda ... 6=domingo.
-# (abre, fecha) em minutos desde 00:00. None = fechado.
-# ATENÇÃO: estes valores agora vivem na tabela `horarios` do banco de dados.
-# Populados via scripts/seed_horarios.py. Este dict é usado APENAS como fallback
-# caso a tabela esteja vazia (ex.: primeiro boot antes do seed).
-_HORARIOS = {
-    0: (14 * 60, 21 * 60),       # segunda
-    1: (9 * 60, 21 * 60),        # terça
-    2: (9 * 60, 21 * 60),        # quarta
-    3: (9 * 60, 21 * 60),        # quinta
-    4: (9 * 60, 21 * 60),        # sexta
-    5: (9 * 60, 18 * 60),        # sábado
-    6: None,                     # domingo
-}
+# Horários por dia da semana em minutos. weekday(): 0=segunda ... 6=domingo.
+# B9: derivado da fonte única services/horarios.py (HORARIOS_FALLBACK) — usado
+# APENAS como fallback caso a tabela `horarios` esteja vazia/inacessível.
+from services.horarios import (  # noqa: E402
+    fallback_em_minutos as _fallback_em_minutos,
+    carregar_horarios_db as _carregar_horarios_db,
+    invalidar_cache_horarios,
+    _cache_horarios,
+    _cache_horarios_lock,
+)
+
+_HORARIOS = _fallback_em_minutos()
 
 
 def _horario_para_minutos(horario_str: str) -> int:
-    """Converte 'HH:MM' em minutos desde 00:00."""
-    h, m = horario_str.split(":")
-    return int(h) * 60 + int(m)
+    """Converte 'HH:MM' em minutos desde 00:00.
+
+    Levanta ValueError em formato/faixa inválidos — o chamador decide o fallback.
+    Sem esta validação, um registro malformado na tabela `horarios` derrubava
+    TODA chamada de IA para transbordo_falha.
+    """
+    if not isinstance(horario_str, str) or not re.fullmatch(r"\d{1,2}:\d{2}", horario_str.strip()):
+        raise ValueError(f"Horário malformado: {horario_str!r} (esperado 'HH:MM')")
+    h, m = horario_str.strip().split(":")
+    h, m = int(h), int(m)
+    if h > 23 or m > 59:
+        raise ValueError(f"Horário fora de faixa: {horario_str!r}")
+    return h * 60 + m
 
 
 def _formatar_horario_dia(weekday: int, horarios_db: dict | None = None) -> str:
@@ -107,51 +115,10 @@ def _formatar_horario_dia(weekday: int, horarios_db: dict | None = None) -> str:
     return f"das {abre//60:02d}:{abre%60:02d} às {fecha//60:02d}:{fecha%60:02d}"
 
 
-# Cache de módulo para horários do banco. Evita uma query extra por chamada de IA.
-# TTL idêntico ao cache de serviços/barbeiros (5 min) para consistência operacional.
-# Estrutura: {"data": dict|None, "expira_em": float (epoch seconds)}
-_cache_horarios: dict = {"data": None, "expira_em": 0.0}
-_HORARIOS_CACHE_TTL = 300  # 5 minutos
-# TD-005: lock para proteger leitura/escrita do cache de módulo em background tasks.
-_cache_horarios_lock = threading.Lock()
-
-
-def _carregar_horarios_db() -> dict:
-    """
-    Retorna dict {dia_semana: Horario} consultando o banco, com cache de 5 min.
-    Cache de módulo (compartilhado entre todas as chamadas no mesmo processo).
-    Retorna {} em caso de erro — _construir_contexto_temporal() usa fallback hardcoded.
-    Thread-safe via _cache_horarios_lock (TD-005).
-    """
-    agora = time.time()
-    with _cache_horarios_lock:
-        if _cache_horarios["data"] is not None and agora < _cache_horarios["expira_em"]:
-            return _cache_horarios["data"]
-
-    from db.database import SessionLocal
-    db = SessionLocal()
-    try:
-        registros = db.query(Horario).all()
-        resultado = {r.dia_semana: r for r in registros}
-        with _cache_horarios_lock:
-            _cache_horarios["data"] = resultado
-            _cache_horarios["expira_em"] = agora + _HORARIOS_CACHE_TTL
-        return resultado
-    except Exception as e:
-        log.warning("Falha ao carregar horarios do banco, usando fallback hardcoded: %s", e)
-        # Não atualiza o cache em caso de erro — próxima chamada tentará de novo.
-        with _cache_horarios_lock:
-            return _cache_horarios["data"] if _cache_horarios["data"] is not None else {}
-    finally:
-        db.close()
-
-
-def invalidar_cache_horarios() -> None:
-    """Zera o cache de horários — a próxima leitura recarrega do banco.
-    Chamado pelo endpoint admin de edição de horário (reflete a mudança na hora)."""
-    with _cache_horarios_lock:
-        _cache_horarios["data"] = None
-        _cache_horarios["expira_em"] = 0.0
+# Cache de horários e invalidação: movidos para services/horarios.py (B9).
+# Os nomes _cache_horarios/_cache_horarios_lock/invalidar_cache_horarios continuam
+# exportados deste módulo (import no topo) para compatibilidade com chamadores
+# e testes existentes — apontam para os MESMOS objetos do módulo horarios.
 
 
 def _construir_contexto_temporal() -> str:
@@ -177,21 +144,31 @@ def _construir_contexto_temporal() -> str:
     horarios_db = _carregar_horarios_db()
     usar_db = bool(horarios_db)
 
+    status = None
     if usar_db:
         reg_hoje = horarios_db.get(agora.weekday())
         if reg_hoje is None or reg_hoje.fechado or reg_hoje.abertura is None:
             nome_dia = _DIAS_PT[agora.weekday()]
             status = f"FECHADA hoje ({nome_dia})."
         else:
-            abre = _horario_para_minutos(reg_hoje.abertura)
-            fecha = _horario_para_minutos(reg_hoje.fechamento)
-            if minutos_agora < abre:
-                status = f"FECHADA agora. Abre hoje às {reg_hoje.abertura} e fecha às {reg_hoje.fechamento}."
-            elif minutos_agora >= fecha:
-                status = f"FECHADA agora (já passou das {reg_hoje.fechamento} de hoje)."
+            try:
+                abre = _horario_para_minutos(reg_hoje.abertura)
+                fecha = _horario_para_minutos(reg_hoje.fechamento)
+            except ValueError as e:
+                # B5: registro malformado no banco não pode derrubar a IA inteira —
+                # cai para o calendário hardcoded e loga para correção manual.
+                log.warning("Horário inválido no banco (dia %s): %s — usando fallback hardcoded.",
+                            agora.weekday(), e)
+                horarios_db = None
             else:
-                status = f"ABERTA agora. Fecha hoje às {reg_hoje.fechamento}."
-    else:
+                if minutos_agora < abre:
+                    status = f"FECHADA agora. Abre hoje às {reg_hoje.abertura} e fecha às {reg_hoje.fechamento}."
+                elif minutos_agora >= fecha:
+                    status = f"FECHADA agora (já passou das {reg_hoje.fechamento} de hoje)."
+                else:
+                    status = f"ABERTA agora. Fecha hoje às {reg_hoje.fechamento}."
+
+    if status is None:
         # Fallback hardcoded
         horario_dia = _HORARIOS[agora.weekday()]
         if horario_dia is None:
@@ -250,23 +227,11 @@ class AIService:
         # em background tasks concorrentes (FastAPI + threading).
         self._cache_lock = threading.Lock()
         # TD-004: logger com rotação em vez de arquivo plano ilimitado.
-        # maxBytes=5MB, backupCount=3 → máx 20MB em disco.
-        # Nome "erro_ia_debug.txt" mantido para compatibilidade com monitoramento existente.
-        self._debug_logger = logging.getLogger("barbearia.ai.debug")
-        if not self._debug_logger.handlers:
-            _log_path = os.path.normpath(
-                os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
-            )
-            _handler = logging.handlers.RotatingFileHandler(
-                _log_path,
-                maxBytes=5 * 1024 * 1024,  # 5 MB
-                backupCount=3,
-                encoding="utf-8",
-            )
-            _handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%Y-%m-%dT%H:%M:%S"))
-            self._debug_logger.addHandler(_handler)
-            self._debug_logger.setLevel(logging.ERROR)
-            self._debug_logger.propagate = False  # evita duplicar no root logger
+        # Singleton compartilhado com o webhook (core/debug_log.py) — um único
+        # escritor com rotação para erro_ia_debug.txt.
+        from core.debug_log import get_debug_logger
+
+        self._debug_logger = get_debug_logger()
 
     @property
     def client(self) -> OpenAI:
@@ -301,10 +266,16 @@ class AIService:
             # PRIMÁRIO (sempre mostrar em listas): nome + preço.
             # REFERÊNCIA (só usar se cliente perguntar diretamente sobre o serviço):
             # descrição e duração ficam após " | ref:" e o prompt orienta a NÃO copiar isso em listas.
-            return (
-                f"✂️ {s.nome_servico} — R$ {s.preco:.2f}"
-                f"  | ref: dura {s.tempo_estimado_minutos}min; desc: {s.descricao}"
-            )
+            # B8: campos None são omitidos — antes a linha imprimia "None" literal.
+            ref_partes = []
+            if s.tempo_estimado_minutos is not None:
+                ref_partes.append(f"dura {s.tempo_estimado_minutos}min")
+            if s.descricao:
+                ref_partes.append(f"desc: {s.descricao}")
+            linha = f"✂️ {s.nome_servico} — R$ {s.preco:.2f}"
+            if ref_partes:
+                linha += "  | ref: " + "; ".join(ref_partes)
+            return linha
 
         barbearia = [s for s in servicos if s.categoria == "barbearia"]
         estetica = [s for s in servicos if s.categoria == "estetica"]

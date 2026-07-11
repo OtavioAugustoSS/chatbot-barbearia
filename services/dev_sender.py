@@ -65,8 +65,8 @@ class DevWhatsAppSender(WhatsAppSender):
         log.info("[DEV] Envio %s capturado no outbox para %s (wamid=%s)", tipo_log, numero, wamid)
         return True, wamid
 
-    def upload_midia_whatsapp(self, file_bytes: bytes, mime_type: str, filename: str):
+    def upload_midia_whatsapp(self, file_bytes: bytes, mime_type: str, filename: str) -> tuple[bool, str | None]:
         media_id = f"media.dev.{uuid4().hex}"
         log.info("[DEV] Upload de mídia simulado: %s (%s, %d bytes) -> %s",
                  filename, mime_type, len(file_bytes), media_id)
-        return media_id
+        return True, media_id

@@ -17,18 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import SessionLocal
 from db.models import Horario
 
-# Espelho do dict _HORARIOS que existia em services/ai_service.py.
-# weekday(): 0=segunda, 1=terça, ..., 5=sábado, 6=domingo
-# Tupla (abertura, fechamento) em "HH:MM" — None = dia fechado.
-_HORARIOS_SEED = {
-    0: ("14:00", "21:00"),  # segunda
-    1: ("09:00", "21:00"),  # terça
-    2: ("09:00", "21:00"),  # quarta
-    3: ("09:00", "21:00"),  # quinta
-    4: ("09:00", "21:00"),  # sexta
-    5: ("09:00", "18:00"),  # sábado
-    6: None,                # domingo (fechado)
-}
+# B9: fonte única em services/horarios.py — o seed usa o MESMO calendário
+# que o fallback da IA e o texto canônico. Nome mantido para compatibilidade.
+from services.horarios import HORARIOS_FALLBACK as _HORARIOS_SEED
 
 _NOMES_DIA = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 
