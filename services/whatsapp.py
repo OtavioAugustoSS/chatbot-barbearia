@@ -9,6 +9,22 @@ load_dotenv()
 log = logging.getLogger("barbearia.whatsapp")
 
 
+def criar_sender() -> "WhatsAppSender":
+    """Factory do sender: real com credenciais Meta, fake (outbox do simulador) sem elas.
+
+    A decisão vem de core.config.WHATSAPP_FAKE (presença de WHATSAPP_TOKEN e
+    WHATSAPP_PHONE_ID) — nunca de tentativa de rede.
+    """
+    from core.config import WHATSAPP_FAKE
+
+    if WHATSAPP_FAKE:
+        from services.dev_sender import DevWhatsAppSender
+
+        log.warning("WHATSAPP_TOKEN/PHONE_ID ausentes — usando DevWhatsAppSender (modo dev, sem envio real).")
+        return DevWhatsAppSender()
+    return WhatsAppSender()
+
+
 class WhatsAppSender:
     def __init__(self):
         self.token = os.getenv("WHATSAPP_TOKEN")

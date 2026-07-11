@@ -17,6 +17,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from api import webhook
 from db.database import engine, Base, get_db
+from core import config
 from core.config import MODO_HIBRIDO, MODO_OPERACAO
 
 # Logging estruturado: substitui prints espalhados.
@@ -42,24 +43,28 @@ if _sentry_dsn:
         _log.warning("SENTRY_DSN definido mas 'sentry-sdk' não instalado — rode: pip install sentry-sdk")
 
 
-def _exigir_meta_secret(meta_secret: str, allow_unsigned: str) -> None:
-    """Aborta o boot se META_APP_SECRET ausente em producao."""
+def _exigir_meta_secret(meta_secret: str, allow_unsigned: bool | str) -> None:
+    """Aborta o boot se META_APP_SECRET ausente sem opt-in de webhook não assinado.
+
+    Em MODO_DEV o opt-in é automático (config.ALLOW_UNSIGNED_WEBHOOK=True);
+    fora dele continua exigindo ALLOW_UNSIGNED_WEBHOOK=1 explícito.
+    allow_unsigned aceita bool (config) ou a string crua da env var ("1" = ativo).
+    """
+    if isinstance(allow_unsigned, str):
+        allow_unsigned = allow_unsigned == "1"
     if not meta_secret:
-        if allow_unsigned != "1":
+        if not allow_unsigned:
             raise RuntimeError(
                 "META_APP_SECRET nao configurado. "
                 "Em producao, defina META_APP_SECRET no .env para validar assinaturas HMAC do webhook. "
                 "Para desenvolvimento local sem validacao de assinatura, defina ALLOW_UNSIGNED_WEBHOOK=1."
             )
         _log.warning(
-            "META_APP_SECRET ausente — ALLOW_UNSIGNED_WEBHOOK=1 ativo. "
-            "Webhook aceita POST sem validacao de assinatura HMAC. NAO use em producao."
+            "META_APP_SECRET ausente — webhook aceita POST sem validacao de assinatura HMAC. "
+            "NAO use em producao."
         )
 
-_exigir_meta_secret(
-    os.getenv("META_APP_SECRET", ""),
-    os.getenv("ALLOW_UNSIGNED_WEBHOOK", ""),
-)
+_exigir_meta_secret(config.META_APP_SECRET, config.ALLOW_UNSIGNED_WEBHOOK)
 
 # create_all (ADR-014) — MANTIDO sem condição. Papéis por contexto:
 #   - Testes (conftest troca o engine por SQLite antes do import): cria o schema de teste.
@@ -68,6 +73,36 @@ _exigir_meta_secret(
 #   - MySQL já provisionado: inócuo — create_all só cria tabelas ausentes, nunca altera.
 # Mudanças de schema NÃO acontecem aqui: são migrations Alembic (`alembic upgrade head`).
 Base.metadata.create_all(bind=engine)
+
+# Modo dev (sem credenciais reais): popula dados demo e loga banner com o estado
+# de cada subsistema. Nunca roda com APP_ENV=production (guard duro no seed).
+if config.MODO_DEV:
+    from scripts.seed_dev import seed_demo
+
+    seed_demo()
+    _linhas_dev = [
+        "",
+        "=" * 74,
+        "MODO DESENVOLVIMENTO — rodando sem credenciais reais (.env ausente/incompleto)",
+        "-" * 74,
+    ]
+    if config.DB_SQLITE_DEV:
+        _linhas_dev.append("DB:        SQLite ./dev.db            -> producao: DB_USER/DB_PASS/DB_HOST/DB_NAME")
+    if config.IA_FAKE:
+        _linhas_dev.append("IA:        FAKE (resposta demo)       -> producao: NVIDIA_API_KEY")
+    if config.WHATSAPP_FAKE:
+        _linhas_dev.append("WhatsApp:  FAKE (outbox do simulador) -> producao: WHATSAPP_TOKEN + WHATSAPP_PHONE_ID")
+    if not config.META_APP_SECRET:
+        _linhas_dev.append("Webhook:   sem validacao HMAC          -> producao: META_APP_SECRET")
+    if config.JWT_SECRET_EFEMERO:
+        _linhas_dev.append("JWT:       secret efemero (reset a cada boot) -> producao: JWT_SECRET")
+    _linhas_dev.append(f"Modo:      {MODO_OPERACAO}" + (" (default de dev)" if not os.getenv("MODO_OPERACAO") else ""))
+    if MODO_HIBRIDO:
+        _linhas_dev.append("Dashboard: http://localhost:8000/static/admin/login.html  (admin / admin123)")
+    if config.WHATSAPP_FAKE:
+        _linhas_dev.append("Simulador: http://localhost:8000/dev/simulador")
+    _linhas_dev.append("=" * 74)
+    _log.warning("\n".join(_linhas_dev))
 
 app = FastAPI(
     title="Barbearia Bot API",
@@ -81,7 +116,8 @@ app.include_router(webhook.router)
 # Modo bot_only: nada do /admin é exposto (segurança + simplicidade).
 if MODO_HIBRIDO:
     # Falha cedo se segredo do JWT estiver ausente — sem isso, dashboard inseguro.
-    if not os.getenv("JWT_SECRET"):
+    # Em MODO_DEV, config.JWT_SECRET já foi preenchido com secret efêmero.
+    if not config.JWT_SECRET:
         raise RuntimeError(
             "MODO_OPERACAO=hibrido requer JWT_SECRET no .env. "
             "Gere com: python -c \"import secrets; print(secrets.token_hex(32))\""
@@ -91,6 +127,14 @@ if MODO_HIBRIDO:
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# Simulador de chat local: montado APENAS quando o WhatsApp é fake (sem credenciais
+# Meta) e fora de producao — com token real o pipeline enviaria mensagens de verdade,
+# entao o simulador nunca pode coexistir com ele.
+if config.WHATSAPP_FAKE and config.APP_ENV != "production":
+    from api import dev_router
+
+    app.include_router(dev_router.router)
 
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):

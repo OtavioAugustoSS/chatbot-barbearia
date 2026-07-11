@@ -19,12 +19,13 @@ from jose import JWTError, jwt
 
 from db.database import get_db
 from db.models import Atendente
+from core import config
 
 log = logging.getLogger("barbearia.auth")
 
-JWT_SECRET = os.getenv("JWT_SECRET", "")
+JWT_SECRET = config.JWT_SECRET
 JWT_ALG = "HS256"
-JWT_TTL_MIN = int(os.getenv("JWT_TTL_MIN", "15"))
+JWT_TTL_MIN = config.JWT_TTL_MIN
 
 if not JWT_SECRET:
     log.warning("JWT_SECRET não configurado — autenticação admin desabilitada (modo dev).")

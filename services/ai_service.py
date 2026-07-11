@@ -14,6 +14,7 @@ from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from sqlalchemy.orm import joinedload
 from core.prompts import SYSTEM_PROMPT_BARBEARIA, ANCORA_ANTI_DRIFT
+from core import config
 from core.config import MODO_HIBRIDO
 from db.models import Servico, Barbeiro, Horario
 from services.circuit_breaker import CircuitBreaker, CircuitOpenError
@@ -218,17 +219,30 @@ def _construir_contexto_temporal() -> str:
     )
 
 
+# Resposta determinística usada quando NVIDIA_API_KEY está ausente (modo dev).
+# Mantém o contrato {intencao, resposta_sugerida} e o padrão <br> de formatação da IA.
+_RESPOSTA_DEMO_IA = (
+    "🤖 Estou em *modo demonstração* — a IA (NVIDIA_API_KEY) ainda não foi configurada.<br><br>"
+    "Mesmo assim, posso te atender pelos fluxos automáticos: digite *menu* para ver "
+    "serviços, preços, equipe, horários e localização.<br><br>"
+    "_Em produção, esta pergunta seria respondida pela IA (Llama 3.1 70B)._"
+)
+
+
 class AIService:
     def __init__(self):
-        self.client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=os.getenv("NVIDIA_API_KEY")
-        )
+        # Cliente criado sob demanda (lazy): sem NVIDIA_API_KEY o construtor do SDK
+        # OpenAI levanta exceção, o que derrubava o boot inteiro no import do webhook.
+        self._client = None
         self.model_name = "meta/llama-3.1-70b-instruct"
-        # P2-1: circuit breaker em volta da chamada ao NIM. Após 3 falhas consecutivas
-        # (cada uma já esgotou os 3 retries do tenacity), abre por 30s e as mensagens
-        # seguintes caem direto no handoff em vez de pendurar ~24s cada.
-        self._breaker = CircuitBreaker(failure_threshold=3, reset_timeout=30.0, name="nim-llm")
+        # P2-1: circuit breaker em volta da chamada ao NIM. Após N falhas consecutivas
+        # (cada uma já esgotou os 3 retries do tenacity), abre por N segundos e as
+        # mensagens seguintes caem direto no handoff em vez de pendurar ~24s cada.
+        self._breaker = CircuitBreaker(
+            failure_threshold=config.CB_FAILURE_THRESHOLD,
+            reset_timeout=float(config.CB_RESET_TIMEOUT),
+            name="nim-llm",
+        )
         # Cache simples de serviços/barbeiros (mudam raramente; revalida a cada N segundos).
         self._cache_db = {"data": None, "expira_em": 0.0}
         self._cache_ttl_segundos = 300  # 5 min
@@ -253,6 +267,16 @@ class AIService:
             self._debug_logger.addHandler(_handler)
             self._debug_logger.setLevel(logging.ERROR)
             self._debug_logger.propagate = False  # evita duplicar no root logger
+
+    @property
+    def client(self) -> OpenAI:
+        """Cliente NVIDIA NIM criado sob demanda — nunca no import do módulo."""
+        if self._client is None:
+            self._client = OpenAI(
+                base_url="https://integrate.api.nvidia.com/v1",
+                api_key=config.NVIDIA_API_KEY,
+            )
+        return self._client
 
     def _carregar_dados_db(self, db_session):
         """Cache de serviços/barbeiros formatados. Evita 4 queries SQL por mensagem.
@@ -359,6 +383,11 @@ class AIService:
         return {"intencao": intencao, "resposta_sugerida": resposta}
 
     def processar_intencao(self, db_session, historico_mensagens, mensagem_atual, nome_cliente=None):
+        # Modo dev sem NVIDIA_API_KEY: resposta demo determinística no lugar da IA.
+        # intencao=tirar_duvida mantém o bot ativo (handoff continua testável pelos
+        # fluxos determinísticos de menu, ex.: MENU_RECEPCAO).
+        if config.IA_FAKE:
+            return {"intencao": "tirar_duvida", "resposta_sugerida": _RESPOSTA_DEMO_IA}
         try:
             str_servicos, str_barbeiros = self._carregar_dados_db(db_session)
 

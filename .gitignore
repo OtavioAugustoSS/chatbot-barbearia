@@ -52,3 +52,9 @@ htmlcov/
 # Distribuição
 dist/
 build/
+
+# Banco SQLite do modo dev (sem .env)
+dev.db
+dev.db-journal
+dev.db-wal
+dev.db-shm

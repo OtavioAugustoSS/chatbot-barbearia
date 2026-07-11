@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from db.database import get_db, SessionLocal
 from db.models import Usuario, HistoricoConversa, MensagemProcessada, Servico, Barbeiro
-from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
+from services.whatsapp import WhatsAppSender, criar_sender, extrair_informacoes_mensagem
 from services.ai_service import AIService
 from services.notificador import notificador
 from core.respostas_canonicas import (
@@ -24,13 +24,14 @@ from core.respostas_canonicas import (
     RESPOSTA_PAGAMENTO,
 )
 from core.config import MODO_HIBRIDO, MODO_BOT_ONLY
+from core import config
 
 log = logging.getLogger("barbearia.webhook")
 
-META_APP_SECRET = os.getenv("META_APP_SECRET", "").encode("utf-8")
-ADMIN_PHONES = {p.strip() for p in os.getenv("ADMIN_PHONES", "").split(",") if p.strip()}
-BOT_REATIVAR_APOS_HORAS = int(os.getenv("BOT_REATIVAR_APOS_HORAS", "24"))
-RATE_LIMIT_MSGS_POR_MINUTO = int(os.getenv("RATE_LIMIT_MSGS_POR_MINUTO", "10"))
+META_APP_SECRET = config.META_APP_SECRET.encode("utf-8")
+ADMIN_PHONES = config.ADMIN_PHONES
+BOT_REATIVAR_APOS_HORAS = config.BOT_REATIVAR_APOS_HORAS
+RATE_LIMIT_MSGS_POR_MINUTO = config.RATE_LIMIT_MSGS_POR_MINUTO
 
 
 def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> bool:
@@ -779,7 +780,7 @@ def _e_saudacao_pura(texto: str) -> bool:
     return bool(_PADRAO_SAUDACAO.match(limpo))
 
 router = APIRouter()
-whatsapp = WhatsAppSender()
+whatsapp = criar_sender()
 ai_service = AIService()
 
 # Locks por telefone com TTL: limpa entradas antigas pra evitar crescimento ilimitado.
@@ -1285,6 +1286,16 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     except _json.JSONDecodeError:
         return {"status": "ok"}
 
+    return await processar_evento_webhook(body, background_tasks, db)
+
+
+async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks, db: Session) -> dict:
+    """Pipeline completo de um evento já parseado/autenticado do webhook.
+
+    Separado de receive_message para que o simulador dev (api/dev_router.py)
+    injete payloads no MESMO fluxo de produção (dedupe, rate limit, menus,
+    canônicas, IA, handoff) sem passar pela validação de assinatura HTTP.
+    """
     # Extrai o bloco value para processar status updates antes do early return de mensagens.
     try:
         _value = body.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {})

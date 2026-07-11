@@ -34,7 +34,7 @@ def _iso_utc(dt) -> str | None:
 from db.database import get_db
 from db.models import Atendente, Usuario, HistoricoConversa, NotaInterna, Label, usuario_labels, CannedResponse, MentionNotificacao, FiltroSalvo, Horario
 import json as _json_lib
-from services.whatsapp import WhatsAppSender
+from services.whatsapp import WhatsAppSender, criar_sender
 from services.notificador import notificador
 from api.auth import (
     atendente_atual,
@@ -47,7 +47,7 @@ from api.auth import (
 log = logging.getLogger("barbearia.admin")
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-whatsapp = WhatsAppSender()
+whatsapp = criar_sender()
 
 
 class LoginIn(BaseModel):
