@@ -19,12 +19,13 @@ from jose import JWTError, jwt
 
 from db.database import get_db
 from db.models import Atendente
+from core import config
 
 log = logging.getLogger("barbearia.auth")
 
-JWT_SECRET = os.getenv("JWT_SECRET", "")
+JWT_SECRET = config.JWT_SECRET
 JWT_ALG = "HS256"
-JWT_TTL_MIN = int(os.getenv("JWT_TTL_MIN", "15"))
+JWT_TTL_MIN = config.JWT_TTL_MIN
 
 if not JWT_SECRET:
     log.warning("JWT_SECRET não configurado — autenticação admin desabilitada (modo dev).")
@@ -56,15 +57,28 @@ def verificar_senha(senha_plana: str, senha_hash: str) -> bool:
         return False
 
 
-def criar_token(atendente: Atendente) -> str:
+# Teto absoluto de uma sessão renovável (H1): mesmo com refreshes contínuos,
+# a sessão morre após este limite e exige novo login com senha.
+SESSAO_MAX_HORAS = 12
+
+
+def criar_token(atendente: Atendente, sess: int | None = None) -> str:
+    """Gera JWT do atendente.
+
+    sess: epoch (segundos) do LOGIN original da sessão. Propagado em cada
+    refresh — permite renovação deslizante (H1) com teto absoluto de
+    SESSAO_MAX_HORAS. None = login novo (sess = agora).
+    """
     if not JWT_SECRET:
         raise RuntimeError("JWT_SECRET não configurado.")
+    agora = datetime.now(timezone.utc)
     payload = {
         "sub": str(atendente.id),
         "login": atendente.usuario_login,
         "nome": atendente.nome,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_TTL_MIN),
-        "iat": datetime.now(timezone.utc),
+        "exp": agora + timedelta(minutes=JWT_TTL_MIN),
+        "iat": agora,
+        "sess": sess if sess is not None else int(agora.timestamp()),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
@@ -80,6 +94,15 @@ def _decodificar(token: str) -> dict:
 def login_rate_limited(ip: str) -> bool:
     """True se o IP excedeu o limite de tentativas de login na janela atual."""
     agora = time.time()
+    # H6: GC — sem isto o dict cresce um item por IP distinto para sempre.
+    # Barato o suficiente para rodar inline quando passa do limiar.
+    if len(_login_tentativas) > 100:
+        inativos = [
+            k for k, v in _login_tentativas.items()
+            if not v or agora - v[-1] >= _LOGIN_JANELA
+        ]
+        for k in inativos:
+            _login_tentativas.pop(k, None)
     janela = _login_tentativas.setdefault(ip, [])
     janela[:] = [t for t in janela if agora - t < _LOGIN_JANELA]
     if len(janela) >= _LOGIN_LIMITE:
@@ -108,4 +131,16 @@ def atendente_atual(
     atendente = db.query(Atendente).filter(Atendente.id == int(atendente_id)).first()
     if not atendente or not atendente.ativo:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Atendente inválido ou desativado")
+    return atendente
+
+
+def admin_requerido(atendente: Atendente = Depends(atendente_atual)) -> Atendente:
+    """
+    Dependency de RBAC (revisa ADR-011): exige role='admin'.
+    O papel é lido do DB via atendente_atual (não do token) — rebaixar um
+    atendente tem efeito imediato, sem esperar o JWT expirar.
+    Protege: gestão de atendentes, horários e exclusão LGPD de clientes.
+    """
+    if getattr(atendente, "role", "atendente") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Requer perfil administrador")
     return atendente

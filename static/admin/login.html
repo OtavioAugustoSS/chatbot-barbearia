@@ -522,10 +522,22 @@
   </div>
 
   <script>
-    // Redirect se já está logado
-    if (localStorage.getItem('token')) {
-      location.href = '/static/admin/index.html';
-    }
+    // Redirect se já está logado — H11: valida o exp do token antes; um token
+    // expirado redirecionava para o index, que devolvia o usuário para cá no 1º 401.
+    (function () {
+      const t = localStorage.getItem('token');
+      if (!t) return;
+      try {
+        const payload = JSON.parse(atob(t.split('.')[1]));
+        if (payload.exp * 1000 > Date.now()) {
+          location.href = '/static/admin/index.html';
+        } else {
+          localStorage.removeItem('token');
+        }
+      } catch (_) {
+        localStorage.removeItem('token');
+      }
+    })();
 
     const form     = document.getElementById('form-login');
     const inputUsr = document.getElementById('usuario_login');
@@ -581,7 +593,7 @@
           } catch(_) {}
           mostrarErro(detalhe);
           btn.classList.remove('loading');
-          setTimeout(() => { btn.disabled = false; }, 3000);
+          btn.disabled = false;  // H8: sem trava artificial — rate limit real é o 429 do servidor
           return;
         }
 
@@ -589,12 +601,13 @@
         localStorage.setItem('token', data.token);
         localStorage.setItem('atendente_id', data.atendente_id);
         localStorage.setItem('atendente_nome', data.nome);
+        localStorage.setItem('atendente_role', data.role || 'atendente');
         location.href = '/static/admin/index.html';
 
       } catch (err) {
         mostrarErro('Erro de conexão. Tente novamente.');
         btn.classList.remove('loading');
-        setTimeout(() => { btn.disabled = false; }, 3000);
+        btn.disabled = false;  // H8: sem trava artificial — rate limit real é o 429 do servidor
       }
     });
 

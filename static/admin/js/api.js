@@ -71,6 +71,9 @@ window.api = {
         return r.json();
       }),
 
+  // H1: renovação deslizante do JWT — chamada silenciosa perto do expiry.
+  refreshToken: () => _req('/admin/refresh', { method: 'POST' }),
+
   getConversas: (estado, page = 1) => {
     const params = new URLSearchParams({ page });
     if (estado && estado !== 'todas') params.set('estado', estado);
@@ -78,6 +81,16 @@ window.api = {
   },
 
   getConversa: (telefone) => _req(`/admin/conversa/${encodeURIComponent(telefone)}`),
+
+  // D2: atendente visualizou a conversa — read receipt + zera não-lidas.
+  // Fire-and-forget: falha aqui nunca deve travar a UI.
+  marcarLida: (telefone) =>
+    _req(`/admin/conversa/${encodeURIComponent(telefone)}/marcar-lida`, { method: 'POST' })
+      .catch(() => null),
+
+  // LGPD: exclusão total do cliente (admin-only; 403 para atendente comum).
+  apagarCliente: (telefone) =>
+    _req(`/admin/cliente/${encodeURIComponent(telefone)}`, { method: 'DELETE' }),
 
   getClienteInfo: (telefone) => _req(`/admin/cliente/${encodeURIComponent(telefone)}/info`),
 

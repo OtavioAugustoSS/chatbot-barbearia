@@ -107,11 +107,17 @@ def client(app):
 
 @pytest.fixture()
 def atendente_teste(db):
-    """Cria um Atendente no banco com senha conhecida."""
+    """Cria um Atendente ADMIN no banco com senha conhecida.
+
+    role='admin' para que os testes existentes de gestão de atendentes,
+    horários e LGPD continuem passando após o RBAC (H2). Use `atendente_comum`
+    para testar o 403 dos endpoints restritos.
+    """
     atendente = Atendente(
         nome="Atendente Teste",
         usuario_login="teste",
         senha_hash=hash_senha("senha123"),
+        role="admin",
         ativo=True,
     )
     db.add(atendente)
@@ -130,6 +136,28 @@ def token(atendente_teste):
 def auth_headers(token):
     """Header Authorization pronto para uso nos requests."""
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def atendente_comum(db):
+    """Atendente SEM perfil admin — para testar RBAC (403 nos endpoints restritos)."""
+    atendente = Atendente(
+        nome="Atendente Comum",
+        usuario_login="comum",
+        senha_hash=hash_senha("senha123"),
+        role="atendente",
+        ativo=True,
+    )
+    db.add(atendente)
+    db.commit()
+    db.refresh(atendente)
+    return atendente
+
+
+@pytest.fixture()
+def auth_headers_comum(atendente_comum):
+    """Header Authorization do atendente comum (não-admin)."""
+    return {"Authorization": f"Bearer {criar_token(atendente_comum)}"}
 
 
 @pytest.fixture()
@@ -162,6 +190,14 @@ def mock_externos(monkeypatch):
         _wa_mod.WhatsAppSender, "enviar_botoes_resposta",
         lambda self, **kwargs: (True, "wamid.btn123"),
     )
+    monkeypatch.setattr(
+        _wa_mod.WhatsAppSender, "marcar_como_lida",
+        lambda self, message_id, numero: True,
+    )
+
+    # Retry de status (race wamid) sem sleep nos testes.
+    import api.webhook as _wh_mod
+    monkeypatch.setattr(_wh_mod, "_STATUS_RETRY_DELAY_S", 0)
 
     import services.ai_service as _ai_mod
 

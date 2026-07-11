@@ -9,14 +9,16 @@ import threading
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import PlainTextResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db.database import get_db, SessionLocal
 from db.models import Usuario, HistoricoConversa, MensagemProcessada, Servico, Barbeiro
-from services.whatsapp import WhatsAppSender, extrair_informacoes_mensagem
+from services.whatsapp import WhatsAppSender, criar_sender, extrair_mensagens
 from services.ai_service import AIService
 from services.notificador import notificador
 from core.respostas_canonicas import (
+    REGEX_LGPD_EXCLUSAO,
     detectar_resposta_canonica,
     RESPOSTA_HORARIO_ENDERECO,
     RESPOSTA_AGENDAMENTO,
@@ -24,13 +26,14 @@ from core.respostas_canonicas import (
     RESPOSTA_PAGAMENTO,
 )
 from core.config import MODO_HIBRIDO, MODO_BOT_ONLY
+from core import config
 
 log = logging.getLogger("barbearia.webhook")
 
-META_APP_SECRET = os.getenv("META_APP_SECRET", "").encode("utf-8")
-ADMIN_PHONES = {p.strip() for p in os.getenv("ADMIN_PHONES", "").split(",") if p.strip()}
-BOT_REATIVAR_APOS_HORAS = int(os.getenv("BOT_REATIVAR_APOS_HORAS", "24"))
-RATE_LIMIT_MSGS_POR_MINUTO = int(os.getenv("RATE_LIMIT_MSGS_POR_MINUTO", "10"))
+META_APP_SECRET = config.META_APP_SECRET.encode("utf-8")
+ADMIN_PHONES = config.ADMIN_PHONES
+BOT_REATIVAR_APOS_HORAS = config.BOT_REATIVAR_APOS_HORAS
+RATE_LIMIT_MSGS_POR_MINUTO = config.RATE_LIMIT_MSGS_POR_MINUTO
 
 
 def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> bool:
@@ -43,6 +46,9 @@ def _validar_assinatura_meta(raw_body: bytes, header_signature: str | None) -> b
     esperado = hmac.new(META_APP_SECRET, raw_body, hashlib.sha256).hexdigest()
     recebido = header_signature.split("=", 1)[1]
     return hmac.compare_digest(esperado, recebido)
+
+# LGPD: minutos que o cliente tem para confirmar a exclusão com "APAGAR".
+_LGPD_JANELA_MINUTOS = 10
 
 FRASE_REATIVACAO_TIMEOUT = (
     "Lamentamos não ter conseguido conectar você com nossa recepção anteriormente. "
@@ -273,17 +279,17 @@ def _enviar_menu_lista(db: Session, user: Usuario, texto_cliente_trigger: str | 
         hist.entregue = bool(ok_fallback)
         hist.wamid = wamid_fallback
         db.commit()
-        _notificar_dashboard(user.telefone, user.nome_cliente, fallback_texto, "bot", entregue=bool(ok_fallback))
+        _notificar_dashboard(user.telefone, user.nome_cliente, fallback_texto, "bot", entregue=bool(ok_fallback), wamid=wamid_fallback)
         return bool(ok_fallback)
 
     hist.entregue = True
     hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder_historico, "bot", entregue=True)
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder_historico, "bot", entregue=True, wamid=wamid)
     return True
 
 
-def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
+def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str, texto_cliente_gatilho: str | None = None) -> None:
     """
     Lógica unificada do handoff por solicitação explícita do cliente
     (botão antigo "🙋 Falar c/ Recepção" ou item MENU_RECEPCAO).
@@ -300,11 +306,15 @@ def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
             "nome": user.nome_cliente,
             "motivo": motivo,
         })
-        whatsapp.enviar_mensagem_texto(
-            user.telefone,
+        # T8: registrado no histórico — o atendente que assumir precisa ver que o
+        # bot já respondeu (evita mensagem duplicada/contraditória).
+        _enviar_e_registrar(
+            db, user, texto_cliente_gatilho,
             "Perfeito! Aguarde um instante — um atendente da nossa recepção "
-            "vai assumir o atendimento em breve."
-        )  # wamid ignored: handoff message has no associated HistoricoConversa here
+            "vai assumir o atendimento em breve.",
+            origem="bot",
+            intencao="handoff_recepcao",
+        )
     else:
         mensagem_bot_only = (
             "No momento o atendimento por aqui é feito apenas pelo assistente virtual.\n\n"
@@ -312,7 +322,10 @@ def _executar_handoff_recepcao(db: Session, user: Usuario, motivo: str) -> None:
             "Para agendar, acesse nosso app:\n"
             "https://sites.appbarber.com.br/bolshoi"
         )
-        whatsapp.enviar_mensagem_texto(user.telefone, mensagem_bot_only)  # wamid ignored: bot_only
+        _enviar_e_registrar(
+            db, user, texto_cliente_gatilho, mensagem_bot_only.replace("\n", "<br>"),
+            origem="bot", intencao="recepcao_bot_only",
+        )
 
 
 # ============================================================
@@ -372,7 +385,7 @@ def _registrar_envio_botoes(
     hist.entregue = bool(ok_texto)
     hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(ok_texto))
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(ok_texto), wamid=wamid)
     return bool(ok_texto)
 
 
@@ -420,7 +433,7 @@ def _enviar_subflow_servicos(db: Session, user: Usuario, texto_cliente_trigger: 
         hist.entregue = True
         hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue), wamid=hist.wamid)
 
 
 def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: str) -> None:
@@ -466,7 +479,7 @@ def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: st
         hist.entregue = True
         hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue), wamid=hist.wamid)
 
 
 def _botoes_acao_pos_lista(incluir_voltar: bool = True) -> list[dict]:
@@ -779,7 +792,7 @@ def _e_saudacao_pura(texto: str) -> bool:
     return bool(_PADRAO_SAUDACAO.match(limpo))
 
 router = APIRouter()
-whatsapp = WhatsAppSender()
+whatsapp = criar_sender()
 ai_service = AIService()
 
 # Locks por telefone com TTL: limpa entradas antigas pra evitar crescimento ilimitado.
@@ -796,27 +809,36 @@ def _ja_processada(db: Session, message_id: str) -> bool:
     """
     Dedupe persistente em DB. Sobrevive a restart do servidor.
     True se message_id já foi processado; caso contrário registra e devolve False.
+
+    INSERT-first: a PK de mensagens_processadas é o teste atômico. O SELECT-então-
+    INSERT anterior tinha race — duas retransmissões simultâneas viam "não existe",
+    a segunda caía em IntegrityError dentro do except genérico e era LIBERADA
+    (resposta duplicada ao cliente). IntegrityError agora significa "duplicada".
     """
     if not message_id:
         return False
     try:
-        existente = db.query(MensagemProcessada).filter(MensagemProcessada.message_id == message_id).first()
-        if existente:
-            return True
         db.add(MensagemProcessada(message_id=message_id))
         db.commit()
+    except IntegrityError:
+        db.rollback()
+        return True
+    except Exception:
+        log.exception("Erro no dedupe DB - permitindo passagem.")
+        db.rollback()
+        return False
 
-        # Limpeza oportunista: 1% das chamadas remove registros expirados.
+    # Limpeza oportunista: 1% das chamadas remove registros expirados.
+    try:
         import random
         if random.random() < 0.01:
             limite = datetime.now(timezone.utc) - timedelta(seconds=_DEDUPE_TTL_SEGUNDOS * 2)
             db.query(MensagemProcessada).filter(MensagemProcessada.processada_em < limite).delete()
             db.commit()
-        return False
     except Exception:
-        log.exception("Erro no dedupe DB - permitindo passagem.")
+        log.exception("Erro na limpeza oportunista do dedupe - ignorando.")
         db.rollback()
-        return False
+    return False
 
 
 def _excedeu_rate_limit(telefone: str) -> bool:
@@ -948,15 +970,26 @@ def _enviar_e_registrar(
     hist.wamid = wamid
     db.commit()
 
-    _notificar_dashboard(user.telefone, user.nome_cliente, resposta_texto, origem, entregue=bool(ok))
+    _notificar_dashboard(
+        user.telefone, user.nome_cliente, resposta_texto, origem,
+        entregue=bool(ok), wamid=wamid,
+    )
     return bool(ok)
 
 
-def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: str, entregue: bool | None = None):
+def _notificar_dashboard(
+    telefone: str,
+    nome: str | None,
+    texto: str,
+    origem: str,
+    entregue: bool | None = None,
+    wamid: str | None = None,
+):
     """
     Publica evento SSE no notificador para o dashboard atualizar em tempo real.
     No-op em modo bot_only (não há dashboard). Origem: 'bot' | 'humano' | 'cliente'.
     `entregue`: True/False pra mensagens saindo (bot/humano), None pra mensagem do cliente.
+    `wamid`: id Meta da mensagem — o front ancora a bolha (data-wamid) para os ticks.
     """
     if not MODO_HIBRIDO:
         return
@@ -968,6 +1001,7 @@ def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: st
             "texto": texto,
             "origem": origem,
             "entregue": entregue,
+            "wamid": wamid,
         })
     except Exception:
         log.exception("Falha ao publicar evento SSE para %s", telefone)
@@ -975,7 +1009,7 @@ def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: st
 # P2-7: sem fallback hardcoded. Se WEBHOOK_VERIFY_TOKEN não estiver setado, o
 # handshake de verificação da Meta SEMPRE falha (403) — evita um segredo conhecido
 # no código. Configure WEBHOOK_VERIFY_TOKEN no .env antes de registrar o webhook.
-VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "")
+VERIFY_TOKEN = config.WEBHOOK_VERIFY_TOKEN
 if not VERIFY_TOKEN:
     log.warning(
         "WEBHOOK_VERIFY_TOKEN não configurado — a verificação GET /webhook da Meta "
@@ -989,12 +1023,13 @@ async def verify_webhook(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
 
-    if mode == "subscribe" and VERIFY_TOKEN and token == VERIFY_TOKEN:
+    # compare_digest: comparação constant-time — evita timing attack no token.
+    if mode == "subscribe" and VERIFY_TOKEN and token and hmac.compare_digest(token, VERIFY_TOKEN):
         return PlainTextResponse(challenge)
 
     raise HTTPException(status_code=403, detail="Token inválido")
 
-def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
+def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str, message_id: str | None = None):
     """ Essa função roda solta no fundo, dando todo tempo do mundo para a IA pensar sem travar o Facebook """
     lock = _lock_do_telefone(telefone)
     # TD-013: timeout de 90s evita starvation caso NIM trave indefinidamente.
@@ -1015,28 +1050,29 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
             log.exception("Falha ao notificar cliente sobre lock timeout para %s", telefone)
         return
     try:
-        _processar_mensagem(telefone, texto_cliente)
+        _processar_mensagem(telefone, texto_cliente, message_id)
     except Exception as exc:
         # ADR-010: captura exceção raiz para garantir visibilidade de falhas silenciosas.
         # O lock é liberado no finally independentemente.
         # LGPD: telefone mascarado e traceback truncado (últimas 6 linhas) — evita
         # persistir PII completa no arquivo de debug. As linhas finais têm o ponto
         # da exceção (mais útil) e menos chance de conter o texto do cliente.
-        ts = datetime.now(timezone.utc).isoformat()
         tel_mask = (telefone[:4] + "****" + telefone[-2:]) if telefone and len(telefone) >= 6 else "****"
         tb_resumo = "".join(traceback.format_exc().splitlines(keepends=True)[-6:])
-        entrada = f"[{ts}] [BACKGROUND TASK] telefone={tel_mask} erro={exc}\n{tb_resumo}\n"
+        entrada = f"[BACKGROUND TASK] telefone={tel_mask} erro={exc}\n{tb_resumo}"
         log.error("Exceção não tratada em tarefa_em_segundo_plano_ia para %s: %s", tel_mask, exc)
         try:
-            caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "erro_ia_debug.txt")
-            with open(caminho, "a", encoding="utf-8") as f:
-                f.write(entrada)
+            # Logger único com rotação (core/debug_log.py) — antes um open(...,"a")
+            # cru competia com o RotatingFileHandler do ai_service no mesmo arquivo.
+            from core.debug_log import get_debug_logger
+
+            get_debug_logger().error(entrada)
         except Exception:
             pass
     finally:
         lock.release()
 
-def _processar_mensagem(telefone: str, texto_cliente: str):
+def _processar_mensagem(telefone: str, texto_cliente: str, message_id: str | None = None):
     db = SessionLocal()
     try:
         # Puxamos o usuario no DB dessa sessão avulsa
@@ -1053,6 +1089,7 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 mensagem_cliente=texto_cliente,
                 resposta_bot=None,
                 origem="cliente",
+                wamid=message_id,  # wamid do CLIENTE — base do read receipt (marcar-lida)
             ))
             db.commit()
             notificador.publicar({
@@ -1061,9 +1098,60 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 "nome": user.nome_cliente,
                 "texto": texto_cliente,
                 "origem": "cliente",
+                "wamid": message_id,
             })
             return
         if not user.bot_ativo:
+            return
+
+        # ------------------------------------------------------------------
+        # LGPD em 2 passos (P0): a mensagem de boas-vindas promete "digite
+        # apagar meus dados" — este bloco CUMPRE a promessa, com confirmação.
+        # Só roda com bot ativo; com atendente humano, a equipe usa o DELETE
+        # do dashboard. Ordem: confirmação pendente primeiro, depois pedido novo.
+        # ------------------------------------------------------------------
+        if user.exclusao_solicitada_em is not None:
+            solicitado_em = user.exclusao_solicitada_em
+            if solicitado_em.tzinfo is None:
+                solicitado_em = solicitado_em.replace(tzinfo=timezone.utc)
+            dentro_da_janela = (
+                datetime.now(timezone.utc) - solicitado_em <= timedelta(minutes=_LGPD_JANELA_MINUTOS)
+            )
+            if dentro_da_janela and texto_cliente.strip().upper() == "APAGAR":
+                # Despedida ANTES de apagar (o histórico some no mesmo commit).
+                whatsapp.enviar_mensagem_texto(
+                    telefone,
+                    "Pronto! Seus dados e todo o histórico desta conversa foram apagados, "
+                    "conforme a LGPD. Se precisar de algo no futuro, é só mandar mensagem. 👋",
+                )
+                from services.lgpd import apagar_dados_cliente
+
+                apagar_dados_cliente(db, telefone)
+                if MODO_HIBRIDO:
+                    try:
+                        notificador.publicar({"tipo": "cliente_apagado", "telefone": telefone})
+                    except Exception:
+                        log.exception("Falha ao publicar cliente_apagado para %s", telefone)
+                log.info("[LGPD] Exclusão confirmada e executada para %s.", telefone)
+                return
+            # Qualquer outro texto (ou janela expirada) cancela o pedido e segue o fluxo.
+            user.exclusao_solicitada_em = None
+            db.commit()
+            if not dentro_da_janela:
+                log.info("[LGPD] Janela de confirmação expirada para %s — pedido cancelado.", telefone)
+
+        if REGEX_LGPD_EXCLUSAO.search(texto_cliente):
+            user.exclusao_solicitada_em = datetime.now(timezone.utc)
+            db.commit()
+            _enviar_e_registrar(
+                db, user, texto_cliente,
+                "Você pediu a *exclusão dos seus dados* (LGPD).<br><br>"
+                "⚠️ Isso apaga seu cadastro e todo o histórico de conversa, sem volta.<br><br>"
+                f"Para confirmar, responda *APAGAR* em até {_LGPD_JANELA_MINUTOS} minutos. "
+                "Qualquer outra mensagem cancela o pedido.",
+                origem="bot",
+                intencao="lgpd_confirmar",
+            )
             return
 
         # Janela de contexto: últimas 15 trocas. Mais memória sem inflar tokens demais.
@@ -1218,10 +1306,38 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
 
 
 
+# Janela de retry quando o status da Meta chega antes do UPDATE que grava o wamid
+# no histórico (fluxo: INSERT wamid=NULL → POST Meta → UPDATE wamid). Zerado nos testes.
+_STATUS_RETRY_DELAY_S = 2.0
+
+# Ranking de progresso do ciclo de vida: nunca rebaixar um estado mais avançado.
+# aceito (entregue=True no envio) < delivered < read; failed só se ainda não entregue.
+_RANK_STATUS = {"failed": 0.5, "delivered": 2, "read": 3}
+
+
+def _rank_atual(hist: HistoricoConversa) -> float:
+    if hist.lida is True:
+        return 3
+    if hist.lida is False:
+        return 2
+    if hist.entregue is False:
+        return 0
+    return 1  # aceito pela Meta, sem confirmação de entrega ainda
+
+
 def _processar_status_updates(value: dict) -> None:
     """
-    Processa status updates de entrega/leitura enviados pela Meta no mesmo endpoint do webhook.
-    Atualiza `lida` em HistoricoConversa e publica SSE mensagem_lida para o dashboard.
+    Processa status updates (delivered/read/failed) enviados pela Meta no mesmo
+    endpoint do webhook. Atualiza `entregue`/`lida` em HistoricoConversa e publica
+    SSE mensagem_lida para o dashboard.
+
+    - Monotonicidade: um `delivered` retransmitido/fora de ordem NÃO rebaixa `lida=True`.
+    - `failed`: marca entregue=False (tick de falha no dashboard) — só se ainda não
+      houve confirmação de entrega/leitura.
+    - Guard D1: casa apenas linhas de SAÍDA (resposta_bot preenchido) — a coluna wamid
+      também guarda o id das mensagens DO CLIENTE (para read receipt), que não têm tick.
+    - Race: se o wamid ainda não foi gravado (UPDATE pós-POST em andamento), espera
+      _STATUS_RETRY_DELAY_S e tenta UMA vez mais antes de desistir com log.
     Cria sessão DB própria (background task não pode reusar a sessão da request).
     """
     statuses = value.get("statuses", [])
@@ -1235,15 +1351,31 @@ def _processar_status_updates(value: dict) -> None:
             status = st.get("status")
             telefone = st.get("recipient_id")
 
-            if status not in ("delivered", "read") or not wamid:
+            if status not in _RANK_STATUS or not wamid:
                 continue
 
-            hist = db.query(HistoricoConversa).filter(
-                HistoricoConversa.wamid == wamid
-            ).first()
+            def _buscar():
+                return db.query(HistoricoConversa).filter(
+                    HistoricoConversa.wamid == wamid,
+                    HistoricoConversa.resposta_bot.isnot(None),
+                ).first()
 
+            hist = _buscar()
+            if not hist and _STATUS_RETRY_DELAY_S > 0:
+                time.sleep(_STATUS_RETRY_DELAY_S)
+                db.expire_all()
+                hist = _buscar()
             if not hist:
+                log.info("Status %s para wamid %s sem histórico correspondente — descartado.", status, wamid)
                 continue
+
+            rank = _rank_atual(hist)
+            if status == "failed":
+                # failed só vale se ainda não houve confirmação de entrega/leitura
+                if rank >= 2 or hist.entregue is False:
+                    continue
+            elif _RANK_STATUS[status] <= rank:
+                continue  # retransmissão/out-of-order — não rebaixa
 
             if status == "delivered":
                 hist.entregue = True
@@ -1251,13 +1383,14 @@ def _processar_status_updates(value: dict) -> None:
             elif status == "read":
                 hist.entregue = True
                 hist.lida = True
+            elif status == "failed":
+                hist.entregue = False
 
             db.commit()
 
             if MODO_HIBRIDO:
                 try:
-                    from api.admin import notificador as admin_notificador
-                    admin_notificador.publicar({
+                    notificador.publicar({
                         "tipo": "mensagem_lida",
                         "wamid": wamid,
                         "status": status,
@@ -1285,6 +1418,16 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     except _json.JSONDecodeError:
         return {"status": "ok"}
 
+    return await processar_evento_webhook(body, background_tasks, db)
+
+
+async def processar_evento_webhook(body: dict, background_tasks: BackgroundTasks, db: Session) -> dict:
+    """Pipeline completo de um evento já parseado/autenticado do webhook.
+
+    Separado de receive_message para que o simulador dev (api/dev_router.py)
+    injete payloads no MESMO fluxo de produção (dedupe, rate limit, menus,
+    canônicas, IA, handoff) sem passar pela validação de assinatura HTTP.
+    """
     # Extrai o bloco value para processar status updates antes do early return de mensagens.
     try:
         _value = body.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {})
@@ -1294,16 +1437,54 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     if _value.get("statuses"):
         background_tasks.add_task(_processar_status_updates, _value)
 
-    telefone, texto_cliente, nome_cliente, message_id = extrair_informacoes_mensagem(body)
+    # B4: a Meta pode agrupar VÁRIAS mensagens num único POST — todas são
+    # processadas (antes só a primeira; o resto se perdia em silêncio).
+    for telefone, texto_cliente, nome_cliente, message_id in extrair_mensagens(body):
+        _processar_mensagem_recebida(
+            telefone, texto_cliente, nome_cliente, message_id, background_tasks, db
+        )
+    return {"status": "ok"}
 
-    if not telefone or not texto_cliente:
-        return {"status": "ok"}
 
+def _responder_midia_bg(telefone: str, nome_cliente: str | None, mensagem: str) -> None:
+    """Aviso de mídia não suportada, registrado no histórico (T8).
+
+    Roda como background task: sessão própria. O ramo de mídia executa ANTES do
+    get-or-create de Usuario no pipeline síncrono, então cria o usuário se preciso
+    (a FK de HistoricoConversa exige).
+    """
+    db = SessionLocal()
+    try:
+        user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+        if not user:
+            user = Usuario(telefone=telefone, nome_cliente=nome_cliente, bot_ativo=True)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        _enviar_e_registrar(
+            db, user, "[mídia recebida]", mensagem.replace("\n", "<br>"),
+            origem="bot", intencao="aviso_midia",
+        )
+    except Exception:
+        log.exception("Falha ao responder aviso de mídia para %s", telefone)
+    finally:
+        db.close()
+
+
+def _processar_mensagem_recebida(
+    telefone: str,
+    texto_cliente: str,
+    nome_cliente: str,
+    message_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session,
+) -> None:
+    """Pipeline síncrono pré-IA de UMA mensagem (dedupe → mídia → rate limit → ...)."""
     # Dedupe persistente: Meta retransmite quando não recebe ACK rápido. Sem isso, cliente
     # recebe resposta duplicada. Persistido em DB → sobrevive a restart.
     if message_id and _ja_processada(db, message_id):
         log.info("Dedupe: message_id %s já processado, ignorando retransmissão.", message_id)
-        return {"status": "ok"}
+        return
 
     if str(texto_cliente).startswith("MÍDIA_"):
         mensagem_midia = (
@@ -1324,17 +1505,16 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
                     db.commit()
             except Exception:
                 db.rollback()
-        background_tasks.add_task(
-            whatsapp.enviar_mensagem_texto,
-            telefone,
-            mensagem_midia,
-        )
-        return {"status": "ok"}
+        # T8: registra o aviso no histórico (aparece no thread do dashboard).
+        background_tasks.add_task(_responder_midia_bg, telefone, nome_cliente, mensagem_midia)
+        if message_id:
+            background_tasks.add_task(whatsapp.marcar_como_lida, message_id, telefone)
+        return
 
     # Rate limit: protege contra flood (DoS / fatura inflada).
     if _excedeu_rate_limit(telefone):
         log.warning("Rate limit excedido para %s.", telefone)
-        return {"status": "ok"}
+        return
 
     user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
     if not user:
@@ -1380,7 +1560,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
     if _cmd == "!reiniciar":
         if telefone not in ADMIN_PHONES:
             log.warning("Tentativa de !reiniciar por telefone não-admin: %s", telefone)
-            return {"status": "ok"}
+            return
         # Reseta estado completo do usuário: bot ativo, sem handoff pendente, sem atendente.
         user.bot_ativo = True
         user.bot_desativado_em = None
@@ -1394,12 +1574,12 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         db.commit()
         log.info("!reiniciar executado por admin %s: estado e histórico limpos.", telefone)
         whatsapp.enviar_mensagem_texto(telefone, "Bot reiniciado por admin. Estado e memória limpos.")
-        return {"status": "ok"}
+        return
 
     if _cmd == "!status":
         if telefone not in ADMIN_PHONES:
             log.warning("Tentativa de !status por telefone não-admin: %s", telefone)
-            return {"status": "ok"}
+            return
         # Informa estado atual do usuário sem alterar nada — útil para diagnóstico.
         contagem = db.query(HistoricoConversa).filter(
             HistoricoConversa.telefone_usuario == telefone
@@ -1417,7 +1597,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
             f"Modo: {modo}"
         )
         whatsapp.enviar_mensagem_texto(telefone, msg)
-        return {"status": "ok"}
+        return
 
     # Reativação automática do bot após N horas sem atividade humana.
     bot_ativo = _verificar_e_reativar_bot(db, user)
@@ -1430,6 +1610,7 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
                 mensagem_cliente=texto_cliente,
                 resposta_bot=None,
                 origem="cliente",
+                wamid=message_id,  # wamid do CLIENTE — base do read receipt (marcar-lida)
             ))
             db.commit()
             notificador.publicar({
@@ -1438,11 +1619,18 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
                 "nome": user.nome_cliente,
                 "texto": texto_cliente,
                 "origem": "cliente",
+                "wamid": message_id,
             })
             log.info("Modo híbrido: msg de %s persistida para atendimento humano.", telefone)
         else:
             log.info("Mensagem ignorada: bot desativado para %s (modo bot_only).", telefone)
-        return {"status": "ok"}
+        return
+
+    # Read receipt (D2): o bot vai tratar esta mensagem (handoff ou IA) — marca
+    # como lida na Meta imediatamente, para o cliente ver os ticks azuis.
+    # Com bot inativo (ramo acima), quem marca é o atendente ao abrir a conversa.
+    if message_id:
+        background_tasks.add_task(whatsapp.marcar_como_lida, message_id, telefone)
 
     # Solicitação de recepção/atendente: botões legados OU itens das listas/botões.
     # Tratado síncrono (antes de enfileirar IA) — handoff é sensível a tempo.
@@ -1454,16 +1642,16 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks, d
         _SUB_ID_FALAR_ATENDENTE: "botao_falar_atendente",
     }
     if texto_cliente in _GATILHOS_HANDOFF:
-        _executar_handoff_recepcao(db, user, _GATILHOS_HANDOFF[texto_cliente])
-        return {"status": "ok"}
+        _executar_handoff_recepcao(db, user, _GATILHOS_HANDOFF[texto_cliente], texto_cliente)
+        return
 
     log.info("Enfileirando IA: %s → %r", telefone, texto_cliente[:80])
     # Publica evento da mensagem do cliente IMEDIATAMENTE no dashboard (modo
     # híbrido). Sem isso, atendente só veria a mensagem do cliente depois da IA
     # terminar e responder — pode levar segundos. Com esse evento, msg do cliente
     # aparece em tempo real e o atendente pode decidir assumir antes da IA agir.
-    _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente")
+    _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente", wamid=message_id)
 
-    background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
+    background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente, message_id)
 
-    return {"status": "ok"}
+    return

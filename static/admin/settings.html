@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Configurações — Barbearia Bolshoi</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/admin/css/util.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -803,11 +803,13 @@
       </button>
     </div>
 
-    <!-- Tabs -->
+    <!-- Tabs — a aba Atendentes é ocultada via JS para role != admin (RBAC);
+         a defesa real é o 403 do servidor, aqui é só UX. -->
     <div class="settings-tabs" role="tablist">
       <button data-tab="atendentes" class="settings-tab tab-btn active" role="tab" aria-selected="true">Atendentes</button>
       <button data-tab="etiquetas" class="settings-tab tab-btn" role="tab" aria-selected="false">Etiquetas</button>
       <button data-tab="canned" class="settings-tab tab-btn" role="tab" aria-selected="false">Respostas rápidas</button>
+      <button data-tab="horarios" class="settings-tab tab-btn" role="tab" aria-selected="false">Horários</button>
       <button data-tab="aparencia" class="settings-tab tab-btn" role="tab" aria-selected="false">Aparência</button>
     </div>
 
@@ -888,6 +890,23 @@
       </div>
 
       <!-- Tab: Aparência -->
+      <!-- Tab: Horários (D5 — admin-only, mesmo mecanismo da aba Atendentes) -->
+      <div id="tab-content-horarios" class="tab-content hidden" role="tabpanel">
+        <div class="settings-table-wrap">
+          <table class="settings-table">
+            <thead>
+              <tr><th>Dia</th><th>Abertura</th><th>Fechamento</th><th>Fechado</th><th>Ações</th></tr>
+            </thead>
+            <tbody id="tbody-horarios">
+              <tr><td colspan="5" style="color:var(--text-muted);padding:16px;">Carregando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:10px;">
+          As mudanças valem na hora: o bot responde "que horas abre?" com estes valores (cache invalidado automaticamente).
+        </p>
+      </div>
+
       <div id="tab-content-aparencia" class="tab-content hidden" role="tabpanel">
         <div class="settings-card" style="max-width:480px;">
           <div class="settings-card-header">
@@ -938,6 +957,13 @@
         <div class="settings-modal-field">
           <label for="modal-senha">Senha <span style="color:var(--text-muted);font-weight:400;">(mín. 8 caracteres)</span></label>
           <input id="modal-senha" type="password" required minlength="8" placeholder="••••••••">
+        </div>
+        <div class="settings-modal-field">
+          <label for="modal-role">Perfil</label>
+          <select id="modal-role">
+            <option value="atendente" selected>Atendente — atende conversas</option>
+            <option value="admin">Administrador — também gerencia atendentes, horários e LGPD</option>
+          </select>
         </div>
 
         <div id="modal-erro" class="settings-modal-error hidden"></div>
@@ -1116,6 +1142,9 @@
 
       tbody.innerHTML = atendentes.map(a => {
         const isEu = a.id === EU_ID;
+        const roleBadge = a.role === 'admin'
+          ? ' <span style="font-size:10px;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:8px;padding:1px 6px;vertical-align:middle;">ADMIN</span>'
+          : '';
         const statusBadge = a.ativo
           ? '<span class="badge-status-active">Ativo</span>'
           : '<span class="badge-status-inactive">Inativo</span>';
@@ -1135,7 +1164,7 @@
               <div class="op-cell">
                 <div class="op-avatar">${(a.nome||'?')[0].toUpperCase()}</div>
                 <div>
-                  <div class="op-cell-name">${escapeHtml(a.nome)}${isEu ? ' <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">(você)</span>' : ''}</div>
+                  <div class="op-cell-name">${escapeHtml(a.nome)}${roleBadge}${isEu ? ' <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">(você)</span>' : ''}</div>
                 </div>
               </div>
             </td>
@@ -1227,11 +1256,12 @@
 
       if (tabName === 'etiquetas') carregarLabels();
       else if (tabName === 'canned') carregarCanned();
+      else if (tabName === 'horarios') carregarHorarios();
       else if (tabName === 'aparencia') aplicarThemeSelecionado();
 
-      // Hide primary action button on Aparência tab (nothing to create)
+      // Hide primary action button on Aparência/Horários tabs (nothing to create)
       const btnAcao = document.getElementById('btn-acao-primaria');
-      if (btnAcao) btnAcao.style.display = tabName === 'aparencia' ? 'none' : '';
+      if (btnAcao) btnAcao.style.display = (tabName === 'aparencia' || tabName === 'horarios') ? 'none' : '';
     }
 
     function aplicarThemeSelecionado() {
@@ -1243,6 +1273,52 @@
         b.style.boxShadow = ativo ? '' : 'none';
       });
     }
+
+    // ------- Aba Horários (D5) -------
+    async function carregarHorarios() {
+      const tbody = document.getElementById('tbody-horarios');
+      if (!tbody) return;
+      try {
+        const dias = await req('/admin/horarios');
+        tbody.innerHTML = (dias || []).map(d => `
+        <tr data-dia="${d.dia_semana}">
+          <td style="font-weight:600;">${escapeHtml(d.dia_nome || String(d.dia_semana))}</td>
+          <td><input type="time" class="hr-abertura" value="${d.abertura || ''}" ${d.fechado ? 'disabled' : ''} style="background:var(--bg-base);border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--text-primary);"></td>
+          <td><input type="time" class="hr-fechamento" value="${d.fechamento || ''}" ${d.fechado ? 'disabled' : ''} style="background:var(--bg-base);border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--text-primary);"></td>
+          <td><input type="checkbox" class="hr-fechado" ${d.fechado ? 'checked' : ''}></td>
+          <td><button class="btn btn-primary btn-sm hr-salvar">Salvar</button></td>
+        </tr>`).join('');
+        tbody.querySelectorAll('.hr-fechado').forEach(cb => cb.addEventListener('change', (e) => {
+        const tr = e.target.closest('tr');
+        tr.querySelector('.hr-abertura').disabled = e.target.checked;
+        tr.querySelector('.hr-fechamento').disabled = e.target.checked;
+        }));
+        tbody.querySelectorAll('.hr-salvar').forEach(btn => btn.addEventListener('click', async (e) => {
+        const tr = e.target.closest('tr');
+        const dia = tr.dataset.dia;
+        const fechado = tr.querySelector('.hr-fechado').checked;
+        const abertura = tr.querySelector('.hr-abertura').value || null;
+        const fechamento = tr.querySelector('.hr-fechamento').value || null;
+        if (!fechado && (!abertura || !fechamento)) {
+          showMsg('Preencha abertura e fechamento, ou marque como fechado.', 'error');
+          return;
+        }
+        btn.disabled = true;
+        try {
+          await req(`/admin/horarios/${dia}`, { method: 'PATCH',
+            body: JSON.stringify(fechado ? { fechado: true } : { abertura, fechamento, fechado: false }) });
+          showMsg('Horário salvo — o bot já responde com o novo valor.', 'success');
+        } catch (err) {
+          showMsg(err.status === 403 ? 'Requer perfil administrador' : 'Erro ao salvar horário', 'error');
+        } finally {
+          btn.disabled = false;
+        }
+        }));
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" style="color:var(--danger);padding:16px;">Erro ao carregar horários.</td></tr>';
+      }
+    }
+
 
     function trocarTema(tema) {
       document.documentElement.setAttribute('data-theme', tema);
@@ -1457,13 +1533,14 @@
         const nome = document.getElementById('modal-nome').value.trim();
         const login = document.getElementById('modal-login').value.trim();
         const senha = document.getElementById('modal-senha').value;
+        const role = document.getElementById('modal-role')?.value || 'atendente';
         const erroEl = document.getElementById('modal-erro');
         const submitBtn = e.target.querySelector('[type=submit]');
 
         submitBtn.disabled = true;
         try {
           erroEl.classList.add('hidden');
-          await req('/admin/atendentes', { method:'POST', body: JSON.stringify({nome, usuario_login: login, senha}) });
+          await req('/admin/atendentes', { method:'POST', body: JSON.stringify({nome, usuario_login: login, senha, role}) });
           showMsg('Atendente criado com sucesso!', 'success');
           fecharModal();
           carregarAtendentes();
@@ -1546,7 +1623,21 @@
         b.addEventListener('click', () => trocarTema(b.dataset.themeChoice));
       });
 
-      carregarAtendentes();
+      // RBAC (H2): não-admin não vê a aba Atendentes — o servidor responde 403
+      // de qualquer forma; aqui só evitamos uma tela que não funcionaria.
+      if ((localStorage.getItem('atendente_role') || 'atendente') !== 'admin') {
+        const tabAtendentes = document.querySelector('[data-tab="atendentes"]');
+        const tabHorarios = document.querySelector('[data-tab="horarios"]');
+        const tabEtiquetas = document.querySelector('[data-tab="etiquetas"]');
+        if (tabAtendentes) tabAtendentes.style.display = 'none';
+        if (tabHorarios) tabHorarios.style.display = 'none';
+        if (tabAtendentes && tabAtendentes.classList.contains('active') && tabEtiquetas) {
+          tabEtiquetas.click();
+        }
+      } else {
+        carregarAtendentes();
+        carregarHorarios();
+      }
     });
   </script>
 </body>

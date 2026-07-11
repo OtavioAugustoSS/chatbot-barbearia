@@ -659,9 +659,8 @@ function renderConvList() {
       if (mins > 5) waitingBadge = `<span class="waiting-badge">Aguardando ${mins}min</span>`;
     }
 
-    // V4: Unread class — P1-2: cobre conv sem atendente e conv assumida com msg nova do cliente
-    // TODO(backend): adicionar campo `mensagens_nao_lidas` ao payload de /admin/conversas
-    //   para cobrir o caso c.atendente_id && c.mensagens_nao_lidas > 0
+    // V4: Unread — conv na fila OU com mensagens do cliente ainda não vistas
+    // (mensagens_nao_lidas agora vem do backend via ultima_leitura_atendente_em).
     const isUnread = (c.aguardando_humano && !c.atendente_id)
       || (c.mensagens_nao_lidas > 0);
     const isSelected = state.bulkSelecionadas.has(c.telefone);
@@ -780,12 +779,40 @@ function _formatCountdown(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// H1: renovação silenciosa — tenta POST /admin/refresh quando restam <5min.
+// Sucesso: token novo no localStorage, atendente nem percebe. Falha (teto de
+// 12h da sessão, atendente desativado, rede): cai no fluxo antigo de banner+logout.
+let _refreshEmAndamento = false;
+
+async function _tentarRefreshSilencioso() {
+  if (_refreshEmAndamento) return;
+  _refreshEmAndamento = true;
+  try {
+    const resp = await api.refreshToken();
+    if (resp && resp.token) {
+      localStorage.setItem('token', resp.token);
+      const banner = document.getElementById('jwt-expiry-banner');
+      if (banner) banner.classList.add('hidden');
+      if (_jwtCountdownInterval) { clearInterval(_jwtCountdownInterval); _jwtCountdownInterval = null; }
+    }
+  } catch (_) {
+    // Silencioso: o banner/countdown existente assume a partir daqui.
+  } finally {
+    _refreshEmAndamento = false;
+  }
+}
+
 function _checarJwtExpiry() {
   const expMs = _getJwtExpMs();
   if (!expMs) return;
   const restanteMs = expMs - Date.now();
   const banner = document.getElementById('jwt-expiry-banner');
   const countdownEl = document.getElementById('jwt-countdown');
+
+  // H1: renova antes de incomodar o atendente com banner.
+  if (restanteMs > 0 && restanteMs <= 5 * 60 * 1000) {
+    _tentarRefreshSilencioso();
+  }
 
   if (restanteMs <= 0) {
     // US-116: flush imediato do draft antes de redirecionar
@@ -859,6 +886,7 @@ async function carregarConversas(showSkeleton = false) {
     state.conversas = data.items || [];
     atualizarBadges(data.totais_por_estado);
     renderConvList();
+    _agendarAutoUnsnooze();
 
     // Fix defensivo: se lista vazia com filtro "open", verifica se há dados com status NULL
     // (migration 0008 backfill pode não ter rodado — status_conversa NULL filtra como falso)
@@ -874,6 +902,22 @@ async function carregarConversas(showSkeleton = false) {
       : `Erro ao carregar conversas (${e.status || e.message || 'desconhecido'})`;
     showToast(msg, 'error');
   }
+}
+
+// M1: auto-unsnooze em tempo real — agenda um reload da lista para o instante
+// em que o snooze mais próximo vence (o backend só des-snooza no GET /conversas;
+// sem isto, num dashboard ocioso a conversa não voltava sozinha).
+let _unsnoozeTimer = null;
+function _agendarAutoUnsnooze() {
+  if (_unsnoozeTimer) { clearTimeout(_unsnoozeTimer); _unsnoozeTimer = null; }
+  const agora = Date.now();
+  const futuros = state.conversas
+    .filter(c => c.status_conversa === 'snoozed' && c.snoozed_until)
+    .map(c => new Date(c.snoozed_until).getTime())
+    .filter(t => t > agora);
+  if (!futuros.length) return;
+  const delta = Math.min(Math.min(...futuros) - agora + 1000, 6 * 60 * 60 * 1000); // cap 6h
+  _unsnoozeTimer = setTimeout(() => carregarConversas(), delta);
 }
 
 // Detecta o bug de backfill NULL: testa com status=todas e, se houver dados,
@@ -1266,7 +1310,7 @@ function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts 
   const eraNoFundo = _estaNoFundo();
 
   const textoProcessado = (texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
-  cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId, atendente_nome: opts.atendente_nome }));
+  cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId, atendente_nome: opts.atendente_nome, wamid: opts.wamid }));
 
   // US-105: captura "era no fundo" ANTES do append; rola dentro de rAF para scrollHeight atualizado
   if (eraNoFundo) {
@@ -1279,9 +1323,14 @@ function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts 
   }
 }
 
-function resolverBolhaPendente(tempId, ok) {
+function resolverBolhaPendente(tempId, ok, wamid = null) {
   const el = document.querySelector(`[data-temp-id="${tempId}"]`);
   if (!el) return;
+  // Ancora a bolha otimista ao wamid — sem isto o SSE mensagem_lida nunca
+  // encontra a bolha e o tick jamais avança para entregue/lida em tempo real.
+  if (wamid && !el.hasAttribute('data-wamid')) {
+    el.setAttribute('data-wamid', wamid);
+  }
   if (!ok) {
     el.classList.add('bolha-falha');
     // US-097/137: botão retry — só adiciona se ainda não existe
@@ -1439,6 +1488,15 @@ async function abrirConversa(telefone) {
     showToast('Erro ao carregar conversa', 'error');
   }
 
+  // D2: visualizou a conversa → read receipt (cliente vê ticks azuis) + zera
+  // o contador local de não-lidas sem esperar reload da lista.
+  api.marcarLida(telefone);
+  const convLida = state.conversas.find(c => c.telefone === telefone);
+  if (convLida && convLida.mensagens_nao_lidas) {
+    convLida.mensagens_nao_lidas = 0;
+    renderConvList();
+  }
+
   // Carrega info e notas em paralelo (não bloqueia)
   carregarInfoCliente(telefone);
   carregarNotas(telefone);
@@ -1554,7 +1612,19 @@ function syncComposerState(u) {
 // ============================================================
 // Handoff actions
 // ============================================================
+// A3: trava o botão durante a ação async (evita clique duplo → request duplicado).
+async function _comBotaoTravado(btnId, fn) {
+  const btn = btnId ? document.getElementById(btnId) : null;
+  if (btn) { btn.disabled = true; btn.classList.add('opacity-50', 'pointer-events-none'); }
+  try {
+    return await fn();
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('opacity-50', 'pointer-events-none'); }
+  }
+}
+
 async function assumirConversa(telefone) {
+  await _comBotaoTravado('btn-assumir', async () => {
   try {
     await api.assumir(telefone);
     showToast('Você assumiu o atendimento', 'success');
@@ -1572,11 +1642,13 @@ async function assumirConversa(telefone) {
       showToast(e?.status === 409 ? 'Conversa já assumida por outro atendente' : 'Erro ao assumir', 'error');
     }
   }
+  });
 }
 
 async function devolverAoBot(telefone) {
   const ok = await abrirModalConfirmar('Devolver ao bot?', 'O bot voltará a responder automaticamente a este cliente.');
   if (!ok) return;
+  await _comBotaoTravado('btn-devolver', async () => {
   try {
     await api.devolver(telefone);
     showToast('Conversa devolvida ao bot', 'success');
@@ -1590,6 +1662,7 @@ async function devolverAoBot(telefone) {
   } catch(e) {
     showToast('Erro ao devolver ao bot', 'error');
   }
+  });
 }
 
 // ============================================================
@@ -1680,8 +1753,8 @@ async function enviarMensagem() {
 
   const telefoneEnvio = state.conversaAtual;
   try {
-    await api.enviar(telefoneEnvio, texto);
-    resolverBolhaPendente(tempId, true);
+    const res = await api.enviar(telefoneEnvio, texto);
+    resolverBolhaPendente(tempId, true, res && res.wamid);
     carregarConversas();
     // FEATURE 3: undo toast após envio bem-sucedido
     showUndoToast(tempId, telefoneEnvio, texto);
@@ -1708,8 +1781,24 @@ function renderInfoPanel(info) {
   const ini = iniciais(info.nome_cliente, info.telefone);
   const cor = corDoCliente(info.nome_cliente || info.telefone);
 
+  // A4: usa a foto do backend (foto_url) com fallback para iniciais — antes o
+  // campo era retornado e ignorado.
   const avatarEl = document.getElementById('info-avatar');
-  if (avatarEl) { avatarEl.textContent = ini; avatarEl.style.background = cor; }
+  if (avatarEl) {
+    avatarEl.style.background = cor;
+    if (info.foto_url) {
+      avatarEl.textContent = '';
+      const img = document.createElement('img');
+      img.src = info.foto_url;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:inherit;';
+      img.onerror = () => { img.remove(); avatarEl.textContent = ini; };
+      avatarEl.appendChild(img);
+    } else {
+      avatarEl.textContent = ini;
+    }
+  }
 
   const nomeEl = document.getElementById('info-nome');
   if (nomeEl) nomeEl.textContent = info.nome_cliente || info.telefone;
@@ -1739,11 +1828,41 @@ function renderInfoPanel(info) {
 
   const statusEl = document.getElementById('info-status-badges');
   if (statusEl) {
+    // M5: tokens do tema em vez de hex fixo — no tema claro os hexes escuros
+    // (navy/vinho) ficavam ilegíveis sobre fundo claro.
     const badges = [];
     if (info.bot_ativo) badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Bot ativo</span>');
-    else badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:#1a1a2e;color:#8b90a0;">Bot inativo</span>');
-    if (info.aguardando_humano) badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:#450a0a;color:#ef4444;">Aguardando atendente</span>');
+    else badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:var(--bg-base);color:var(--text-muted);border:1px solid var(--border);">Bot inativo</span>');
+    if (info.aguardando_humano) badges.push('<span class="text-xs px-2 py-1 rounded-full font-medium" style="background:var(--danger-subtle,rgba(239,68,68,0.12));color:var(--danger-text,#ef4444);">Aguardando atendente</span>');
     statusEl.innerHTML = badges.join('');
+  }
+
+  // Zona de perigo LGPD: visível só para admin (defesa real é o 403 do servidor).
+  const lgpdZone = document.getElementById('info-lgpd-zone');
+  if (lgpdZone) {
+    const souAdmin = (localStorage.getItem('atendente_role') || 'atendente') === 'admin';
+    lgpdZone.classList.toggle('hidden', !souAdmin);
+    const btn = document.getElementById('btn-lgpd-apagar');
+    if (btn && souAdmin) {
+      btn.onclick = async () => {
+        const tel = state.conversaAtual;
+        if (!tel) return;
+        const ok = await abrirModalConfirmar(
+          'Apagar cliente (LGPD)',
+          `Apagar TODOS os dados de ${info.nome_cliente || tel} — cadastro, histórico, notas e etiquetas? Esta ação não tem volta.`,
+        );
+        if (!ok) return;
+        btn.disabled = true;
+        try {
+          await api.apagarCliente(tel);
+          // O SSE cliente_apagado limpa a UI para todos (inclusive esta aba).
+        } catch (err) {
+          showToast(err?.status === 403 ? 'Requer perfil administrador' : 'Erro ao apagar cliente', 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      };
+    }
   }
 
   renderInfoLabels();
@@ -1911,6 +2030,7 @@ async function alterarStatus(novoStatus) {
     if (!ok) return;
   }
 
+  await _comBotaoTravado('btn-status', async () => {
   try {
     await api.setStatusConversa(state.conversaAtual, novoStatus, snoozedUntil);
 
@@ -1939,6 +2059,7 @@ async function alterarStatus(novoStatus) {
     console.error('alterarStatus:', e);
     showToast('Erro ao alterar status', 'error');
   }
+  });
 }
 
 function atualizarStatusBadgeHeader() {
@@ -2007,6 +2128,7 @@ async function transferirConversa(atendenteId) {
   if (!dest) return;
   const okTransf = await abrirModalConfirmar(`Transferir para ${dest.nome}?`, 'A conversa será atribuída ao novo atendente.');
   if (!okTransf) return;
+  await _comBotaoTravado('btn-transferir', async () => {
   try {
     await api.atribuirConversa(state.conversaAtual, atendenteId);
     showToast(`Conversa transferida para ${dest.nome}`, 'success');
@@ -2016,6 +2138,7 @@ async function transferirConversa(atendenteId) {
     console.error('transferirConversa:', e);
     showToast('Erro ao transferir conversa', 'error');
   }
+  });
 }
 
 // ============================================================
@@ -2385,9 +2508,10 @@ async function bulkDevolver() {
   let sucesso = 0;
   let falha = 0;
   for (let i = 0; i < telefones.length; i++) {
-    showToast(`Devolvendo ${i + 1}/${telefones.length}…`, 'info');
     try {
-      await api.devolver(telefones[i]);
+      // M4: silent=true — devolução em massa não deve disparar a mensagem de
+      // despedida do WhatsApp para cada cliente; e sem toast por item (empilhavam).
+      await api.devolver(telefones[i], true);
       sucesso++;
     } catch (e) {
       console.error('bulkDevolver:', e);
@@ -2596,17 +2720,39 @@ document.addEventListener('sse:nova_mensagem', (e) => {
       && !!document.querySelector('[data-temp-id]');
     if (!temPendenteProprio) {
       const textoProcessado = (ev.texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
-      appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue, null, { atendente_nome: ev.atendente_nome || null });
+      appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue, null, { atendente_nome: ev.atendente_nome || null, wamid: ev.wamid || null });
+    } else if (ev.wamid) {
+      // Corrida SSE-antes-do-fetch: o evento pode chegar antes do POST /enviar
+      // retornar — ancora o wamid na bolha pendente para os ticks funcionarem.
+      const pendente = document.querySelector('[data-temp-id]:not([data-wamid])');
+      if (pendente) pendente.setAttribute('data-wamid', ev.wamid);
     }
   } else if (ev.origem === 'cliente') {
     showToast(`Nova mensagem de ${ev.nome || ev.telefone}`, 'info');
     tocarNotificacao();
+  }
+  // D2: mensagem do cliente na conversa aberta com a aba visível → já foi vista;
+  // caso contrário, incrementa o contador local de não-lidas.
+  if (ev.origem === 'cliente') {
+    if (ev.telefone === state.conversaAtual && document.visibilityState === 'visible') {
+      api.marcarLida(ev.telefone);
+    } else {
+      const convNL = state.conversas.find(c => c.telefone === ev.telefone);
+      if (convNL) convNL.mensagens_nao_lidas = (convNL.mensagens_nao_lidas || 0) + 1;
+    }
   }
   // Atualiza preview na lista
   const conv = state.conversas.find(c => c.telefone === ev.telefone);
   if (conv) {
     conv.preview = ev.texto || '';
     conv.ultima_mensagem_em = new Date().toISOString();
+    // M6: reordena localmente (aguardando primeiro, depois mais recente) —
+    // sem isto o card com mensagem nova não subia até o próximo reload completo.
+    state.conversas.sort((a, b) => {
+      const ag = (b.aguardando_humano && !b.atendente_id) - (a.aguardando_humano && !a.atendente_id);
+      if (ag !== 0) return ag;
+      return new Date(b.ultima_mensagem_em || 0) - new Date(a.ultima_mensagem_em || 0);
+    });
     renderConvList();
     // Fade-through animation on updated card preview
     const card = document.querySelector(`.conv-card[data-tel="${CSS.escape(ev.telefone)}"]`);
@@ -2715,6 +2861,8 @@ document.addEventListener('sse:bot_devolveu', (e) => {
 document.addEventListener('sse:bulk_aplicado', (e) => {
   const ev = e.detail;
   carregarConversas();
+  // M2: o autor da ação já viu o toast local — este evento é para os OUTROS.
+  if (ev.por_atendente_id === state.eu?.id) return;
   // ADR-005: campo correto é "afetadas" (não "count")
   const n = ev.afetadas || ev.count || '';
   showToast(`${n} conversa(s) atualizada(s)`.trim(), 'success');
@@ -2723,15 +2871,34 @@ document.addEventListener('sse:bulk_aplicado', (e) => {
 document.addEventListener('sse:mensagem_lida', (e) => {
   const { wamid, status } = e.detail;
   if (!wamid) return;
-  const bolhaEl = document.querySelector(`[data-wamid="${wamid}"]`);
+  const bolhaEl = document.querySelector(`[data-wamid="${CSS.escape(wamid)}"]`);
   if (!bolhaEl) return;
   const tickEl = bolhaEl.querySelector('.bolha-tick');
   if (!tickEl) return;
   const isRead = status === 'read';
-  const { svg, cls } = _tickSvg(true, isRead ? true : false);
+  // failed: a Meta não conseguiu entregar (número bloqueado etc.) → tick de falha.
+  const { svg, cls } = status === 'failed' ? _tickSvg(false, null) : _tickSvg(true, isRead);
   tickEl.innerHTML = svg;
   tickEl.className = `entregue-status bolha-tick ${cls}`;
   if (isRead) _animarTick(tickEl);
+  if (status === 'failed') bolhaEl.classList.add('bolha-falha');
+});
+
+// A1: cliente apagado (LGPD) — remove da lista e fecha a thread se estiver aberta.
+document.addEventListener('sse:cliente_apagado', (e) => {
+  const ev = e.detail;
+  state.conversas = state.conversas.filter(c => c.telefone !== ev.telefone);
+  renderConvList();
+  if (state.conversaAtual === ev.telefone) {
+    state.conversaAtual = null;
+    state.usuarioAtual = null;
+    document.getElementById('thread-header')?.classList.add('hidden');
+    document.getElementById('messages-area')?.classList.add('hidden');
+    document.getElementById('composer')?.classList.add('hidden');
+    document.getElementById('empty-state')?.classList.remove('hidden');
+    fecharInfoPanel();
+  }
+  showToast('Cliente apagado (LGPD) — dados removidos.', 'info');
 });
 
 // ============================================================
@@ -3539,30 +3706,8 @@ document.addEventListener('DOMContentLoaded', () => {
     abrirModalShortcuts();
   });
 
-  // FEATURE 1: First-run hint — aparece uma vez após login, auto-dismiss 6s
-  (function _initFirstRunHint() {
-    if (localStorage.getItem('bolshoi_help_hint_seen')) return;
-    const hint = document.getElementById('help-hint');
-    if (!hint) return;
-    hint.style.display = 'block';
-    const dismissHint = () => {
-      localStorage.setItem('bolshoi_help_hint_seen', 'true');
-      hint.style.opacity = '0';
-      hint.style.transition = 'opacity 300ms ease';
-      setTimeout(() => { hint.style.display = 'none'; }, 310);
-    };
-    const hintTimer = setTimeout(dismissHint, 6000);
-    document.getElementById('help-hint-dismiss')?.addEventListener('click', () => {
-      clearTimeout(hintTimer);
-      dismissHint();
-    });
-    hint.addEventListener('click', (e) => {
-      if (e.target !== document.getElementById('help-hint-dismiss')) {
-        clearTimeout(hintTimer);
-        dismissHint();
-      }
-    });
-  })();
+  // FEATURE 1 (first-run hint) removida — os elementos #help-hint saíram do HTML
+  // (TAREFA 2); o código que exibia a div vazia quebrava o grid do body por 6s.
 
   // SP-1 / ADR-008: click no overlay dos modais fecha (simula cancelar)
   document.getElementById('modal-snooze')?.addEventListener('click', (e) => {

@@ -34,10 +34,11 @@ def _iso_utc(dt) -> str | None:
 from db.database import get_db
 from db.models import Atendente, Usuario, HistoricoConversa, NotaInterna, Label, usuario_labels, CannedResponse, MentionNotificacao, FiltroSalvo, Horario
 import json as _json_lib
-from services.whatsapp import WhatsAppSender
+from services.whatsapp import WhatsAppSender, criar_sender
 from services.notificador import notificador
 from api.auth import (
     atendente_atual,
+    admin_requerido,
     verificar_senha,
     criar_token,
     hash_senha,
@@ -47,7 +48,7 @@ from api.auth import (
 log = logging.getLogger("barbearia.admin")
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-whatsapp = WhatsAppSender()
+whatsapp = criar_sender()
 
 
 class LoginIn(BaseModel):
@@ -59,6 +60,7 @@ class LoginOut(BaseModel):
     token: str
     nome: str
     atendente_id: int
+    role: str = "atendente"
     ultimo_login: str | None = None
 
 
@@ -85,6 +87,8 @@ class CriarAtendenteIn(BaseModel):
     nome: str = Field(..., min_length=1, max_length=100)
     usuario_login: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-z0-9_]+$')
     senha: str = Field(..., min_length=8, max_length=128)
+    # B2: endpoint já é admin-only (admin_requerido) — admin escolhe o perfil.
+    role: Literal["admin", "atendente"] = "atendente"
 
     @field_validator("nome")
     @classmethod
@@ -195,7 +199,35 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     db.commit()
     token = criar_token(atendente)
     log.info("Login OK: atendente_id=%s nome=%s", atendente.id, atendente.nome)
-    return LoginOut(token=token, nome=atendente.nome, atendente_id=atendente.id, ultimo_login=ultimo_login_anterior)
+    return LoginOut(token=token, nome=atendente.nome, atendente_id=atendente.id, role=atendente.role or "atendente", ultimo_login=ultimo_login_anterior)
+
+
+@router.post("/refresh", response_model=LoginOut)
+def refresh_token(
+    request: Request,
+    me: Atendente = Depends(atendente_atual),
+):
+    """
+    H1: renovação deslizante do JWT — o dashboard chama isto silenciosamente
+    perto do expiry para o atendente não ser deslogado no meio do atendimento.
+
+    Exige token AINDA VÁLIDO (atendente_atual) + atendente ativo. O claim `sess`
+    (epoch do login original) é propagado: após SESSAO_MAX_HORAS a renovação é
+    recusada (401) e o atendente precisa logar com senha de novo.
+    """
+    from api.auth import _decodificar, SESSAO_MAX_HORAS
+
+    auth_header = request.headers.get("Authorization", "")
+    token_atual = auth_header.split(" ", 1)[1] if " " in auth_header else ""
+    payload = _decodificar(token_atual)
+    sess = payload.get("sess") or int(payload.get("iat", 0))
+    if sess and (datetime.now(timezone.utc).timestamp() - sess) > SESSAO_MAX_HORAS * 3600:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão expirou o teto absoluto — faça login novamente.",
+        )
+    novo = criar_token(me, sess=sess or None)
+    return LoginOut(token=novo, nome=me.nome, atendente_id=me.id, role=me.role or "atendente")
 
 
 def _auto_unsnooze(db: Session) -> None:
@@ -371,6 +403,26 @@ def listar_conversas(
                 "id": lab.id, "nome": lab.nome, "cor": lab.cor
             })
 
+    # D4: mensagens do cliente ainda não vistas pelo atendente (uma query batch).
+    # Base: Usuario.ultima_leitura_atendente_em, atualizado por POST marcar-lida.
+    nao_lidas: dict[str, int] = {}
+    if telefones:
+        from sqlalchemy import or_
+        contagem_q = (
+            db.query(HistoricoConversa.telefone_usuario, func.count(HistoricoConversa.id))
+            .join(Usuario, Usuario.telefone == HistoricoConversa.telefone_usuario)
+            .filter(
+                HistoricoConversa.telefone_usuario.in_(telefones),
+                HistoricoConversa.origem == "cliente",
+                or_(
+                    Usuario.ultima_leitura_atendente_em.is_(None),
+                    HistoricoConversa.criado_em > Usuario.ultima_leitura_atendente_em,
+                ),
+            )
+            .group_by(HistoricoConversa.telefone_usuario)
+        )
+        nao_lidas = dict(contagem_q.all())
+
     items = [
         {
             "telefone": u.telefone,
@@ -386,6 +438,7 @@ def listar_conversas(
             "labels": labels_por_telefone.get(u.telefone, []),
             "status_conversa": u.status_conversa or "open",
             "snoozed_until": _iso_utc(u.snoozed_until),
+            "mensagens_nao_lidas": nao_lidas.get(u.telefone, 0),
         }
         for u, ultima in rows
     ]
@@ -452,6 +505,54 @@ def ver_conversa(
             for m in msgs
         ],
     }
+
+
+@router.post("/conversa/{telefone}/marcar-lida")
+def marcar_conversa_lida(
+    telefone: str,
+    db: Session = Depends(get_db),
+    me: Atendente = Depends(atendente_atual),
+):
+    """
+    D2: atendente visualizou a conversa — envia read receipt à Meta (cliente vê
+    ticks azuis) e zera o contador de não-lidas (ultima_leitura_atendente_em).
+
+    - Idempotente: sem mensagens novas, retorna {"marcadas": 0} e só atualiza o timestamp.
+    - Permissão: só o dono da conversa (ou conversa sem dono) gera read receipt —
+      outro operador espiando não deve marcar como lida no WhatsApp do cliente.
+    - Envia receipt apenas do wamid MAIS RECENTE do cliente: o WhatsApp marca as
+      anteriores em cascata.
+    """
+    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    if user.atendente_id is not None and user.atendente_id != me.id:
+        return {"marcadas": 0}
+
+    corte = user.ultima_leitura_atendente_em
+    filtro_novas = [
+        HistoricoConversa.telefone_usuario == telefone,
+        HistoricoConversa.origem == "cliente",
+    ]
+    if corte is not None:
+        filtro_novas.append(HistoricoConversa.criado_em > corte)
+
+    marcadas = db.query(HistoricoConversa).filter(*filtro_novas).count()
+    ultima_com_wamid = (
+        db.query(HistoricoConversa)
+        .filter(*filtro_novas, HistoricoConversa.wamid.isnot(None))
+        .order_by(HistoricoConversa.criado_em.desc())
+        .first()
+    )
+    if ultima_com_wamid:
+        try:
+            whatsapp.marcar_como_lida(ultima_com_wamid.wamid, telefone)
+        except Exception:
+            log.exception("Falha ao enviar read receipt para %s", telefone)
+
+    user.ultima_leitura_atendente_em = datetime.now(timezone.utc)
+    db.commit()
+    return {"marcadas": marcadas}
 
 
 @router.post("/assumir/{telefone}")
@@ -807,6 +908,19 @@ def bulk_acao(
     resultados = {"sucesso": [], "falha": []}
     agora = datetime.now(timezone.utc)
 
+    # H5: valida o destino UMA vez antes do loop (mesma regra do endpoint single
+    # /conversa/{tel}/atribuir) — antes o bulk aceitava atendente inexistente ou
+    # inativo e gravava a atribuição em todas as conversas.
+    if payload.acao == "atribuir":
+        dest_id = payload.parametros.get("atendente_id")
+        if not dest_id:
+            raise HTTPException(400, "parametros.atendente_id é obrigatório para acao=atribuir")
+        destino = db.query(Atendente).filter(Atendente.id == dest_id).first()
+        if not destino:
+            raise HTTPException(400, "Atendente de destino não encontrado")
+        if not destino.ativo:
+            raise HTTPException(400, "Atendente de destino está desativado")
+
     for tel in payload.telefones:
         try:
             user = db.query(Usuario).filter(Usuario.telefone == tel).first()
@@ -996,8 +1110,9 @@ def enviar(
         # C3: atendente_nome necessário para o frontend exibir remetente no separador.
         "atendente_nome": me.nome,
         "entregue": bool(ok),
+        "wamid": wamid,
     })
-    return {"status": "ok", "entregue": bool(ok)}
+    return {"status": "ok", "entregue": bool(ok), "wamid": wamid}
 
 
 _MIME_PARA_TIPO: dict[str, str] = {
@@ -1069,10 +1184,12 @@ def enviar_midia(
         db.commit()
         notificador.publicar({"tipo": "atendente_assumiu", "telefone": telefone, "atendente_id": me.id, "atendente_nome": me.nome})
         notificador.publicar({"tipo": "status_alterado", "telefone": telefone, "status": "open", "snoozed_until": None, "por_atendente_id": me.id})
-        notificador.publicar({"tipo": "nova_mensagem", "telefone": telefone, "nome": usuario.nome_cliente, "texto": aviso, "origem": "humano", "atendente_id": me.id, "entregue": bool(ok_aviso)})
+        notificador.publicar({"tipo": "nova_mensagem", "telefone": telefone, "nome": usuario.nome_cliente, "texto": aviso, "origem": "humano", "atendente_id": me.id, "entregue": bool(ok_aviso), "wamid": wamid_aviso})
 
     try:
-        media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
+        ok_upload, media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
+        if not ok_upload or not media_id:
+            raise RuntimeError("upload de mídia recusado pela Meta")
         ok, wamid_midia = whatsapp.enviar_mensagem_midia(telefone, media_id, media_type, caption)
     except Exception as e:
         # C2: se auto-assumiu mas o upload/envio falhou, desfaz a atribuição para não
@@ -1113,8 +1230,9 @@ def enviar_midia(
         # C3: incluir atendente_nome para o frontend exibir o remetente corretamente.
         "atendente_nome": me.nome,
         "entregue": bool(ok),
+        "wamid": wamid_midia,
     })
-    return {"ok": True, "media_id": media_id, "entregue": bool(ok)}
+    return {"ok": True, "media_id": media_id, "entregue": bool(ok), "wamid": wamid_midia}
 
 
 @router.post("/devolver/{telefone}")
@@ -1434,7 +1552,7 @@ def editar_horario(
     dia_semana: int,
     payload: HorarioPatchIn,
     db: Session = Depends(get_db),
-    _me: Atendente = Depends(atendente_atual),
+    _me: Atendente = Depends(admin_requerido),
 ):
     """Edita o horário de um dia (0=segunda ... 6=domingo). Cria o registro se não existir.
     Invalida o cache de horários da IA pra refletir a mudança imediatamente (P0-4)."""
@@ -1453,7 +1571,7 @@ def editar_horario(
     db.commit()
     # Reflete na IA na hora (a canônica já lê fresco; aqui invalidamos o cache do contexto temporal).
     try:
-        from services.ai_service import invalidar_cache_horarios
+        from services.horarios import invalidar_cache_horarios
         invalidar_cache_horarios()
     except Exception:
         pass
@@ -1471,20 +1589,15 @@ def editar_horario(
 def apagar_cliente(
     telefone: str,
     db: Session = Depends(get_db),
-    me: Atendente = Depends(atendente_atual),
+    me: Atendente = Depends(admin_requerido),
 ):
     """LGPD: apaga o cliente e TODOS os seus dados pessoais (histórico, labels, notas,
     menções). Deleção explícita das dependências — robusta mesmo sem FK cascade no SQLite.
     Ação de staff; registra quem apagou."""
-    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
-    if not user:
+    from services.lgpd import apagar_dados_cliente
+
+    if not apagar_dados_cliente(db, telefone):
         raise HTTPException(404, "Cliente não encontrado")
-    db.query(MentionNotificacao).filter(MentionNotificacao.telefone_usuario == telefone).delete(synchronize_session=False)
-    db.query(NotaInterna).filter(NotaInterna.telefone_usuario == telefone).delete(synchronize_session=False)
-    db.execute(usuario_labels.delete().where(usuario_labels.c.telefone_usuario == telefone))
-    db.query(HistoricoConversa).filter(HistoricoConversa.telefone_usuario == telefone).delete(synchronize_session=False)
-    db.delete(user)
-    db.commit()
     log.info("[LGPD] Cliente apagado por atendente_id=%s telefone=%s", me.id, telefone)
     notificador.publicar({"tipo": "cliente_apagado", "telefone": telefone})
     return None
@@ -1742,8 +1855,8 @@ def deletar_canned(
 
 
 @router.get("/eventos/stream")
-def stream_eventos(_me: Atendente = Depends(atendente_atual)):
-    """Server-Sent Events. Cliente conecta com EventSource()."""
+async def stream_eventos(_me: Atendente = Depends(atendente_atual)):
+    """Server-Sent Events (H3: async — não prende thread do threadpool por conexão)."""
     fila = notificador.assinar()
     return StreamingResponse(
         notificador.stream(fila),
@@ -1769,6 +1882,7 @@ async def listar_atendentes(db: Session = Depends(get_db), _: Atendente = Depend
             "id": a.id,
             "nome": a.nome,
             "usuario_login": a.usuario_login,
+            "role": a.role or "atendente",
             "ativo": a.ativo,
             "criado_em": _iso_utc(a.criado_em),
             "ultimo_login": _iso_utc(a.ultimo_login),
@@ -1778,19 +1892,19 @@ async def listar_atendentes(db: Session = Depends(get_db), _: Atendente = Depend
 
 
 @router.post("/atendentes", status_code=201)
-async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
+async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db), _: Atendente = Depends(admin_requerido)):
     """Cria um novo atendente. Requer nome, usuario_login e senha (mín. 8 chars)."""
     if db.query(Atendente).filter(Atendente.usuario_login == body.usuario_login).first():
         raise HTTPException(409, "Login já existe")
-    novo = Atendente(nome=body.nome.strip(), usuario_login=body.usuario_login, senha_hash=hash_senha(body.senha), ativo=True)
+    novo = Atendente(nome=body.nome.strip(), usuario_login=body.usuario_login, senha_hash=hash_senha(body.senha), role=body.role, ativo=True)
     db.add(novo)
     db.commit()
     db.refresh(novo)
-    return {"id": novo.id, "nome": novo.nome, "usuario_login": novo.usuario_login}
+    return {"id": novo.id, "nome": novo.nome, "usuario_login": novo.usuario_login, "role": novo.role}
 
 
 @router.patch("/atendentes/{atendente_id}/desativar")
-async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), atual: Atendente = Depends(atendente_atual)):
+async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), atual: Atendente = Depends(admin_requerido)):
     """Desativa um atendente. Não é permitido desativar a própria conta."""
     if atual.id == atendente_id:
         raise HTTPException(400, "Não é possível desativar sua própria conta")
@@ -1840,7 +1954,7 @@ async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), 
 async def ativar_atendente(
     atendente_id: int,
     db: Session = Depends(get_db),
-    _: Atendente = Depends(atendente_atual),
+    _: Atendente = Depends(admin_requerido),
 ):
     """
     GAP-01 / SP-2: Ativa um atendente previamente desativado.

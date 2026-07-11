@@ -106,7 +106,7 @@ def test_views_nome_duplicado_409(client, auth_headers):
 # ============================== enviar-midia ==============================
 @pytest.fixture
 def mock_midia(monkeypatch):
-    monkeypatch.setattr(wa_mod.WhatsAppSender, "upload_midia_whatsapp", lambda self, *a, **k: "media123")
+    monkeypatch.setattr(wa_mod.WhatsAppSender, "upload_midia_whatsapp", lambda self, *a, **k: (True, "media123"))
     monkeypatch.setattr(wa_mod.WhatsAppSender, "enviar_mensagem_midia", lambda self, *a, **k: (True, "wamid.midia"))
 
 

@@ -176,7 +176,7 @@ def test_background_task_excecao_capturada(client, db, monkeypatch):
 
     explosoes = []
 
-    def _processar_que_explode(telefone, texto):
+    def _processar_que_explode(telefone, texto, message_id=None):
         explosoes.append(telefone)
         raise RuntimeError("Exceção simulada R-04")
 

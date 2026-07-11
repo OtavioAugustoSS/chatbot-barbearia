@@ -21,13 +21,11 @@ LINK_MAPA = "https://www.google.com/maps/search/?api=1&query=-16.36553001%2C-46.
 
 # Núcleo do conteúdo (sem fechamento). Reaproveitado pela versão completa
 # E pela versão combinada (Horários + Endereço no mesmo item de menu).
-_CORPO_HORARIO = (
-    "*Nosso horário de funcionamento:*<br><br>"
-    "Segunda: 14:00 às 21:00<br>"
-    "Terça a Sexta: 09:00 às 21:00<br>"
-    "Sábado: 09:00 às 18:00<br>"
-    "Domingo: fechado"
-)
+# B9: gerado da fonte única services/horarios.py (HORARIOS_FALLBACK) — antes era
+# um texto fixo que podia divergir do fallback da IA e do seed.
+from services.horarios import corpo_horario_fallback as _corpo_horario_fallback
+
+_CORPO_HORARIO = _corpo_horario_fallback()
 
 _CORPO_ENDERECO = (
     "📍 *Estamos em:*<br><br>"
@@ -119,13 +117,28 @@ RESPOSTA_DISPONIBILIDADE_FRED = (
 
 # LGPD (Lei 13.709/2018): direito de acesso/exclusão de dados pessoais.
 # Não expõe contato direto do Fred (BR-002) — usa o próprio canal de atendimento.
-# Em modo híbrido, a equipe cumpre a exclusão via DELETE /admin/cliente/{telefone}.
+# PEDIDOS DE EXCLUSÃO são interceptados ANTES desta canônica pelo fluxo de
+# confirmação em 2 passos do webhook (REGEX_LGPD_EXCLUSAO) — esta resposta
+# cobre apenas consultas informativas ("política de privacidade", "que dados
+# vocês têm"). A equipe também pode excluir via DELETE /admin/cliente/{telefone}.
 RESPOSTA_APAGAR_DADOS = (
     "*Privacidade e seus dados (LGPD)*<br><br>"
     "Guardamos apenas o necessário para te atender: seu contato e o histórico desta conversa.<br><br>"
-    "Se quiser *acessar* ou *apagar* seus dados, é só pedir por aqui que nossa equipe "
-    "providencia a remoção conforme a LGPD.<br><br>"
+    "Se quiser removê-los, digite *apagar meus dados* e eu cuido do resto.<br><br>"
     f"{_FECHAMENTO}"
+)
+
+# Pedidos EXPLÍCITOS de exclusão de dados — dispara o fluxo de confirmação em
+# 2 passos no webhook (que executa a exclusão de verdade). Mais restrito que o
+# padrão canônico informativo acima: só verbos de remoção + objeto "dados/conta/…".
+REGEX_LGPD_EXCLUSAO = re.compile(
+    r"\b("
+    r"(apagar|apague|deletar|delete|excluir|exclua|remover|remova)\s+"
+    r"(os\s+|as\s+)?(meus?\s+|minhas?\s+)?(dados|informa[çc][oõ]es|hist[oó]rico|conta|cadastro)|"
+    r"esquec(er|am)\s+(os\s+)?(meus?\s+)?dados|"
+    r"direito\s+de\s+exclus[aã]o"
+    r")\b",
+    re.IGNORECASE,
 )
 
 # Cada entrada: (regex_compilado, resposta_canonica)
@@ -198,8 +211,12 @@ _PADROES = [
             r"quero\s+(marcar|agendar|reservar)|"
             r"posso\s+(marcar|agendar|reservar)|"
             r"link\s+(do|de)\s+agendamento|"
-            r"app(barber)?|"
-            r"aplicativo"
+            # B6: "app"/"aplicativo" SOZINHOS geravam falso positivo em qualquer frase
+            # ("meu aplicativo de banco travou"). Agora: "appbarber" sempre casa;
+            # "app/aplicativo" apenas com contexto de agendamento/barbearia.
+            r"appbarber|"
+            r"(baixar|baixo|usar|uso|pelo|link\s+do)\s+(o\s+)?(app|aplicativo)\b|"
+            r"\b(app|aplicativo)\s+(de\s+agendamento|da\s+barbearia|de\s+voc[eê]s|para\s+(agendar|marcar))"
             r")\b",
             re.IGNORECASE,
         ),
