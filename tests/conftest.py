@@ -190,6 +190,14 @@ def mock_externos(monkeypatch):
         _wa_mod.WhatsAppSender, "enviar_botoes_resposta",
         lambda self, **kwargs: (True, "wamid.btn123"),
     )
+    monkeypatch.setattr(
+        _wa_mod.WhatsAppSender, "marcar_como_lida",
+        lambda self, message_id, numero: True,
+    )
+
+    # Retry de status (race wamid) sem sleep nos testes.
+    import api.webhook as _wh_mod
+    monkeypatch.setattr(_wh_mod, "_STATUS_RETRY_DELAY_S", 0)
 
     import services.ai_service as _ai_mod
 

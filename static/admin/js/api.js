@@ -82,6 +82,12 @@ window.api = {
 
   getConversa: (telefone) => _req(`/admin/conversa/${encodeURIComponent(telefone)}`),
 
+  // D2: atendente visualizou a conversa — read receipt + zera não-lidas.
+  // Fire-and-forget: falha aqui nunca deve travar a UI.
+  marcarLida: (telefone) =>
+    _req(`/admin/conversa/${encodeURIComponent(telefone)}/marcar-lida`, { method: 'POST' })
+      .catch(() => null),
+
   getClienteInfo: (telefone) => _req(`/admin/cliente/${encodeURIComponent(telefone)}/info`),
 
   assumir: (telefone) => _req(`/admin/assumir/${encodeURIComponent(telefone)}`, { method:'POST' }),

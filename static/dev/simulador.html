@@ -71,6 +71,17 @@
   }
   .opcoes button small { display: block; color: var(--text-dim); font-size: 11.5px; margin-top: 1px; }
   .opcoes button:active { background: rgba(0,168,132,.3); }
+  .status-controles { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+  .status-controles button {
+    background: transparent; border: 1px dashed #3b4a54; color: var(--text-dim);
+    border-radius: 10px; padding: 3px 9px; font-size: 11px; cursor: pointer;
+  }
+  .status-controles button:active { border-color: var(--accent); color: var(--accent); }
+  .status-badge { font-size: 10px; color: var(--text-dim); margin-left: 6px; }
+  .status-badge.lida { color: #53bdeb; }
+  .status-badge.falha { color: #ef4444; }
+  .msg .tick { font-size: 11px; margin-left: 5px; color: var(--text-dim); }
+  .msg .tick.azul { color: #53bdeb; }
   footer {
     background: var(--panel); padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
     display: flex; gap: 8px; align-items: center;
@@ -158,10 +169,56 @@
     chat.scrollTop = chat.scrollHeight;
   }
 
+  // Botões que simulam o status update que a Meta mandaria para uma mensagem do bot.
+  function controlesDeStatus(div, wamid) {
+    if (!wamid) return;
+    div.setAttribute('data-wamid', wamid);
+    const badge = document.createElement('span');
+    badge.className = 'status-badge';
+    badge.textContent = '· aceita';
+    const wrap = document.createElement('div');
+    wrap.className = 'status-controles';
+    [['delivered', '✓✓ entregue'], ['read', '✓✓ lida (azul)'], ['failed', '✗ falhou']].forEach(([st, rotulo]) => {
+      const b = document.createElement('button');
+      b.textContent = rotulo;
+      b.addEventListener('click', async () => {
+        const resp = await fetch('/dev/api/status', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({wamid, status: st, telefone: inputTel.value.trim()}),
+        });
+        if (resp.ok) {
+          badge.textContent = st === 'read' ? '· lida' : st === 'delivered' ? '· entregue' : '· falhou';
+          badge.className = 'status-badge' + (st === 'read' ? ' lida' : st === 'failed' ? ' falha' : '');
+          sistema(`Status "${st}" injetado no webhook — veja o tick mudar no dashboard.`);
+        }
+      });
+      wrap.appendChild(b);
+    });
+    const hora = div.querySelector('.hora');
+    if (hora) hora.appendChild(badge);
+    div.insertBefore(wrap, hora);
+  }
+
   function renderizarEvento(ev) {
     const p = ev.payload || {};
+    // Read receipt: o bot/atendente marcou a mensagem DO CLIENTE como lida —
+    // pinta de azul os ticks das bolhas de saída até esse wamid (cascata WhatsApp).
+    if (ev.tipo_log === 'read_receipt' && p.message_id) {
+      let alvoEncontrado = false;
+      document.querySelectorAll('.msg.out').forEach(div => {
+        // Percorre na ordem do DOM; marca todas até (e incluindo) o wamid alvo.
+        if (!alvoEncontrado) {
+          const t = div.querySelector('.tick');
+          if (t) { t.textContent = '✓✓'; t.classList.add('azul'); }
+          if (div.getAttribute('data-wamid') === p.message_id) alvoEncontrado = true;
+        }
+      });
+      sistema('O bot/atendente leu suas mensagens (read receipt → ticks azuis).');
+      return;
+    }
     if (p.type === 'text' && p.text) {
-      bolha('in', formatar(p.text.body || ''));
+      const div = bolha('in', formatar(p.text.body || ''));
+      controlesDeStatus(div, ev.wamid);
       return;
     }
     if (p.type === 'interactive' && p.interactive) {
@@ -192,6 +249,7 @@
         f.textContent = inter.footer.text;
         div.insertBefore(f, div.querySelector('.hora'));
       }
+      controlesDeStatus(div, ev.wamid);
       return;
     }
     // Mídia/desconhecido: mostra o tipo cru para depuração.
@@ -209,7 +267,13 @@
   async function enviar(texto, rotulo) {
     texto = (texto || '').trim();
     if (!texto) return;
-    bolha('out', formatar(rotulo || texto));
+    const div = bolha('out', formatar(rotulo || texto));
+    // Tick da mensagem do cliente: ✓ cinza até o bot/atendente marcar como lida.
+    const tick = document.createElement('span');
+    tick.className = 'tick';
+    tick.textContent = '✓';
+    const hora = div.querySelector('.hora');
+    if (hora) hora.appendChild(tick);
     btnEnviar.disabled = true;
     try {
       const resp = await fetch('/dev/api/mensagem', {
@@ -217,7 +281,12 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({telefone: inputTel.value.trim(), nome: inputNome.value.trim(), texto}),
       });
-      if (!resp.ok) sistema(`Erro ${resp.status} ao enviar — veja o log do servidor.`);
+      if (!resp.ok) {
+        sistema(`Erro ${resp.status} ao enviar — veja o log do servidor.`);
+      } else {
+        const dados = await resp.json();
+        if (dados.wamid) div.setAttribute('data-wamid', dados.wamid);
+      }
     } catch (e) {
       sistema('Falha de rede: ' + e.message);
     } finally {

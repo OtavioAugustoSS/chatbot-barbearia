@@ -275,13 +275,13 @@ def _enviar_menu_lista(db: Session, user: Usuario, texto_cliente_trigger: str | 
         hist.entregue = bool(ok_fallback)
         hist.wamid = wamid_fallback
         db.commit()
-        _notificar_dashboard(user.telefone, user.nome_cliente, fallback_texto, "bot", entregue=bool(ok_fallback))
+        _notificar_dashboard(user.telefone, user.nome_cliente, fallback_texto, "bot", entregue=bool(ok_fallback), wamid=wamid_fallback)
         return bool(ok_fallback)
 
     hist.entregue = True
     hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder_historico, "bot", entregue=True)
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder_historico, "bot", entregue=True, wamid=wamid)
     return True
 
 
@@ -374,7 +374,7 @@ def _registrar_envio_botoes(
     hist.entregue = bool(ok_texto)
     hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(ok_texto))
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(ok_texto), wamid=wamid)
     return bool(ok_texto)
 
 
@@ -422,7 +422,7 @@ def _enviar_subflow_servicos(db: Session, user: Usuario, texto_cliente_trigger: 
         hist.entregue = True
         hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue), wamid=hist.wamid)
 
 
 def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: str) -> None:
@@ -468,7 +468,7 @@ def _enviar_subflow_equipe(db: Session, user: Usuario, texto_cliente_trigger: st
         hist.entregue = True
         hist.wamid = wamid
     db.commit()
-    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue))
+    _notificar_dashboard(user.telefone, user.nome_cliente, placeholder, "bot", entregue=bool(hist.entregue), wamid=hist.wamid)
 
 
 def _botoes_acao_pos_lista(incluir_voltar: bool = True) -> list[dict]:
@@ -959,15 +959,26 @@ def _enviar_e_registrar(
     hist.wamid = wamid
     db.commit()
 
-    _notificar_dashboard(user.telefone, user.nome_cliente, resposta_texto, origem, entregue=bool(ok))
+    _notificar_dashboard(
+        user.telefone, user.nome_cliente, resposta_texto, origem,
+        entregue=bool(ok), wamid=wamid,
+    )
     return bool(ok)
 
 
-def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: str, entregue: bool | None = None):
+def _notificar_dashboard(
+    telefone: str,
+    nome: str | None,
+    texto: str,
+    origem: str,
+    entregue: bool | None = None,
+    wamid: str | None = None,
+):
     """
     Publica evento SSE no notificador para o dashboard atualizar em tempo real.
     No-op em modo bot_only (não há dashboard). Origem: 'bot' | 'humano' | 'cliente'.
     `entregue`: True/False pra mensagens saindo (bot/humano), None pra mensagem do cliente.
+    `wamid`: id Meta da mensagem — o front ancora a bolha (data-wamid) para os ticks.
     """
     if not MODO_HIBRIDO:
         return
@@ -979,6 +990,7 @@ def _notificar_dashboard(telefone: str, nome: str | None, texto: str, origem: st
             "texto": texto,
             "origem": origem,
             "entregue": entregue,
+            "wamid": wamid,
         })
     except Exception:
         log.exception("Falha ao publicar evento SSE para %s", telefone)
@@ -1006,7 +1018,7 @@ async def verify_webhook(request: Request):
 
     raise HTTPException(status_code=403, detail="Token inválido")
 
-def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
+def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str, message_id: str | None = None):
     """ Essa função roda solta no fundo, dando todo tempo do mundo para a IA pensar sem travar o Facebook """
     lock = _lock_do_telefone(telefone)
     # TD-013: timeout de 90s evita starvation caso NIM trave indefinidamente.
@@ -1027,7 +1039,7 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
             log.exception("Falha ao notificar cliente sobre lock timeout para %s", telefone)
         return
     try:
-        _processar_mensagem(telefone, texto_cliente)
+        _processar_mensagem(telefone, texto_cliente, message_id)
     except Exception as exc:
         # ADR-010: captura exceção raiz para garantir visibilidade de falhas silenciosas.
         # O lock é liberado no finally independentemente.
@@ -1049,7 +1061,7 @@ def tarefa_em_segundo_plano_ia(telefone: str, texto_cliente: str):
     finally:
         lock.release()
 
-def _processar_mensagem(telefone: str, texto_cliente: str):
+def _processar_mensagem(telefone: str, texto_cliente: str, message_id: str | None = None):
     db = SessionLocal()
     try:
         # Puxamos o usuario no DB dessa sessão avulsa
@@ -1066,6 +1078,7 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 mensagem_cliente=texto_cliente,
                 resposta_bot=None,
                 origem="cliente",
+                wamid=message_id,  # wamid do CLIENTE — base do read receipt (marcar-lida)
             ))
             db.commit()
             notificador.publicar({
@@ -1074,6 +1087,7 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
                 "nome": user.nome_cliente,
                 "texto": texto_cliente,
                 "origem": "cliente",
+                "wamid": message_id,
             })
             return
         if not user.bot_ativo:
@@ -1231,10 +1245,38 @@ def _processar_mensagem(telefone: str, texto_cliente: str):
 
 
 
+# Janela de retry quando o status da Meta chega antes do UPDATE que grava o wamid
+# no histórico (fluxo: INSERT wamid=NULL → POST Meta → UPDATE wamid). Zerado nos testes.
+_STATUS_RETRY_DELAY_S = 2.0
+
+# Ranking de progresso do ciclo de vida: nunca rebaixar um estado mais avançado.
+# aceito (entregue=True no envio) < delivered < read; failed só se ainda não entregue.
+_RANK_STATUS = {"failed": 0.5, "delivered": 2, "read": 3}
+
+
+def _rank_atual(hist: HistoricoConversa) -> float:
+    if hist.lida is True:
+        return 3
+    if hist.lida is False:
+        return 2
+    if hist.entregue is False:
+        return 0
+    return 1  # aceito pela Meta, sem confirmação de entrega ainda
+
+
 def _processar_status_updates(value: dict) -> None:
     """
-    Processa status updates de entrega/leitura enviados pela Meta no mesmo endpoint do webhook.
-    Atualiza `lida` em HistoricoConversa e publica SSE mensagem_lida para o dashboard.
+    Processa status updates (delivered/read/failed) enviados pela Meta no mesmo
+    endpoint do webhook. Atualiza `entregue`/`lida` em HistoricoConversa e publica
+    SSE mensagem_lida para o dashboard.
+
+    - Monotonicidade: um `delivered` retransmitido/fora de ordem NÃO rebaixa `lida=True`.
+    - `failed`: marca entregue=False (tick de falha no dashboard) — só se ainda não
+      houve confirmação de entrega/leitura.
+    - Guard D1: casa apenas linhas de SAÍDA (resposta_bot preenchido) — a coluna wamid
+      também guarda o id das mensagens DO CLIENTE (para read receipt), que não têm tick.
+    - Race: se o wamid ainda não foi gravado (UPDATE pós-POST em andamento), espera
+      _STATUS_RETRY_DELAY_S e tenta UMA vez mais antes de desistir com log.
     Cria sessão DB própria (background task não pode reusar a sessão da request).
     """
     statuses = value.get("statuses", [])
@@ -1248,15 +1290,31 @@ def _processar_status_updates(value: dict) -> None:
             status = st.get("status")
             telefone = st.get("recipient_id")
 
-            if status not in ("delivered", "read") or not wamid:
+            if status not in _RANK_STATUS or not wamid:
                 continue
 
-            hist = db.query(HistoricoConversa).filter(
-                HistoricoConversa.wamid == wamid
-            ).first()
+            def _buscar():
+                return db.query(HistoricoConversa).filter(
+                    HistoricoConversa.wamid == wamid,
+                    HistoricoConversa.resposta_bot.isnot(None),
+                ).first()
 
+            hist = _buscar()
+            if not hist and _STATUS_RETRY_DELAY_S > 0:
+                time.sleep(_STATUS_RETRY_DELAY_S)
+                db.expire_all()
+                hist = _buscar()
             if not hist:
+                log.info("Status %s para wamid %s sem histórico correspondente — descartado.", status, wamid)
                 continue
+
+            rank = _rank_atual(hist)
+            if status == "failed":
+                # failed só vale se ainda não houve confirmação de entrega/leitura
+                if rank >= 2 or hist.entregue is False:
+                    continue
+            elif _RANK_STATUS[status] <= rank:
+                continue  # retransmissão/out-of-order — não rebaixa
 
             if status == "delivered":
                 hist.entregue = True
@@ -1264,13 +1322,14 @@ def _processar_status_updates(value: dict) -> None:
             elif status == "read":
                 hist.entregue = True
                 hist.lida = True
+            elif status == "failed":
+                hist.entregue = False
 
             db.commit()
 
             if MODO_HIBRIDO:
                 try:
-                    from api.admin import notificador as admin_notificador
-                    admin_notificador.publicar({
+                    notificador.publicar({
                         "tipo": "mensagem_lida",
                         "wamid": wamid,
                         "status": status,
@@ -1365,6 +1424,8 @@ def _processar_mensagem_recebida(
             telefone,
             mensagem_midia,
         )
+        if message_id:
+            background_tasks.add_task(whatsapp.marcar_como_lida, message_id, telefone)
         return
 
     # Rate limit: protege contra flood (DoS / fatura inflada).
@@ -1466,6 +1527,7 @@ def _processar_mensagem_recebida(
                 mensagem_cliente=texto_cliente,
                 resposta_bot=None,
                 origem="cliente",
+                wamid=message_id,  # wamid do CLIENTE — base do read receipt (marcar-lida)
             ))
             db.commit()
             notificador.publicar({
@@ -1474,11 +1536,18 @@ def _processar_mensagem_recebida(
                 "nome": user.nome_cliente,
                 "texto": texto_cliente,
                 "origem": "cliente",
+                "wamid": message_id,
             })
             log.info("Modo híbrido: msg de %s persistida para atendimento humano.", telefone)
         else:
             log.info("Mensagem ignorada: bot desativado para %s (modo bot_only).", telefone)
         return
+
+    # Read receipt (D2): o bot vai tratar esta mensagem (handoff ou IA) — marca
+    # como lida na Meta imediatamente, para o cliente ver os ticks azuis.
+    # Com bot inativo (ramo acima), quem marca é o atendente ao abrir a conversa.
+    if message_id:
+        background_tasks.add_task(whatsapp.marcar_como_lida, message_id, telefone)
 
     # Solicitação de recepção/atendente: botões legados OU itens das listas/botões.
     # Tratado síncrono (antes de enfileirar IA) — handoff é sensível a tempo.
@@ -1498,8 +1567,8 @@ def _processar_mensagem_recebida(
     # híbrido). Sem isso, atendente só veria a mensagem do cliente depois da IA
     # terminar e responder — pode levar segundos. Com esse evento, msg do cliente
     # aparece em tempo real e o atendente pode decidir assumir antes da IA agir.
-    _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente")
+    _notificar_dashboard(telefone, user.nome_cliente, texto_cliente, "cliente", wamid=message_id)
 
-    background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente)
+    background_tasks.add_task(tarefa_em_segundo_plano_ia, telefone, texto_cliente, message_id)
 
     return

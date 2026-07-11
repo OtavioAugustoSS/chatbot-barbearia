@@ -78,6 +78,20 @@ class WhatsAppSender:
             return False, None
         return True, wamid
 
+    def marcar_como_lida(self, message_id: str, numero: str) -> bool:
+        """Envia read receipt à Meta — o CLIENTE vê os ticks azuis no WhatsApp dele.
+
+        message_id: wamid da mensagem DO CLIENTE. O WhatsApp marca em cascata as
+        anteriores da mesma conversa, então basta o wamid mais recente.
+        """
+        payload = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": message_id,
+        }
+        ok, _ = self._post_com_retry(payload, numero, "read_receipt")
+        return ok
+
     def enviar_mensagem_texto(self, numero: str, texto: str) -> tuple[bool, str | None]:
         """
         Envia mensagem WhatsApp via Meta Cloud API.

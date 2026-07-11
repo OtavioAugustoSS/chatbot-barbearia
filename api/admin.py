@@ -401,6 +401,26 @@ def listar_conversas(
                 "id": lab.id, "nome": lab.nome, "cor": lab.cor
             })
 
+    # D4: mensagens do cliente ainda não vistas pelo atendente (uma query batch).
+    # Base: Usuario.ultima_leitura_atendente_em, atualizado por POST marcar-lida.
+    nao_lidas: dict[str, int] = {}
+    if telefones:
+        from sqlalchemy import or_
+        contagem_q = (
+            db.query(HistoricoConversa.telefone_usuario, func.count(HistoricoConversa.id))
+            .join(Usuario, Usuario.telefone == HistoricoConversa.telefone_usuario)
+            .filter(
+                HistoricoConversa.telefone_usuario.in_(telefones),
+                HistoricoConversa.origem == "cliente",
+                or_(
+                    Usuario.ultima_leitura_atendente_em.is_(None),
+                    HistoricoConversa.criado_em > Usuario.ultima_leitura_atendente_em,
+                ),
+            )
+            .group_by(HistoricoConversa.telefone_usuario)
+        )
+        nao_lidas = dict(contagem_q.all())
+
     items = [
         {
             "telefone": u.telefone,
@@ -416,6 +436,7 @@ def listar_conversas(
             "labels": labels_por_telefone.get(u.telefone, []),
             "status_conversa": u.status_conversa or "open",
             "snoozed_until": _iso_utc(u.snoozed_until),
+            "mensagens_nao_lidas": nao_lidas.get(u.telefone, 0),
         }
         for u, ultima in rows
     ]
@@ -482,6 +503,54 @@ def ver_conversa(
             for m in msgs
         ],
     }
+
+
+@router.post("/conversa/{telefone}/marcar-lida")
+def marcar_conversa_lida(
+    telefone: str,
+    db: Session = Depends(get_db),
+    me: Atendente = Depends(atendente_atual),
+):
+    """
+    D2: atendente visualizou a conversa — envia read receipt à Meta (cliente vê
+    ticks azuis) e zera o contador de não-lidas (ultima_leitura_atendente_em).
+
+    - Idempotente: sem mensagens novas, retorna {"marcadas": 0} e só atualiza o timestamp.
+    - Permissão: só o dono da conversa (ou conversa sem dono) gera read receipt —
+      outro operador espiando não deve marcar como lida no WhatsApp do cliente.
+    - Envia receipt apenas do wamid MAIS RECENTE do cliente: o WhatsApp marca as
+      anteriores em cascata.
+    """
+    user = db.query(Usuario).filter(Usuario.telefone == telefone).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
+    if user.atendente_id is not None and user.atendente_id != me.id:
+        return {"marcadas": 0}
+
+    corte = user.ultima_leitura_atendente_em
+    filtro_novas = [
+        HistoricoConversa.telefone_usuario == telefone,
+        HistoricoConversa.origem == "cliente",
+    ]
+    if corte is not None:
+        filtro_novas.append(HistoricoConversa.criado_em > corte)
+
+    marcadas = db.query(HistoricoConversa).filter(*filtro_novas).count()
+    ultima_com_wamid = (
+        db.query(HistoricoConversa)
+        .filter(*filtro_novas, HistoricoConversa.wamid.isnot(None))
+        .order_by(HistoricoConversa.criado_em.desc())
+        .first()
+    )
+    if ultima_com_wamid:
+        try:
+            whatsapp.marcar_como_lida(ultima_com_wamid.wamid, telefone)
+        except Exception:
+            log.exception("Falha ao enviar read receipt para %s", telefone)
+
+    user.ultima_leitura_atendente_em = datetime.now(timezone.utc)
+    db.commit()
+    return {"marcadas": marcadas}
 
 
 @router.post("/assumir/{telefone}")
@@ -1039,8 +1108,9 @@ def enviar(
         # C3: atendente_nome necessário para o frontend exibir remetente no separador.
         "atendente_nome": me.nome,
         "entregue": bool(ok),
+        "wamid": wamid,
     })
-    return {"status": "ok", "entregue": bool(ok)}
+    return {"status": "ok", "entregue": bool(ok), "wamid": wamid}
 
 
 _MIME_PARA_TIPO: dict[str, str] = {
@@ -1112,7 +1182,7 @@ def enviar_midia(
         db.commit()
         notificador.publicar({"tipo": "atendente_assumiu", "telefone": telefone, "atendente_id": me.id, "atendente_nome": me.nome})
         notificador.publicar({"tipo": "status_alterado", "telefone": telefone, "status": "open", "snoozed_until": None, "por_atendente_id": me.id})
-        notificador.publicar({"tipo": "nova_mensagem", "telefone": telefone, "nome": usuario.nome_cliente, "texto": aviso, "origem": "humano", "atendente_id": me.id, "entregue": bool(ok_aviso)})
+        notificador.publicar({"tipo": "nova_mensagem", "telefone": telefone, "nome": usuario.nome_cliente, "texto": aviso, "origem": "humano", "atendente_id": me.id, "entregue": bool(ok_aviso), "wamid": wamid_aviso})
 
     try:
         ok_upload, media_id = whatsapp.upload_midia_whatsapp(conteudo, mime, file.filename or "arquivo")
@@ -1158,8 +1228,9 @@ def enviar_midia(
         # C3: incluir atendente_nome para o frontend exibir o remetente corretamente.
         "atendente_nome": me.nome,
         "entregue": bool(ok),
+        "wamid": wamid_midia,
     })
-    return {"ok": True, "media_id": media_id, "entregue": bool(ok)}
+    return {"ok": True, "media_id": media_id, "entregue": bool(ok), "wamid": wamid_midia}
 
 
 @router.post("/devolver/{telefone}")

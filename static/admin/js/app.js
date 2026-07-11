@@ -659,9 +659,8 @@ function renderConvList() {
       if (mins > 5) waitingBadge = `<span class="waiting-badge">Aguardando ${mins}min</span>`;
     }
 
-    // V4: Unread class — P1-2: cobre conv sem atendente e conv assumida com msg nova do cliente
-    // TODO(backend): adicionar campo `mensagens_nao_lidas` ao payload de /admin/conversas
-    //   para cobrir o caso c.atendente_id && c.mensagens_nao_lidas > 0
+    // V4: Unread — conv na fila OU com mensagens do cliente ainda não vistas
+    // (mensagens_nao_lidas agora vem do backend via ultima_leitura_atendente_em).
     const isUnread = (c.aguardando_humano && !c.atendente_id)
       || (c.mensagens_nao_lidas > 0);
     const isSelected = state.bulkSelecionadas.has(c.telefone);
@@ -1294,7 +1293,7 @@ function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts 
   const eraNoFundo = _estaNoFundo();
 
   const textoProcessado = (texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
-  cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId, atendente_nome: opts.atendente_nome }));
+  cont.appendChild(bolha(textoProcessado, origem, agora, { entregue, tempId, atendente_nome: opts.atendente_nome, wamid: opts.wamid }));
 
   // US-105: captura "era no fundo" ANTES do append; rola dentro de rAF para scrollHeight atualizado
   if (eraNoFundo) {
@@ -1307,9 +1306,14 @@ function appendMensagemIncremental(texto, origem, entregue, tempId = null, opts 
   }
 }
 
-function resolverBolhaPendente(tempId, ok) {
+function resolverBolhaPendente(tempId, ok, wamid = null) {
   const el = document.querySelector(`[data-temp-id="${tempId}"]`);
   if (!el) return;
+  // Ancora a bolha otimista ao wamid — sem isto o SSE mensagem_lida nunca
+  // encontra a bolha e o tick jamais avança para entregue/lida em tempo real.
+  if (wamid && !el.hasAttribute('data-wamid')) {
+    el.setAttribute('data-wamid', wamid);
+  }
   if (!ok) {
     el.classList.add('bolha-falha');
     // US-097/137: botão retry — só adiciona se ainda não existe
@@ -1465,6 +1469,15 @@ async function abrirConversa(telefone) {
   } catch(e) {
     console.error('abrirConversa:', e);
     showToast('Erro ao carregar conversa', 'error');
+  }
+
+  // D2: visualizou a conversa → read receipt (cliente vê ticks azuis) + zera
+  // o contador local de não-lidas sem esperar reload da lista.
+  api.marcarLida(telefone);
+  const convLida = state.conversas.find(c => c.telefone === telefone);
+  if (convLida && convLida.mensagens_nao_lidas) {
+    convLida.mensagens_nao_lidas = 0;
+    renderConvList();
   }
 
   // Carrega info e notas em paralelo (não bloqueia)
@@ -1708,8 +1721,8 @@ async function enviarMensagem() {
 
   const telefoneEnvio = state.conversaAtual;
   try {
-    await api.enviar(telefoneEnvio, texto);
-    resolverBolhaPendente(tempId, true);
+    const res = await api.enviar(telefoneEnvio, texto);
+    resolverBolhaPendente(tempId, true, res && res.wamid);
     carregarConversas();
     // FEATURE 3: undo toast após envio bem-sucedido
     showUndoToast(tempId, telefoneEnvio, texto);
@@ -2624,17 +2637,39 @@ document.addEventListener('sse:nova_mensagem', (e) => {
       && !!document.querySelector('[data-temp-id]');
     if (!temPendenteProprio) {
       const textoProcessado = (ev.texto || '').replace(/<\s*br\s*\/?>/gi, '\n');
-      appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue, null, { atendente_nome: ev.atendente_nome || null });
+      appendMensagemIncremental(textoProcessado, ev.origem, ev.entregue, null, { atendente_nome: ev.atendente_nome || null, wamid: ev.wamid || null });
+    } else if (ev.wamid) {
+      // Corrida SSE-antes-do-fetch: o evento pode chegar antes do POST /enviar
+      // retornar — ancora o wamid na bolha pendente para os ticks funcionarem.
+      const pendente = document.querySelector('[data-temp-id]:not([data-wamid])');
+      if (pendente) pendente.setAttribute('data-wamid', ev.wamid);
     }
   } else if (ev.origem === 'cliente') {
     showToast(`Nova mensagem de ${ev.nome || ev.telefone}`, 'info');
     tocarNotificacao();
+  }
+  // D2: mensagem do cliente na conversa aberta com a aba visível → já foi vista;
+  // caso contrário, incrementa o contador local de não-lidas.
+  if (ev.origem === 'cliente') {
+    if (ev.telefone === state.conversaAtual && document.visibilityState === 'visible') {
+      api.marcarLida(ev.telefone);
+    } else {
+      const convNL = state.conversas.find(c => c.telefone === ev.telefone);
+      if (convNL) convNL.mensagens_nao_lidas = (convNL.mensagens_nao_lidas || 0) + 1;
+    }
   }
   // Atualiza preview na lista
   const conv = state.conversas.find(c => c.telefone === ev.telefone);
   if (conv) {
     conv.preview = ev.texto || '';
     conv.ultima_mensagem_em = new Date().toISOString();
+    // M6: reordena localmente (aguardando primeiro, depois mais recente) —
+    // sem isto o card com mensagem nova não subia até o próximo reload completo.
+    state.conversas.sort((a, b) => {
+      const ag = (b.aguardando_humano && !b.atendente_id) - (a.aguardando_humano && !a.atendente_id);
+      if (ag !== 0) return ag;
+      return new Date(b.ultima_mensagem_em || 0) - new Date(a.ultima_mensagem_em || 0);
+    });
     renderConvList();
     // Fade-through animation on updated card preview
     const card = document.querySelector(`.conv-card[data-tel="${CSS.escape(ev.telefone)}"]`);
@@ -2756,10 +2791,12 @@ document.addEventListener('sse:mensagem_lida', (e) => {
   const tickEl = bolhaEl.querySelector('.bolha-tick');
   if (!tickEl) return;
   const isRead = status === 'read';
-  const { svg, cls } = _tickSvg(true, isRead ? true : false);
+  // failed: a Meta não conseguiu entregar (número bloqueado etc.) → tick de falha.
+  const { svg, cls } = status === 'failed' ? _tickSvg(false, null) : _tickSvg(true, isRead);
   tickEl.innerHTML = svg;
   tickEl.className = `entregue-status bolha-tick ${cls}`;
   if (isRead) _animarTick(tickEl);
+  if (status === 'failed') bolhaEl.classList.add('bolha-falha');
 });
 
 // ============================================================

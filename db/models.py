@@ -37,6 +37,12 @@ class Usuario(Base):
     # Setado True quando bot reativa por timeout (BOT_REATIVAR_APOS_HORAS).
     # Consumido na próxima resposta IA para prefixar frase de contexto; resetado após uso.
     reativado_por_timeout = Column(Boolean, nullable=False, default=False)
+    # LGPD em 2 passos: timestamp do pedido "apagar meus dados". Cliente confirma
+    # com "APAGAR" em até 10min; qualquer outra mensagem ou expiração cancela.
+    exclusao_solicitada_em = Column(DateTime, nullable=True, default=None)
+    # Última vez que um atendente abriu/visualizou a conversa (POST marcar-lida).
+    # Base do contador mensagens_nao_lidas e do read receipt à Meta.
+    ultima_leitura_atendente_em = Column(DateTime, nullable=True, default=None)
     data_ultima_interacao = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

@@ -8,6 +8,7 @@ outbox em memória. Nada aqui toca a rede.
 """
 import time
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -31,7 +32,7 @@ class MensagemSimulada(BaseModel):
     texto: str = Field(min_length=1, max_length=4096)
 
 
-def _montar_payload_meta(telefone: str, nome: str, texto: str) -> dict:
+def _montar_payload_meta(telefone: str, nome: str, texto: str, message_id: str) -> dict:
     """Payload no formato Meta Cloud API (mesmo shape usado nos testes de pipeline)."""
     return {
         "object": "whatsapp_business_account",
@@ -45,10 +46,33 @@ def _montar_payload_meta(telefone: str, nome: str, texto: str) -> dict:
                     "contacts": [{"profile": {"name": nome}, "wa_id": telefone}],
                     "messages": [{
                         "from": telefone,
-                        "id": f"wamid.devsim.{uuid4().hex}",
+                        "id": message_id,
                         "timestamp": str(int(time.time())),
                         "type": "text",
                         "text": {"body": texto},
+                    }],
+                },
+            }],
+        }],
+    }
+
+
+def _montar_payload_status(wamid: str, status: str, telefone: str) -> dict:
+    """Payload de status update no formato Meta (value.statuses[])."""
+    return {
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "id": "dev-entry",
+            "changes": [{
+                "field": "messages",
+                "value": {
+                    "messaging_product": "whatsapp",
+                    "metadata": {"phone_number_id": "dev"},
+                    "statuses": [{
+                        "id": wamid,
+                        "status": status,
+                        "timestamp": str(int(time.time())),
+                        "recipient_id": telefone,
                     }],
                 },
             }],
@@ -68,9 +92,30 @@ async def enviar_mensagem_simulada(
     lista/botão — o extractor do webhook converte list_reply/button_reply para
     o mesmo id-string, então o despacho é idêntico.
     """
-    body = _montar_payload_meta(msg.telefone, msg.nome, msg.texto)
+    message_id = f"wamid.devsim.{uuid4().hex}"
+    body = _montar_payload_meta(msg.telefone, msg.nome, msg.texto, message_id)
     resultado = await processar_evento_webhook(body, background_tasks, db)
-    return {"status": resultado.get("status", "ok"), "telefone": msg.telefone}
+    # wamid devolvido: o simulador ancora a bolha do cliente para o read receipt.
+    return {"status": resultado.get("status", "ok"), "telefone": msg.telefone, "wamid": message_id}
+
+
+class StatusSimulado(BaseModel):
+    wamid: str = Field(min_length=1, max_length=255)
+    status: Literal["delivered", "read", "failed"]
+    telefone: str = Field(default="5538999990000", max_length=20)
+
+
+@router.post("/api/status")
+async def simular_status(
+    st: StatusSimulado,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Simula o status update que a Meta enviaria (delivered/read/failed) para
+    uma mensagem do bot — percorre o MESMO pipeline do webhook de produção."""
+    body = _montar_payload_status(st.wamid, st.status, st.telefone)
+    resultado = await processar_evento_webhook(body, background_tasks, db)
+    return {"status": resultado.get("status", "ok"), "wamid": st.wamid, "aplicado": st.status}
 
 
 @router.get("/api/respostas")
