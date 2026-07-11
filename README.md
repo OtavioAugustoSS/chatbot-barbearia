@@ -1,95 +1,123 @@
-# 💈 Chatbot Inteligente - Barbearia Bolshoi
+# 💈 Chatbot Inteligente — Barbearia Bolshoi
 
-O Recepcionista Digital Oficial da Barbearia Bolshoi via WhatsApp, utilizando Inteligência Artificial (Gemini API) e FastAPI.
+O Recepcionista Digital Oficial da Barbearia Bolshoi via WhatsApp, utilizando Inteligência Artificial (**NVIDIA NIM — Llama 3.1 70B**) e FastAPI.
 
 ## 📌 Visão Geral do Projeto
-O bot atua como um Concierge digital, construído em **Python (FastAPI)** com **MySQL** e conectado à **Meta Cloud API (WhatsApp)**.
-As responsabilidades principais atendem rigorosamente à documentação original:
-1. **FAQ Inteligente:** Responde perguntas sobre preços, horários e barbeiros com leitura rápida do banco de dados para evitar "alucinações".
-2. **Redirecionamento Rígido:** Não agenda diretamente, envia sempre o link oficial do AppBarber.
-3. **Triagem e Transbordo Humano:** Capacidade estrita de "calar a boca" (`bot_ativo = False`) quando o cliente manifestar problemas insolucionáveis ou desejar contato.
+
+O bot atua como um concierge digital, construído em **Python (FastAPI)** com **MySQL** e conectado à **Meta Cloud API (WhatsApp)**.
+
+1. **FAQ Inteligente:** responde perguntas sobre preços, horários e barbeiros lendo direto do banco de dados (evita alucinação). Perguntas frequentes têm resposta canônica por regex, sem custo de IA.
+2. **Redirecionamento rígido:** o bot **nunca agenda** — sempre envia o link oficial do AppBarber.
+3. **Triagem e transbordo humano:** ao detectar necessidade de atendimento, desativa o bot (`bot_ativo = False`) e, no modo híbrido, coloca o cliente na fila do dashboard de atendentes.
+
+**Modos de operação** (`MODO_OPERACAO`):
+- `bot_only` — IA responde tudo sozinha.
+- `hibrido` — IA + dashboard de atendentes em `/static/admin/` (login JWT, SSE em tempo real, RBAC admin/atendente).
 
 ---
 
-## 🛠 Pré-requisitos (O que você precisa para testar)
+## ⚡ Rodar AGORA, sem configurar nada (modo dev)
 
-Para rodar este bot localmente 100% integrado ao WhatsApp e ao Google Gemini, certifique-se de que os itens abaixo estão cumpridos em sua máquina.
+Sem `.env`, o sistema sobe em **modo desenvolvimento** com tudo simulado:
 
-### 1. Conta Meta for Developers (WhatsApp)
-Você deve possuir um App de teste na Meta For Developers.
-- Anote o seu **Número de Identificação do Telefone** (`WHATSAPP_PHONE_ID`).
-- Gere um **Token de Acesso Temporário** (`WHATSAPP_TOKEN`). (Dura 24 horas para testes).
-- Anote no celular o número do WhatsApp de testes do Facebook e libere seu número pra testes.
-
-### 2. Conta Google AI Studio (Gemini)
-Você deve possuir uma chave de API para o Google Gemini.
-- Gere em: [Google AI Studio](https://aistudio.google.com/app/apikey).
-- Tenha certeza de copiar a `GEMINI_API_KEY`.
-
-### 3. Banco de Dados MySQL
-Mantenha o banco de dados rodando na porta padrão (Ex: XAMPP, Wampserver, etc). O modelo já contém as tabelas mapeadas no arquivo SQL providenciado.
-
----
-
-## 🚀 Passo a Passo para Inicializar e Testar Hoje
-
-Siga exatamente a ordem abaixo para subir o servidor e plugar no WhatsApp:
-
-### Passo 1: Configurar Arquivo Secreto
-Você precisará ter o seu arquivo `.env` alimentado na raiz do projeto:
-```env
-DB_USER=root
-DB_PASS=SuaSenhaMySQL
-DB_HOST=localhost
-DB_NAME=barbearia_bot_db
-
-WHATSAPP_PHONE_ID=seu_phone_id_aqui
-WHATSAPP_TOKEN=seu_token_temporario_aqui
-WEBHOOK_VERIFY_TOKEN=barbearia_bot_123
-
-GEMINI_API_KEY=sua_api_key_do_gemini
+```bash
+pip install -r requirements.txt
+python main.py
 ```
 
-### Passo 2: Instalar as Dependências
-Utilize o Terminal do VSCode para instalar as bibliotecas do projeto (Opcional, se não tiver as feito na rodada de build):
+O boot mostra um banner com o estado de cada subsistema. Você ganha:
+
+| Recurso | Em modo dev | URL |
+|---|---|---|
+| Banco | SQLite local `./dev.db` com dados demo | — |
+| Simulador de WhatsApp | Chat no navegador com menus clicáveis, passando pelo pipeline real do bot | http://localhost:8000/dev/simulador |
+| Dashboard do atendente | login `admin` / senha `admin123` | http://localhost:8000/static/admin/login.html |
+| IA | Resposta de demonstração (sem chamada externa) | — |
+
+Fluxo de teste sugerido: abra o simulador, mande `oi` (menu interativo), clique nas opções, pergunte algo livre (resposta demo da IA), toque em *Falar c/ Atendente* e atenda a conversa pelo dashboard — a resposta do atendente aparece no simulador.
+
+Quando o `.env` real for preenchido, os subsistemas correspondentes ligam automaticamente e o simulador deixa de ser montado. Com `APP_ENV=production`, qualquer credencial faltante **aborta o boot** com erro claro.
+
+---
+
+## 🛠 Pré-requisitos para produção (WhatsApp real)
+
+### 1. Conta Meta for Developers (WhatsApp)
+- Anote o **Phone Number ID** (`WHATSAPP_PHONE_ID`).
+- Gere um **token de acesso** (`WHATSAPP_TOKEN`) — o temporário dura 24h; em produção use token permanente de System User.
+- Pegue o **App Secret** (`META_APP_SECRET`) para validação HMAC do webhook.
+
+### 2. Chave NVIDIA NIM (IA)
+- Gere em [build.nvidia.com](https://build.nvidia.com) e preencha `NVIDIA_API_KEY`.
+- O modelo usado é `meta/llama-3.1-70b-instruct` via API compatível com OpenAI.
+
+### 3. Banco de Dados MySQL
+- MySQL com charset `utf8mb4`. Preencha `DB_USER/DB_PASS/DB_HOST/DB_NAME` (ou `DB_URL`).
+
+---
+
+## 🚀 Passo a passo (produção/integração)
+
+### Passo 1: Configurar o `.env`
+Copie `.env.example` para `.env` e preencha os valores (o arquivo é comentado).
+
+### Passo 2: Instalar dependências
 ```bash
 pip install -r requirements.txt
 ```
 
-### Passo 3: Criar um Túnel Público (Ngrok)
-O Facebook exige uma URL pública com HTTPS para o Webhook para onde as mensagens serão enviadas.
+### Passo 3: Banco e migrations (Alembic)
+Banco novo: o boot cria as tabelas via `create_all`; em seguida registre a baseline:
+```bash
+alembic stamp head
+python -m scripts.seed_horarios   # popula horários de funcionamento
+```
+Banco existente (deploys seguintes):
+```bash
+alembic upgrade head
+```
+Qualquer mudança de schema é feita em `db/models.py` + `alembic revision --autogenerate` (ver `CLAUDE.md` e ADR-014).
+
+### Passo 4: Túnel público (ngrok)
 ```bash
 ngrok http 8000
 ```
-Isso gerará um link `https://xxxx.ngrok-free.app`. Copie a URL gerada (Sem a porta no final).
 
-### Passo 4: Subir o Servidor FastAPI
-Em um **2º Terminal** do VSCode, inicie a aplicação:
+### Passo 5: Subir o servidor
 ```bash
 python main.py
 ```
-O console exibirá "Application startup complete" e monitorará todos os contatos com as APIS em tempo real.
 
-### Passo 5: Plugar a URL no Meta for Developers
-Retorne ao painel da Meta For Developers > WhatsApp > API Setup > Configuration (Configurar Webhook):
-- **URL de callback:** Cole a URL do Ngrok seguida de `/webhook`. (Ex: `https://xxxx.ngrok-free.app/webhook`).
-- **Verificar token:** Escreva `barbearia_bot_123`.
-- Clique em **Verificar e Salvar**.
+### Passo 6: Registrar o webhook na Meta
+Meta for Developers → WhatsApp → Configuration:
+- **Callback URL:** `https://SEU-TUNEL/webhook`
+- **Verify token:** o valor de `WEBHOOK_VERIFY_TOKEN` do seu `.env`
+- Em "Webhook fields", inscreva-se em **messages**.
 
-*(📍 MUITO Importante: Na tabela "Campos de Webhook", mesma tela abaixo, encontre a palavra `messages` e clique em **Inscrever-se/Subscribe** ao final da linha).*
+### Modo híbrido (dashboard)
+```bash
+# no .env: MODO_OPERACAO=hibrido e JWT_SECRET preenchido
+python -m scripts.criar_atendente --admin   # primeiro operador (perfil admin)
+```
+Dashboard em `/static/admin/login.html`. Perfis: `admin` (gerencia atendentes, horários e exclusão LGPD) e `atendente` (atende conversas).
 
 ---
 
-## 📱 Como Testar no Celular e Regras de Negócio
+## 🧪 Testes
 
-Abra o seu próprio WhatsApp, mande mensagem para o número provisório e teste na prática as regras aplicadas:
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+A suíte roda 100% em SQLite in-memory, sem rede. Para smoke de integração contra MySQL real: `python -m scripts.smoke_integracao`.
 
-1. **Dúvida Operacional Livre:** "Quanto custa o corte e o que é o nanoblading?" A Inteligência Artificial buscará no MySQL e listará preços, seguidos das opções rápidas em botões.
-2. **Pedir para Falar com Atendente (Traçagem/Transbordo):** Diga "Preciso falar com um humano". Ao bater nessa intenção forçada, a coluna do BD reterá `bot_ativo = False`, o atendente se dispõe e não haverá eco nas msgs.
-3. **Botão de Agendamento:** Clicar num botão bypassa o IA, devolvendo na mesma hora o texto com Link do AppBarber. 
+## 📱 Regras de negócio testáveis no WhatsApp
 
-### 🤫 Destrancando o Bot Manualmente (P/ Desenvovedores)
-Nos testes pesados, muito frequentemente você irá querer testar as ramificações mais de uma vez na mesma conversa, e a "Trava Humana" fará o bot calar.
-Basta mandar no celular o comando secreto local:
-**`!reiniciar`**
-O seu banco de dados reverterá o desligamento instantaneamente!
+1. **Dúvida livre:** "Quanto custa o corte?" → IA responde com preços do banco.
+2. **Transbordo:** "Preciso falar com um humano" → `bot_ativo = False`; no híbrido, entra na fila do dashboard.
+3. **Agendamento:** qualquer pedido de marcação devolve o link do AppBarber — o bot nunca agenda.
+
+### 🤫 Comandos de staff (via WhatsApp)
+Telefones em `ADMIN_PHONES` podem enviar:
+- **`!reiniciar`** — reativa o bot e limpa o histórico da própria conversa (útil em testes).
+- **`!status`** — mostra o estado atual da conversa (bot ativo, atendente, histórico).

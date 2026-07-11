@@ -3567,30 +3567,8 @@ document.addEventListener('DOMContentLoaded', () => {
     abrirModalShortcuts();
   });
 
-  // FEATURE 1: First-run hint — aparece uma vez após login, auto-dismiss 6s
-  (function _initFirstRunHint() {
-    if (localStorage.getItem('bolshoi_help_hint_seen')) return;
-    const hint = document.getElementById('help-hint');
-    if (!hint) return;
-    hint.style.display = 'block';
-    const dismissHint = () => {
-      localStorage.setItem('bolshoi_help_hint_seen', 'true');
-      hint.style.opacity = '0';
-      hint.style.transition = 'opacity 300ms ease';
-      setTimeout(() => { hint.style.display = 'none'; }, 310);
-    };
-    const hintTimer = setTimeout(dismissHint, 6000);
-    document.getElementById('help-hint-dismiss')?.addEventListener('click', () => {
-      clearTimeout(hintTimer);
-      dismissHint();
-    });
-    hint.addEventListener('click', (e) => {
-      if (e.target !== document.getElementById('help-hint-dismiss')) {
-        clearTimeout(hintTimer);
-        dismissHint();
-      }
-    });
-  })();
+  // FEATURE 1 (first-run hint) removida — os elementos #help-hint saíram do HTML
+  // (TAREFA 2); o código que exibia a div vazia quebrava o grid do body por 6s.
 
   // SP-1 / ADR-008: click no overlay dos modais fecha (simula cancelar)
   document.getElementById('modal-snooze')?.addEventListener('click', (e) => {
