@@ -38,6 +38,7 @@ from services.whatsapp import WhatsAppSender, criar_sender
 from services.notificador import notificador
 from api.auth import (
     atendente_atual,
+    admin_requerido,
     verificar_senha,
     criar_token,
     hash_senha,
@@ -59,6 +60,7 @@ class LoginOut(BaseModel):
     token: str
     nome: str
     atendente_id: int
+    role: str = "atendente"
     ultimo_login: str | None = None
 
 
@@ -195,7 +197,35 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     db.commit()
     token = criar_token(atendente)
     log.info("Login OK: atendente_id=%s nome=%s", atendente.id, atendente.nome)
-    return LoginOut(token=token, nome=atendente.nome, atendente_id=atendente.id, ultimo_login=ultimo_login_anterior)
+    return LoginOut(token=token, nome=atendente.nome, atendente_id=atendente.id, role=atendente.role or "atendente", ultimo_login=ultimo_login_anterior)
+
+
+@router.post("/refresh", response_model=LoginOut)
+def refresh_token(
+    request: Request,
+    me: Atendente = Depends(atendente_atual),
+):
+    """
+    H1: renovação deslizante do JWT — o dashboard chama isto silenciosamente
+    perto do expiry para o atendente não ser deslogado no meio do atendimento.
+
+    Exige token AINDA VÁLIDO (atendente_atual) + atendente ativo. O claim `sess`
+    (epoch do login original) é propagado: após SESSAO_MAX_HORAS a renovação é
+    recusada (401) e o atendente precisa logar com senha de novo.
+    """
+    from api.auth import _decodificar, SESSAO_MAX_HORAS
+
+    auth_header = request.headers.get("Authorization", "")
+    token_atual = auth_header.split(" ", 1)[1] if " " in auth_header else ""
+    payload = _decodificar(token_atual)
+    sess = payload.get("sess") or int(payload.get("iat", 0))
+    if sess and (datetime.now(timezone.utc).timestamp() - sess) > SESSAO_MAX_HORAS * 3600:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessão expirou o teto absoluto — faça login novamente.",
+        )
+    novo = criar_token(me, sess=sess or None)
+    return LoginOut(token=novo, nome=me.nome, atendente_id=me.id, role=me.role or "atendente")
 
 
 def _auto_unsnooze(db: Session) -> None:
@@ -806,6 +836,19 @@ def bulk_acao(
     """
     resultados = {"sucesso": [], "falha": []}
     agora = datetime.now(timezone.utc)
+
+    # H5: valida o destino UMA vez antes do loop (mesma regra do endpoint single
+    # /conversa/{tel}/atribuir) — antes o bulk aceitava atendente inexistente ou
+    # inativo e gravava a atribuição em todas as conversas.
+    if payload.acao == "atribuir":
+        dest_id = payload.parametros.get("atendente_id")
+        if not dest_id:
+            raise HTTPException(400, "parametros.atendente_id é obrigatório para acao=atribuir")
+        destino = db.query(Atendente).filter(Atendente.id == dest_id).first()
+        if not destino:
+            raise HTTPException(400, "Atendente de destino não encontrado")
+        if not destino.ativo:
+            raise HTTPException(400, "Atendente de destino está desativado")
 
     for tel in payload.telefones:
         try:
@@ -1436,7 +1479,7 @@ def editar_horario(
     dia_semana: int,
     payload: HorarioPatchIn,
     db: Session = Depends(get_db),
-    _me: Atendente = Depends(atendente_atual),
+    _me: Atendente = Depends(admin_requerido),
 ):
     """Edita o horário de um dia (0=segunda ... 6=domingo). Cria o registro se não existir.
     Invalida o cache de horários da IA pra refletir a mudança imediatamente (P0-4)."""
@@ -1473,7 +1516,7 @@ def editar_horario(
 def apagar_cliente(
     telefone: str,
     db: Session = Depends(get_db),
-    me: Atendente = Depends(atendente_atual),
+    me: Atendente = Depends(admin_requerido),
 ):
     """LGPD: apaga o cliente e TODOS os seus dados pessoais (histórico, labels, notas,
     menções). Deleção explícita das dependências — robusta mesmo sem FK cascade no SQLite.
@@ -1744,8 +1787,8 @@ def deletar_canned(
 
 
 @router.get("/eventos/stream")
-def stream_eventos(_me: Atendente = Depends(atendente_atual)):
-    """Server-Sent Events. Cliente conecta com EventSource()."""
+async def stream_eventos(_me: Atendente = Depends(atendente_atual)):
+    """Server-Sent Events (H3: async — não prende thread do threadpool por conexão)."""
     fila = notificador.assinar()
     return StreamingResponse(
         notificador.stream(fila),
@@ -1771,6 +1814,7 @@ async def listar_atendentes(db: Session = Depends(get_db), _: Atendente = Depend
             "id": a.id,
             "nome": a.nome,
             "usuario_login": a.usuario_login,
+            "role": a.role or "atendente",
             "ativo": a.ativo,
             "criado_em": _iso_utc(a.criado_em),
             "ultimo_login": _iso_utc(a.ultimo_login),
@@ -1780,7 +1824,7 @@ async def listar_atendentes(db: Session = Depends(get_db), _: Atendente = Depend
 
 
 @router.post("/atendentes", status_code=201)
-async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db), _: Atendente = Depends(atendente_atual)):
+async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db), _: Atendente = Depends(admin_requerido)):
     """Cria um novo atendente. Requer nome, usuario_login e senha (mín. 8 chars)."""
     if db.query(Atendente).filter(Atendente.usuario_login == body.usuario_login).first():
         raise HTTPException(409, "Login já existe")
@@ -1792,7 +1836,7 @@ async def criar_atendente(body: CriarAtendenteIn, db: Session = Depends(get_db),
 
 
 @router.patch("/atendentes/{atendente_id}/desativar")
-async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), atual: Atendente = Depends(atendente_atual)):
+async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), atual: Atendente = Depends(admin_requerido)):
     """Desativa um atendente. Não é permitido desativar a própria conta."""
     if atual.id == atendente_id:
         raise HTTPException(400, "Não é possível desativar sua própria conta")
@@ -1842,7 +1886,7 @@ async def desativar_atendente(atendente_id: int, db: Session = Depends(get_db), 
 async def ativar_atendente(
     atendente_id: int,
     db: Session = Depends(get_db),
-    _: Atendente = Depends(atendente_atual),
+    _: Atendente = Depends(admin_requerido),
 ):
     """
     GAP-01 / SP-2: Ativa um atendente previamente desativado.

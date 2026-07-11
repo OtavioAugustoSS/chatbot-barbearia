@@ -780,12 +780,40 @@ function _formatCountdown(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// H1: renovação silenciosa — tenta POST /admin/refresh quando restam <5min.
+// Sucesso: token novo no localStorage, atendente nem percebe. Falha (teto de
+// 12h da sessão, atendente desativado, rede): cai no fluxo antigo de banner+logout.
+let _refreshEmAndamento = false;
+
+async function _tentarRefreshSilencioso() {
+  if (_refreshEmAndamento) return;
+  _refreshEmAndamento = true;
+  try {
+    const resp = await api.refreshToken();
+    if (resp && resp.token) {
+      localStorage.setItem('token', resp.token);
+      const banner = document.getElementById('jwt-expiry-banner');
+      if (banner) banner.classList.add('hidden');
+      if (_jwtCountdownInterval) { clearInterval(_jwtCountdownInterval); _jwtCountdownInterval = null; }
+    }
+  } catch (_) {
+    // Silencioso: o banner/countdown existente assume a partir daqui.
+  } finally {
+    _refreshEmAndamento = false;
+  }
+}
+
 function _checarJwtExpiry() {
   const expMs = _getJwtExpMs();
   if (!expMs) return;
   const restanteMs = expMs - Date.now();
   const banner = document.getElementById('jwt-expiry-banner');
   const countdownEl = document.getElementById('jwt-countdown');
+
+  // H1: renova antes de incomodar o atendente com banner.
+  if (restanteMs > 0 && restanteMs <= 5 * 60 * 1000) {
+    _tentarRefreshSilencioso();
+  }
 
   if (restanteMs <= 0) {
     // US-116: flush imediato do draft antes de redirecionar
@@ -2723,7 +2751,7 @@ document.addEventListener('sse:bulk_aplicado', (e) => {
 document.addEventListener('sse:mensagem_lida', (e) => {
   const { wamid, status } = e.detail;
   if (!wamid) return;
-  const bolhaEl = document.querySelector(`[data-wamid="${wamid}"]`);
+  const bolhaEl = document.querySelector(`[data-wamid="${CSS.escape(wamid)}"]`);
   if (!bolhaEl) return;
   const tickEl = bolhaEl.querySelector('.bolha-tick');
   if (!tickEl) return;

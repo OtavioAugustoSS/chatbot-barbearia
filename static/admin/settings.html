@@ -803,7 +803,8 @@
       </button>
     </div>
 
-    <!-- Tabs -->
+    <!-- Tabs — a aba Atendentes é ocultada via JS para role != admin (RBAC);
+         a defesa real é o 403 do servidor, aqui é só UX. -->
     <div class="settings-tabs" role="tablist">
       <button data-tab="atendentes" class="settings-tab tab-btn active" role="tab" aria-selected="true">Atendentes</button>
       <button data-tab="etiquetas" class="settings-tab tab-btn" role="tab" aria-selected="false">Etiquetas</button>
@@ -1546,7 +1547,18 @@
         b.addEventListener('click', () => trocarTema(b.dataset.themeChoice));
       });
 
-      carregarAtendentes();
+      // RBAC (H2): não-admin não vê a aba Atendentes — o servidor responde 403
+      // de qualquer forma; aqui só evitamos uma tela que não funcionaria.
+      if ((localStorage.getItem('atendente_role') || 'atendente') !== 'admin') {
+        const tabAtendentes = document.querySelector('[data-tab="atendentes"]');
+        const tabEtiquetas = document.querySelector('[data-tab="etiquetas"]');
+        if (tabAtendentes) tabAtendentes.style.display = 'none';
+        if (tabAtendentes && tabAtendentes.classList.contains('active') && tabEtiquetas) {
+          tabEtiquetas.click();
+        }
+      } else {
+        carregarAtendentes();
+      }
     });
   </script>
 </body>

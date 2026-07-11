@@ -109,6 +109,17 @@ app = FastAPI(
     description="Motor de conversação de Whatsapp usando NVIDIA NIM (Llama 3.1 70B) e FastAPI"
 )
 
+
+@app.on_event("startup")
+async def _capturar_event_loop():
+    """H3: o notificador SSE precisa do event loop para receber publicações
+    vindas de threads sync (background tasks) via call_soon_threadsafe."""
+    import asyncio
+
+    from services.notificador import notificador
+
+    notificador.set_loop(asyncio.get_running_loop())
+
 # Inclui as rotas do webhook no caminho raiz
 app.include_router(webhook.router)
 

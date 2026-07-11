@@ -78,6 +78,7 @@ def seed_demo(session_factory=None) -> None:
                     nome="Admin Demo",
                     usuario_login="admin",
                     senha_hash=hash_senha(SENHA_DEMO),
+                    role="admin",
                     ativo=True,
                 ))
                 log.warning("Atendente demo criado: login 'admin' / senha '%s' (APENAS modo dev).", SENHA_DEMO)

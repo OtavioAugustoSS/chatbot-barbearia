@@ -71,6 +71,9 @@ window.api = {
         return r.json();
       }),
 
+  // H1: renovação deslizante do JWT — chamada silenciosa perto do expiry.
+  refreshToken: () => _req('/admin/refresh', { method: 'POST' }),
+
   getConversas: (estado, page = 1) => {
     const params = new URLSearchParams({ page });
     if (estado && estado !== 'todas') params.set('estado', estado);

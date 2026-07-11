@@ -85,6 +85,10 @@ class Atendente(Base):
     nome = Column(String(100), nullable=False)
     usuario_login = Column(String(50), unique=True, nullable=False, index=True)
     senha_hash = Column(String(255), nullable=False)
+    # RBAC (revisa ADR-011): "admin" gerencia atendentes/horários/LGPD;
+    # "atendente" só atende conversas. Autorização lida do DB a cada request
+    # (api.auth.admin_requerido) — revogação tem efeito imediato.
+    role = Column(String(20), nullable=False, default="atendente", server_default="atendente")
     ativo = Column(Boolean, default=True)
     criado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     ultimo_login = Column(DateTime, nullable=True)
