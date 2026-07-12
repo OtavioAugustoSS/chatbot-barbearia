@@ -1,0 +1,232 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]: B
+        - generic [ref=e7]:
+          - generic [ref=e8]:
+            - text: Bol
+            - emphasis [ref=e9]: shoi
+          - generic [ref=e10]: Atendimento
+        - generic [ref=e11]:
+          - button "Menções" [ref=e12] [cursor=pointer]:
+            - img [ref=e14]
+          - button "Configurações" [ref=e16] [cursor=pointer]:
+            - img [ref=e17]
+          - button "Sair" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+          - generic "Camila Ferraz" [ref=e23] [cursor=pointer]: C
+      - generic [ref=e25]:
+        - generic [ref=e26]: Camila Ferraz
+        - generic [ref=e27]: · operadora
+      - generic [ref=e29]:
+        - img [ref=e30]
+        - button "Contato ▾" [ref=e33] [cursor=pointer]
+        - textbox "Buscar conversas…" [ref=e34]
+      - generic [ref=e35]:
+        - button "0 aguardando" [ref=e36] [cursor=pointer]:
+          - generic [ref=e37]: "0"
+          - generic [ref=e38]:
+            - img [ref=e39]
+            - text: aguardando
+        - button "0 atendendo" [ref=e42] [cursor=pointer]:
+          - generic [ref=e43]: "0"
+          - generic [ref=e44]:
+            - img [ref=e45]
+            - text: atendendo
+        - button "0 com bot" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]: "0"
+          - generic [ref=e49]:
+            - img [ref=e50]
+            - text: com bot
+      - generic [ref=e54]:
+        - button "Todos" [ref=e55] [cursor=pointer]
+        - button "Aguardando 3" [ref=e56] [cursor=pointer]:
+          - text: Aguardando
+          - generic [ref=e57]: "3"
+        - button "Meus 2" [ref=e58] [cursor=pointer]:
+          - text: Meus
+          - generic [ref=e59]: "2"
+        - button "Bot" [ref=e60] [cursor=pointer]
+      - generic [ref=e62]:
+        - generic [ref=e63]: Status
+        - button "Abertas" [ref=e64] [cursor=pointer]
+        - button "Pendentes" [ref=e65] [cursor=pointer]
+        - button "Resolvidas" [ref=e66] [cursor=pointer]
+        - button "Adiadas" [ref=e67] [cursor=pointer]
+      - generic [ref=e68]:
+        - generic [ref=e69] [cursor=pointer]:
+          - generic [ref=e70]:
+            - text: R
+            - img [ref=e72]
+          - generic [ref=e75]:
+            - generic [ref=e76]:
+              - generic [ref=e77]: Rafael Mendes
+              - generic [ref=e78]: 14:36
+            - generic [ref=e79]: Bom dia! Queria marcar um corte pra amanhã de tarde, tem horário com o Léo?
+            - generic [ref=e80]:
+              - generic [ref=e81]: aguardando · 2 min
+              - generic [ref=e83]: 💈 corte
+        - generic [ref=e85] [cursor=pointer]:
+          - generic [ref=e86]:
+            - text: J
+            - img [ref=e88]
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - generic [ref=e92]: Júlia Andrade
+              - generic [ref=e93]: 14:35
+            - generic [ref=e94]: Perfeito, obrigada! Até sábado 😊
+            - generic [ref=e95]:
+              - generic [ref=e96]: ★ vip
+              - generic [ref=e97]: 💆‍♀️ noiva
+        - generic [ref=e98] [cursor=pointer]:
+          - generic [ref=e99]:
+            - text: C
+            - img [ref=e101]
+          - generic [ref=e103]:
+            - generic [ref=e104]:
+              - generic [ref=e105]: Carlos Eduardo
+              - generic [ref=e106]: 14:20
+            - generic [ref=e107]: Show, o bot já respondeu certinho sobre o horário. Valeu!
+            - generic [ref=e109]: 💈 barba
+        - generic [ref=e110] [cursor=pointer]:
+          - generic [ref=e111]:
+            - text: M
+            - img [ref=e113]
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - generic [ref=e117]: Marina Costa
+              - generic [ref=e118]: 13:58
+            - generic [ref=e119]: Vocês fazem progressiva? Qual o valor e quanto tempo demora?
+            - generic [ref=e121]: 💆‍♀️ estética
+        - generic [ref=e123] [cursor=pointer]:
+          - generic [ref=e124]:
+            - text: T
+            - img [ref=e126]
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]: Thiago Barros
+              - generic [ref=e131]: 13:40
+            - generic [ref=e132]: Tô chegando aí em 10 min!
+            - generic [ref=e134]: Fred
+        - generic [ref=e135] [cursor=pointer]:
+          - generic [ref=e136]:
+            - text: P
+            - img [ref=e138]
+          - generic [ref=e140]:
+            - generic [ref=e141]:
+              - generic [ref=e142]: Pedro Henrique
+              - generic [ref=e143]: 12:15
+            - generic [ref=e144]: Quanto tá o combo corte + barba esse mês?
+            - generic [ref=e146]: 💈 combo
+        - generic [ref=e147] [cursor=pointer]:
+          - generic [ref=e148]:
+            - text: L
+            - img [ref=e150]
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]: Lucas Oliveira
+              - generic [ref=e155]: 11:50
+            - generic [ref=e156]: Obrigado, resolvido! 👍
+            - generic [ref=e158]: resolvida
+        - generic [ref=e159] [cursor=pointer]:
+          - generic [ref=e160]:
+            - text: A
+            - img [ref=e162]
+          - generic [ref=e164]:
+            - generic [ref=e165]:
+              - generic [ref=e166]: André Souza
+              - generic [ref=e167]: 11:30
+            - generic [ref=e168]: Bom dia, qual o horário de funcionamento no sábado?
+            - generic [ref=e170]: 💈 corte
+      - generic [ref=e171]:
+        - generic [ref=e172]:
+          - text: Tempo real ativo
+          - generic [ref=e174]: · SSE
+        - button "Silenciar" [ref=e175] [cursor=pointer]:
+          - img [ref=e176]
+    - main [ref=e178]:
+      - generic [ref=e179]:
+        - generic [ref=e180]: J
+        - generic [ref=e181]:
+          - generic [ref=e182]:
+            - generic [ref=e183]: Júlia Andrade
+            - generic [ref=e184]: +55 38 99641-2278
+          - generic [ref=e185]:
+            - generic [ref=e187]: Com você
+            - generic [ref=e188]: ·há 1 min · assumida 14:24
+        - generic [ref=e189]:
+          - button "Interromper bot" [ref=e190] [cursor=pointer]:
+            - img [ref=e191]
+            - text: Interromper bot
+          - button "Devolver ao bot" [ref=e194] [cursor=pointer]:
+            - img [ref=e195]
+            - text: Devolver ao bot
+          - button "Status" [ref=e198] [cursor=pointer]:
+            - text: Status
+            - img [ref=e199]
+          - button "Etiquetar" [ref=e201] [cursor=pointer]:
+            - img [ref=e202]
+          - button "Informações do cliente" [ref=e205] [cursor=pointer]:
+            - img [ref=e206]
+      - generic [ref=e209]:
+        - generic [ref=e211]: Hoje · 14 jun
+        - generic [ref=e212]:
+          - generic [ref=e213]: Júlia
+          - text: Oi! Vi no Instagram que vocês têm pacote de noiva. Como funciona? 💍
+          - generic [ref=e214]: 14:21
+        - generic [ref=e215]:
+          - generic [ref=e216]:
+            - img [ref=e217]
+            - text: Bot
+          - text: Olá, Júlia! 💆‍♀️ O pacote noiva inclui penteado, maquiagem e uma prova prévia com a Isabella. O agendamento é feito pelo app AppBarber. Quer que eu te passe o link?
+          - generic [ref=e219]: 14:21
+        - generic [ref=e220]:
+          - generic [ref=e221]: Júlia
+          - text: Quero sim! E consigo falar com a Isabella sobre os detalhes?
+          - generic [ref=e222]: 14:23
+        - generic [ref=e223]:
+          - generic [ref=e224]:
+            - img [ref=e225]
+            - text: Bot
+          - text: Claro! Vou te transferir para uma atendente que pode falar sobre a agenda da Isabella. Um instante 🙋
+          - generic [ref=e227]: 14:23
+        - generic [ref=e228]:
+          - img [ref=e229]
+          - text: Júlia pediu atendimento humano —
+          - strong [ref=e232]: você assumiu às 14:24
+        - generic [ref=e233]:
+          - generic [ref=e234]: Você
+          - text: Oi Júlia, aqui é a Camila 💙 A Isabella tem disponibilidade na próxima semana pra prova. Qual a data do casamento?
+          - generic [ref=e235]:
+            - text: 14:25
+            - img [ref=e236]
+        - generic [ref=e238]:
+          - generic [ref=e239]: Júlia
+          - text: Dia 12 de julho! 🥹
+          - generic [ref=e240]: 14:33
+        - generic [ref=e241]:
+          - generic [ref=e242]: Você
+          - text: Que lindo! Vou reservar a prova pra você. Te mando os horários da Isabella ainda hoje, tá bom?
+          - generic [ref=e243]:
+            - text: 14:34
+            - img [ref=e244]
+        - generic [ref=e246]:
+          - generic [ref=e247]: Júlia
+          - text: Perfeito, obrigada! Até sábado 😊
+          - generic [ref=e248]: 14:35
+      - generic [ref=e250]:
+        - generic [ref=e251]:
+          - button "Anexar" [ref=e252] [cursor=pointer]:
+            - img [ref=e253]
+          - button "Respostas rápidas ( / )" [ref=e255] [cursor=pointer]:
+            - img [ref=e256]
+          - button "Emoji" [ref=e258] [cursor=pointer]:
+            - img [ref=e259]
+          - button "?" [ref=e261] [cursor=pointer]
+        - generic [ref=e262]:
+          - textbox "Digite uma mensagem ou /comando…" [ref=e263]: Combinado, Júlia! Já te encaminho as opções de horário da Isabella ainda hoje 💙
+          - generic [ref=e264]: "80"
+          - button [ref=e265] [cursor=pointer]:
+            - img [ref=e266]
+  - generic: Concept · Bolshoi Night Console · sample data

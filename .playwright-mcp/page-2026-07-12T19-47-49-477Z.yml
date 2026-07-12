@@ -1,0 +1,25 @@
+- generic [ref=f11e2]:
+  - banner [ref=f11e3]:
+    - generic [ref=f11e5]:
+      - heading "Barbearia Bolshoi SIMULADOR DEV" [level=1] [ref=f11e6]
+      - paragraph [ref=f11e7]: online · modo hibrido
+    - generic [ref=f11e8]:
+      - textbox "Telefone simulado" [ref=f11e9]: "5538999990000"
+      - textbox "Nome do cliente" [ref=f11e10]: Cliente Demo
+  - generic [ref=f11e11]:
+    - text: "⚠️ MODO DEV — IA: demo (sem NVIDIA_API_KEY) · WhatsApp: capturado aqui ·"
+    - link "Dashboard do atendente" [ref=f11e12] [cursor=pointer]:
+      - /url: /static/admin/login.html
+    - text: (admin/admin123)
+  - generic [ref=f11e13]: Simulador local — as mensagens passam pelo pipeline real do bot.
+  - generic [ref=f11e15]:
+    - button "👋 oi" [ref=f11e16] [cursor=pointer]
+    - button "📋 menu" [ref=f11e17] [cursor=pointer]
+    - button "💰 preços" [ref=f11e18] [cursor=pointer]
+    - button "🕘 horário" [ref=f11e19] [cursor=pointer]
+    - button "📅 agendar" [ref=f11e20] [cursor=pointer]
+    - button "🙋 recepção" [ref=f11e21] [cursor=pointer]
+  - contentinfo [ref=f11e22]:
+    - textbox "Mensagem" [ref=f11e23]:
+      - /placeholder: "Digite como se fosse o cliente… (ex: oi)"
+    - button "Enviar" [ref=f11e24] [cursor=pointer]: ➤

@@ -1,0 +1,18 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e2]:
+    - img "Barbearia Bolshoi" [ref=f7e4]
+    - generic [ref=f7e5]: Atendimento WhatsApp
+  - generic [ref=f7e6]:
+    - heading "Entrar no painel" [level=2] [ref=f7e7]
+    - paragraph [ref=f7e8]: Acesse para atender as conversas
+    - generic [ref=f7e10]:
+      - generic [ref=f7e11]:
+        - generic [ref=f7e12]: Usuário
+        - textbox "Usuário" [active] [ref=f7e13]: admin
+      - generic [ref=f7e14]:
+        - generic [ref=f7e15]: Senha
+        - textbox "Senha" [ref=f7e16]: admin123
+        - button "Mostrar senha" [ref=f7e17] [cursor=pointer]
+      - button "Entrar" [ref=f7e21] [cursor=pointer]
+    - generic [ref=f7e24]: Não tem conta? Contate o gerente.
+  - generic [ref=f7e25]: v0.4.0

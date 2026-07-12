@@ -1,0 +1,184 @@
+- generic [ref=f14e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=f14e2]
+  - navigation "Navegação principal" [ref=f14e3]:
+    - img "Barbearia Bolshoi" [ref=f14e5]
+    - button "Conversas" [ref=f14e6] [cursor=pointer]
+    - button "Menções" [ref=f14e9] [cursor=pointer]
+    - link "Simulador WhatsApp (dev)" [ref=f14e12] [cursor=pointer]:
+      - /url: /dev/simulador
+    - link "Configurações" [ref=f14e17] [cursor=pointer]:
+      - /url: /static/admin/settings.html
+    - button "Alternar tema claro/escuro" [ref=f14e21] [cursor=pointer]
+    - button "Silenciar notificações" [ref=f14e24] [cursor=pointer]
+    - generic [ref=f14e27]:
+      - generic "Admin Demo" [ref=f14e28]: AD
+      - generic "Conexão em tempo real" [ref=f14e29]
+    - button "Sair do sistema" [ref=f14e30] [cursor=pointer]
+  - complementary [ref=f14e33]:
+    - generic [ref=f14e34]:
+      - heading "Conversas" [level=2] [ref=f14e35]
+      - generic [ref=f14e36]: Admin Demo
+    - generic [ref=f14e38]:
+      - button "Contato" [ref=f14e39] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=f14e42]:
+        - /placeholder: Buscar…
+    - generic [ref=f14e43]:
+      - button "Aguardando atendimento humano" [ref=f14e44] [cursor=pointer]:
+        - generic [ref=f14e45]: "0"
+        - generic [ref=f14e46]: aguardando
+      - generic [ref=f14e47]: ·
+      - button "Em atendimento humano" [ref=f14e48] [cursor=pointer]:
+        - generic [ref=f14e49]: "1"
+        - generic [ref=f14e50]: atendendo
+      - generic [ref=f14e51]: ·
+      - button "Conversas com bot ativo" [ref=f14e52] [cursor=pointer]:
+        - generic [ref=f14e53]: "2"
+        - generic [ref=f14e54]: com bot
+    - generic [ref=f14e55]:
+      - button "Todas as conversas" [ref=f14e56] [cursor=pointer]: Todos
+      - button "Conversas aguardando humano" [ref=f14e57] [cursor=pointer]: Aguardando
+      - button "Minhas conversas" [ref=f14e58] [cursor=pointer]:
+        - text: Meus
+        - generic [ref=f14e177]: "1"
+      - button "Conversas com bot ativo" [ref=f14e59] [cursor=pointer]:
+        - text: Bot
+        - generic [ref=f14e178]: "2"
+    - generic [ref=f14e61]:
+      - generic [ref=f14e62]: "Status:"
+      - button "Abertas" [ref=f14e63] [cursor=pointer]
+      - button "Pendentes" [ref=f14e64] [cursor=pointer]
+      - button "Resolvidas" [ref=f14e65] [cursor=pointer]
+      - button "Adiadas" [ref=f14e66] [cursor=pointer]
+      - button "Todas" [ref=f14e67] [cursor=pointer]
+    - generic [ref=f14e68]:
+      - generic [ref=f14e179] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f14e180]:
+          - generic [ref=f14e181]: CD
+          - img "Bot ativo" [ref=f14e182]
+        - generic [ref=f14e183]:
+          - generic [ref=f14e184]:
+            - generic [ref=f14e185]: Cliente Demo
+            - generic [ref=f14e186]: 3min
+          - generic [ref=f14e187]: oi
+      - generic [ref=f14e190] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f14e191]:
+          - generic [ref=f14e192]: CM
+          - img "Em atendimento com você" [ref=f14e193]
+        - generic [ref=f14e194]:
+          - generic [ref=f14e195]:
+            - generic [ref=f14e196]: Carlos Mendes
+            - generic [ref=f14e197]: 7min
+          - generic [ref=f14e198]: Olá Carlos! Aqui é o Otávio da Bolshoi. Como posso ajudar?
+      - generic [ref=f14e201] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f14e202]:
+          - generic [ref=f14e203]: RS
+          - img "Bot ativo" [ref=f14e204]
+        - generic [ref=f14e205]:
+          - generic [ref=f14e206]:
+            - generic [ref=f14e207]: Rafael Souza
+            - generic [ref=f14e208]: 2h
+          - generic [ref=f14e209]: que horas abre?
+    - generic [ref=f14e95]:
+      - generic [ref=f14e97]: Conectado
+      - generic [ref=f14e98]: SSE
+  - main [ref=f14e99]:
+    - generic [ref=f14e212]:
+      - generic [ref=f14e213]: CM
+      - generic [ref=f14e215]:
+        - heading "Carlos Mendes" [level=3] [ref=f14e216]
+        - generic [ref=f14e217]: "5538999990002"
+      - generic [ref=f14e218]: Você está atendendo
+      - generic [ref=f14e221]:
+        - button "Assumir" [ref=f14e222] [cursor=pointer]
+        - button "Pausar bot" [ref=f14e223] [cursor=pointer]
+        - button "Devolver ao bot" [ref=f14e228] [cursor=pointer]
+        - button "Transferir" [ref=f14e234] [cursor=pointer]
+        - button "Aberta" [ref=f14e238] [cursor=pointer]
+        - button "Marcar conversa" [ref=f14e243] [cursor=pointer]
+        - button "Informações do cliente" [ref=f14e247] [cursor=pointer]
+    - generic [ref=f14e250]:
+      - generic [ref=f14e251]: Hoje
+      - generic "12/07/2026, 14:47:53" [ref=f14e256]:
+        - generic [ref=f14e257]: Cliente
+        - paragraph [ref=f14e261]: boa tarde
+        - generic [ref=f14e262]: 14:47
+      - generic "12/07/2026, 14:47:53" [ref=f14e265]:
+        - generic [ref=f14e266]: Bolshoi Bot
+        - paragraph [ref=f14e270]: 📋 [MENU INTERATIVO ENVIADO]
+        - generic [ref=f14e271]: 14:47
+      - generic "12/07/2026, 14:47:55" [ref=f14e277]:
+        - generic [ref=f14e278]: Cliente
+        - paragraph [ref=f14e282]: MENU_RECEPCAO
+        - generic [ref=f14e283]: 14:47
+      - generic "12/07/2026, 14:47:55" [ref=f14e286]:
+        - generic [ref=f14e287]: Bolshoi Bot
+        - paragraph [ref=f14e291]: Perfeito! Aguarde um instante — um atendente da nossa recepção vai assumir o atendimento em breve.
+        - generic [ref=f14e292]: 14:47
+      - generic [ref=f14e297]: Admin Demo assumiu o atendimento16:43
+      - generic "12/07/2026, 16:43:57" [ref=f14e302]:
+        - generic [ref=f14e303]: Atendente · Admin Demo
+        - paragraph [ref=f14e307]: 👋 Olá! Sou Admin Demo, do atendimento da Barbearia Bolshoi. Vou te ajudar a partir de agora.
+        - generic [ref=f14e308]: 16:43
+      - generic "12/07/2026, 16:44:07" [ref=f14e314]:
+        - generic [ref=f14e315]: Atendente · Admin Demo
+        - paragraph [ref=f14e319]: Olá Carlos! Aqui é o Otávio da Bolshoi. Como posso ajudar?
+        - generic [ref=f14e320]: 16:44
+    - generic [ref=f14e325]:
+      - generic [ref=f14e326]:
+        - button "Anexar arquivo" [ref=f14e327] [cursor=pointer]
+        - button "Respostas rápidas" [ref=f14e331] [cursor=pointer]
+        - button "Emoji" [disabled] [ref=f14e334]
+        - button "Ajuda e atalhos de teclado" [ref=f14e337] [cursor=pointer]: "?"
+      - generic [ref=f14e338]:
+        - textbox "Mensagem para o cliente" [active] [ref=f14e339]:
+          - /placeholder: Digite uma mensagem ou /comando…
+        - button "Enviar mensagem" [ref=f14e340] [cursor=pointer]
+    - complementary [ref=f14e105]:
+      - generic [ref=f14e106]:
+        - heading "Informações" [level=3] [ref=f14e107]
+        - button "Fechar painel de informações" [ref=f14e108] [cursor=pointer]
+      - generic [ref=f14e111]:
+        - generic [ref=f14e112]:
+          - heading "Carlos Mendes" [level=3] [ref=f14e343]
+          - generic [ref=f14e344]: "5538999990002"
+          - generic [ref=f14e115]:
+            - button "Copiar telefone" [ref=f14e116] [cursor=pointer]
+            - button "Abrir no WhatsApp" [ref=f14e119] [cursor=pointer]
+            - button "Fechar painel" [ref=f14e122] [cursor=pointer]
+        - generic [ref=f14e125]:
+          - generic [ref=f14e126] [cursor=pointer]: Estatísticas
+          - generic [ref=f14e131]:
+            - generic [ref=f14e132]:
+              - generic [ref=f14e133]: "4"
+              - generic [ref=f14e134]: Mensagens
+            - generic [ref=f14e135]:
+              - generic [ref=f14e136]: "2"
+              - generic [ref=f14e137]: Atend. humanos
+            - generic [ref=f14e138]:
+              - generic [ref=f14e139]: 12/07/2026
+              - generic [ref=f14e140]: 1º contato
+            - generic [ref=f14e141]:
+              - generic [ref=f14e142]: 4min
+              - generic [ref=f14e143]: Último contato
+        - generic [ref=f14e144]:
+          - generic [ref=f14e145] [cursor=pointer]: Status
+          - generic [ref=f14e345]: Bot inativo
+        - generic [ref=f14e149]:
+          - generic [ref=f14e150] [cursor=pointer]: Tags
+          - generic [ref=f14e155]:
+            - generic [ref=f14e348]: Nenhuma etiqueta
+            - button "Adicionar etiqueta" [ref=f14e156] [cursor=pointer]: + Adicionar
+        - generic [ref=f14e157]:
+          - generic [ref=f14e158] [cursor=pointer]: Sobre o cliente
+          - generic [ref=f14e162]:
+            - paragraph [ref=f14e163]: Sem informação cadastrada.
+            - button "Editar" [disabled] [ref=f14e164]
+        - generic [ref=f14e167]:
+          - generic [ref=f14e168] [cursor=pointer]: Notas internas
+          - generic [ref=f14e172]:
+            - paragraph [ref=f14e351]: Nenhuma nota ainda
+            - textbox "Nota interna" [ref=f14e173]:
+              - /placeholder: Adicionar nota interna…
+            - button "Nova nota" [ref=f14e174] [cursor=pointer]
+        - button "🗑 Apagar cliente (LGPD)" [ref=f14e354] [cursor=pointer]

@@ -65,13 +65,17 @@ function escapeHtml(s) {
   );
 }
 
-const _CORES = ['#3B6BDF','#1a6eb0','#0984e3','#00b894','#e17055','#d63031','#636e72','#00838f','#8e44ad','#27ae60','#c0392b','#6d28d9'];
+const _CORES = ['#b0713f','#3f8ab0','#7a9a43','#8a5fb0','#b04f6a','#5f7d8a','#4a78ba','#9a7a3f','#3f9a8a','#a05f8a','#6a8a3f','#7d6ab0'];
 function _hashStr(s) {
   let h = 0;
   for (const c of (s||'')) h = ((h*31) + c.charCodeAt(0)) >>> 0;
   return h;
 }
-function corDoCliente(s) { return _CORES[_hashStr(s||'') % _CORES.length]; }
+// Retorna um gradiente (todos os consumidores aplicam via style.background)
+function corDoCliente(s) {
+  const base = _CORES[_hashStr(s||'') % _CORES.length];
+  return `linear-gradient(135deg, ${base}, color-mix(in srgb, ${base} 60%, #000))`;
+}
 
 function iniciais(nome, fallback) {
   const fonte = (nome||'').trim() || (fallback||'?');
@@ -144,29 +148,22 @@ function _dismissToast(toast) {
 }
 
 function showToast(texto, tipo = 'info', duracao = 4500) {
-  const styles = getComputedStyle(document.documentElement);
-  const tok = (v, fallback) => styles.getPropertyValue(v).trim() || fallback;
-  const cores = {
-    info: tok('--accent', '#3B6BDF'),
-    success: tok('--success-text', '#3fb950'),
-    error: tok('--danger-text', '#f85149'),
-    warning: tok('--warning-text', '#d29922'),
-    transbordo: tok('--danger-text', '#f85149')
-  };
-  const bordas = {
-    success: tok('--success-text', '#3fb950'),
-    error: tok('--danger-text', '#f85149'),
-    transbordo: tok('--warning-text', '#d29922'),
-    info: tok('--accent', '#3B6BDF'),
-    warning: tok('--warning-text', '#d29922')
-  };
   const cont = document.getElementById('toast-container');
   if (!cont) return;
+  const _svg = (paths, cor) =>
+    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${cor}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+  const ICONES = {
+    success: _svg('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>', 'var(--ok)'),
+    error: _svg('<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>', 'var(--err)'),
+    warning: _svg('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'var(--warn)'),
+    transbordo: _svg('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', 'var(--err)'),
+    info: _svg('<circle cx="12" cy="12" r="9"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', 'var(--color-accent)')
+  };
   const el = document.createElement('div');
-  el.className = 'toast-item text-white px-4 py-2.5 rounded-lg shadow-lg text-sm pointer-events-auto max-w-xs';
-  el.style.background = cores[tipo] || cores.info;
-  el.style.borderLeft = `3px solid ${bordas[tipo] || bordas.info}`;
-  el.textContent = texto;
+  el.className = 'toast-item';
+  el.setAttribute('role', 'status');
+  el.innerHTML = (ICONES[tipo] || ICONES.info) + '<span style="flex:1;min-width:0;"></span>';
+  el.querySelector('span').textContent = texto;
   cont.appendChild(el);
   setTimeout(() => _dismissToast(el), duracao);
 }
@@ -562,7 +559,7 @@ function _initInfoAccordion() {
 // ============================================================
 function tagBadgeHTML(tag) {
   if (tag === 'resolvido') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:var(--success-subtle,rgba(0,168,132,0.15));color:var(--success-text,#3fb950);">Resolvido</span>';
-  if (tag === 'follow_up') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#451a03;color:#f59e0b;">Follow-up</span>';
+  if (tag === 'follow_up') return '<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:color-mix(in srgb, var(--warn) 14%, transparent);color:var(--warning-text-strong);">Follow-up</span>';
   return '';
 }
 
@@ -1136,7 +1133,12 @@ function renderMensagens(mensagens) {
     if (labelDia && labelDia !== ultimoDia) {
       ultimoDia = labelDia;
       ultimaOrigem = null;
-      cont.appendChild(separadorData(labelDia));
+      // Marca o separador para o caminho incremental (evita "Hoje" duplicado
+      // quando uma bolha é anexada depois do render completo)
+      const sep = separadorData(labelDia);
+      sep.classList.add('separador-data');
+      sep.setAttribute('data-label', labelDia);
+      cont.appendChild(sep);
     }
 
     if (m.cliente) {

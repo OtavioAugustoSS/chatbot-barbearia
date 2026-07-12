@@ -1,0 +1,82 @@
+- generic [active] [ref=e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=e2]
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic "QA Sweep" [ref=e5] [cursor=pointer]: QS
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: QA Sweep
+          - generic "Conexão em tempo real" [ref=e9]
+        - generic [ref=e10]: Atendente · Bolshoi
+      - generic [ref=e11]:
+        - button "Menções" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - button "Configurações" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+    - generic [ref=e21]:
+      - img
+      - button "@" [ref=e22] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=e23]:
+        - /placeholder: Buscar…
+    - generic [ref=e24] [cursor=pointer]:
+      - generic [ref=e25]: 0 Aguardando
+      - generic [ref=e26]: 0 Atendendo
+      - generic [ref=e27]: 0 Com bot
+    - generic [ref=e28]:
+      - button "Todas" [ref=e29] [cursor=pointer]
+      - button "Aguardando" [ref=e30] [cursor=pointer]
+      - button "Meus" [ref=e31] [cursor=pointer]
+      - button "Bot" [ref=e32] [cursor=pointer]
+      - generic [ref=e37]: Reconectando...
+    - generic [ref=e38]:
+      - generic [ref=e39]: "Status:"
+      - button "Abertas" [ref=e40] [cursor=pointer]
+      - button "Pendentes" [ref=e41] [cursor=pointer]
+      - button "Resolvidas" [ref=e42] [cursor=pointer]
+      - button "Adiadas" [ref=e43] [cursor=pointer]
+      - button "Todas" [ref=e44] [cursor=pointer]
+    - generic [ref=e72]:
+      - generic [ref=e75]: Reconectando…
+      - button "Silenciar" [ref=e76] [cursor=pointer]:
+        - img [ref=e77]
+  - main [ref=e79]:
+    - generic [ref=e80]:
+      - button "Ver conversas" [ref=e81] [cursor=pointer]:
+        - img [ref=e82]
+        - text: Ver conversas
+      - img [ref=e84]
+      - generic [ref=e86]: Nenhuma conversa selecionada
+      - generic [ref=e87]: Escolha uma conversa ao lado para começar
+    - complementary [ref=e88]:
+      - generic [ref=e89]:
+        - heading "Informações" [level=3] [ref=e90]
+        - button "Fechar painel de informações" [ref=e91] [cursor=pointer]:
+          - img [ref=e92]
+      - generic [ref=e94]:
+        - generic [ref=e96]:
+          - generic:
+            - heading [level=4]
+            - paragraph
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - paragraph [ref=e100]: Cliente desde
+            - paragraph
+          - generic [ref=e101]:
+            - paragraph [ref=e102]: Última atividade
+            - paragraph
+          - generic [ref=e103]:
+            - paragraph [ref=e104]: Mensagens
+            - paragraph
+          - generic [ref=e105]:
+            - paragraph [ref=e106]: Atend. humanos
+            - paragraph
+        - paragraph [ref=e108]: STATUS
+        - generic [ref=e110]:
+          - paragraph [ref=e111]: ETIQUETAS
+          - button "+ Adicionar" [ref=e112] [cursor=pointer]
+        - generic [ref=e113]:
+          - paragraph [ref=e114]: NOTAS INTERNAS
+          - textbox "Nota interna" [ref=e115]:
+            - /placeholder: Adicionar nota interna…
+          - button "Salvar nota" [ref=e116] [cursor=pointer]

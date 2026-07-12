@@ -1,0 +1,495 @@
+/* ============================================================
+   Bolshoi Painel — theme.css
+   Design system do painel híbrido (handoff Claude Design "Painel
+   Bolshoi" / Nocturne, com correções WCAG AA).
+   Fonte de verdade de: tokens (dark/light), aliases legados,
+   base, foco, scrollbar, keyframes e componentes compartilhados
+   (rail, botões, inputs, toasts).
+   Carregar em TODAS as páginas do painel, antes do CSS da página.
+   ============================================================ */
+
+:root {
+  /* ---- paleta (dark, default) ---- */
+  --app-bg: #12141d;
+  --app-panel: #161826;
+  --app-card: #232532;
+  --app-card-hover: #2b2d3c;
+  --app-border: rgba(233, 233, 237, 0.10);
+  --app-border-mid: rgba(233, 233, 237, 0.075);
+  --app-border-soft: rgba(233, 233, 237, 0.055);
+  --txt-1: #e9e9ed;
+  --txt-2: #9fa2b1;
+  --txt-3: #8a8fa3;             /* AA 4.7:1+ em todas as superfícies */
+
+  --color-accent: #5b93e0;      /* azul Bolshoi */
+  --color-accent-2: #7ea6dd;
+  --color-accent-100: #f1f6fe;
+  --color-accent-200: #ddeafd;
+  --color-accent-300: #bcd6fb;
+  --color-accent-400: #8fb8f2;
+  --color-accent-500: #5b93e0;
+  --color-accent-600: #4a78ba;
+  --color-accent-700: #3a5d90;
+  --color-accent-800: #2b4468;
+  --color-accent-900: #1d2c42;
+
+  --ok: #48c39a;
+  --warn: #d9a441;
+  --err: #e0655f;
+
+  --bubble-in: #232532;
+  --bubble-bot: #1d312c;
+  --bubble-op: #24406b;
+  --tick-read: #8fb8f2;
+
+  /* ---- tipografia ---- */
+  --font-heading: 'Plus Jakarta Sans', system-ui, 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-md: 13.5px;
+  --text-lg: 17px;
+  --tracking-wide: 0.08em;
+
+  /* ---- geometria ---- */
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+
+  /* ---- elevação ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  /* ---- z-index semântico ---- */
+  --z-dropdown: 30;
+  --z-sticky: 20;
+  --z-drawer: 40;
+  --z-backdrop: 45;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-tooltip: 70;
+
+  /* ---- motion ---- */
+  --spd: 1;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ============================================================
+     Aliases legados — markup e app.js referenciam estes nomes.
+     Mantê-los mapeados para os tokens novos dá coerência total
+     sem tocar na lógica.
+     ============================================================ */
+  --bg-base: var(--app-bg);
+  --bg-surface: var(--app-panel);
+  --bg-card: var(--app-card);
+  --bg-card-hover: var(--app-card-hover);
+  --bg-chat: var(--app-bg);
+  --bg-composer: var(--app-panel);
+  --border: var(--app-border);
+  --border-muted: var(--app-border-mid);
+  --border-soft: var(--app-border-soft);
+  --text-primary: var(--txt-1);
+  --text-secondary: var(--txt-2);
+  --text-muted: var(--txt-3);
+  --accent: var(--color-accent);
+  --accent-hover: var(--color-accent-400);
+  --accent-subtle: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  --danger: var(--err);
+  --danger-subtle: color-mix(in srgb, var(--err) 12%, transparent);
+  --danger-text: #e8837e;
+  --success: var(--ok);
+  --success-subtle: color-mix(in srgb, var(--ok) 12%, transparent);
+  --success-text: var(--ok);
+  --success-text-strong: #5fd3ab;
+  --warning: var(--warn);
+  --warning-text: var(--warn);
+  --warning-text-strong: #e2b45c;
+  --bubble-gap: 7px;
+}
+
+/* ---- tema claro (AA verificado) ---- */
+[data-theme="light"] {
+  --app-bg: #e9ebf2;
+  --app-panel: #f4f5f9;
+  --app-card: #ffffff;
+  --app-card-hover: #eef1f8;
+  --app-border: rgba(30, 32, 45, 0.13);
+  --app-border-mid: rgba(30, 32, 45, 0.09);
+  --app-border-soft: rgba(30, 32, 45, 0.07);
+  --txt-1: #24262f;
+  --txt-2: #5a5e6d;
+  --txt-3: #5f6478;
+
+  --color-accent: #2b62ad;
+  --color-accent-2: #4a7cba;
+  --color-accent-300: #2b5e9e;
+  --color-accent-400: #3a75c2;
+  --color-accent-800: #d8e6fa;
+  --color-accent-900: #e8f0fc;
+
+  --ok: #0c7257;
+  --warn: #7d5a0c;
+  --err: #b32e29;
+
+  --bubble-in: #ffffff;
+  --bubble-bot: #ddf0e8;
+  --bubble-op: #d9e7fb;
+  --tick-read: #255a9f;
+
+  --shadow-sm: 0 1px 2px rgba(30, 32, 45, 0.08);
+  --shadow-md: 0 4px 14px rgba(30, 32, 45, 0.10);
+  --shadow-lg: 0 12px 34px rgba(30, 32, 45, 0.16);
+
+  --danger-text: #b32e29;
+  --success-text-strong: #0a6b52;
+  --warning-text-strong: #7d5a0c;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--app-bg);
+  color: var(--txt-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+a { color: var(--color-accent); text-underline-offset: 3px; }
+a:hover { color: var(--color-accent-400); }
+[data-theme="light"] a:hover { color: var(--color-accent-300); }
+input, textarea, button, select { font-family: var(--font-body); }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+::placeholder { color: var(--txt-3); opacity: 1; }
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: var(--txt-1);
+  -webkit-box-shadow: 0 0 0 1000px var(--app-card) inset;
+}
+
+/* scrollbar fina, tonal */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--txt-3) 40%, transparent);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--txt-3) 65%, transparent); }
+::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--txt-3) 40%, transparent) transparent; }
+
+/* ============================================================
+   Keyframes + utilitários de animação
+   ============================================================ */
+@keyframes scrIn { from { opacity: 0; transform: translateY(14px) scale(0.988); } to { opacity: 1; transform: none; } }
+@keyframes itemIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes rowInL { from { opacity: 0; transform: translateX(-22px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes rowInR { from { opacity: 0; transform: translateX(22px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes pillIn { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: none; } }
+@keyframes popIn { from { opacity: 0; transform: translateY(6px) scale(0.95); } to { opacity: 1; transform: none; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes toastIn { from { opacity: 0; transform: translateX(28px) scale(0.94); } to { opacity: 1; transform: none; } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(20px) scale(0.96); } }
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--err) 45%, transparent); }
+  70% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes typDot { 0%, 60%, 100% { transform: none; opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
+@keyframes shim { from { background-position: -240px 0; } to { background-position: 240px 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes glowPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes badgePop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes flashBg { 0% { background: color-mix(in srgb, var(--color-accent) 16%, transparent); } 100% { background: transparent; } }
+
+.an-pop { animation: popIn calc(0.24s * var(--spd)) var(--ease-out) both; }
+.an-fadeup { animation: fadeUp calc(0.5s * var(--spd)) var(--ease-out) both; }
+.pulse-ring, .pulse-red { animation: pulseRing 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; border-radius: 50%; }
+.typ-dot { animation: typDot 1.15s ease-in-out infinite; }
+.an-spin { animation: spin 0.7s linear infinite; }
+.an-glow { animation: glowPulse 3s ease-in-out infinite; }
+.badge-pop { animation: badgePop 0.4s var(--ease-spring); }
+.skel, .skeleton-avatar-el, .skeleton-line-el, .skeleton-content-el, .skeleton-msg-bubble {
+  background: linear-gradient(90deg, var(--app-card) 25%, var(--app-card-hover) 50%, var(--app-card) 75%);
+  background-size: 480px 100%;
+  animation: shim 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   Botões — vocabulário único (primário = contorno em accent,
+   nunca flood; conforme Nocturne/handoff)
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1.2;
+  color: var(--txt-1);
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.45; }
+/* .hidden (util.css) precisa vencer o display acima — app.js alterna
+   visibilidade dos botões de ação via classList */
+.btn.hidden, .btn-icon.hidden { display: none !important; }
+.btn:active:not(:disabled) { transform: scale(0.96); }
+.btn svg { display: block; flex-shrink: 0; }
+
+.btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
+.btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.btn-primary:active:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+
+.btn-secondary, .btn-ghost-line { color: var(--txt-2); border-color: var(--app-border); }
+.btn-secondary:hover:not(:disabled) { background: var(--app-card); color: var(--txt-1); }
+
+.btn-success { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+.btn-success:hover:not(:disabled) { background: color-mix(in srgb, var(--ok) 12%, transparent); }
+
+.btn-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.btn-warn:hover:not(:disabled) { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+
+.btn-danger { color: var(--danger-text); border-color: color-mix(in srgb, var(--err) 55%, transparent); }
+.btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--err) 12%, transparent); }
+
+.btn-ghost { color: var(--txt-3); border-color: transparent; }
+.btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 10%, transparent); color: var(--color-accent); }
+
+.btn-sm { padding: 5px 11px; font-size: 11.5px; }
+.btn-xs { padding: 3px 9px; font-size: 11px; }
+.btn-icon {
+  width: 34px; height: 34px; padding: 0;
+  border-radius: var(--radius-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--txt-3);
+  transition: background 0.15s, color 0.15s;
+}
+.btn-icon:hover:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 10%, transparent); color: var(--color-accent); }
+.btn-icon-sm { width: 28px; height: 28px; }
+
+/* ============================================================
+   Inputs
+   ============================================================ */
+.field-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid var(--app-border);
+  border-radius: var(--radius-sm);
+  color: var(--txt-1);
+  font-size: 13.5px;
+  outline: none;
+  caret-color: var(--color-accent);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:hover { border-color: color-mix(in srgb, var(--txt-1) 30%, transparent); }
+.field-input:focus, .field-input:focus-visible {
+  border-color: var(--color-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--txt-2);
+  margin-bottom: 6px;
+}
+
+/* ============================================================
+   Rail de navegação (64px) — compartilhado index/settings
+   ============================================================ */
+.rail {
+  width: 64px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 6px;
+  background: var(--app-panel);
+  border-right: 1px solid var(--app-border-soft);
+}
+.rail-logo {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: #0c0d13;
+  border: 1px solid var(--app-border);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  flex-shrink: 0;
+}
+.rail-logo img { width: 32px; height: 32px; mix-blend-mode: lighten; display: block; }
+.rail-btn {
+  position: relative;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--txt-3);
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.18s, color 0.18s, transform 0.18s;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.rail-btn svg { width: 21px; height: 21px; }
+.rail-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  transform: translateY(-1px);
+}
+.rail-btn:active { transform: scale(0.92); }
+.rail-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  color: var(--color-accent);
+}
+.rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -10px; top: 50%;
+  width: 3px; height: 22px;
+  border-radius: 3px;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent);
+  transform: translateY(-50%);
+}
+.rail-btn.rail-danger:hover { color: var(--err); background: color-mix(in srgb, var(--err) 10%, transparent); }
+.rail-btn .rail-badge {
+  position: absolute;
+  top: 4px; right: 4px;
+  min-width: 15px; height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--err);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.rail-spacer { flex: 1; }
+/* .hidden (util.css) precisa vencer os displays acima */
+.rail-btn.hidden, .rail-badge.hidden { display: none; }
+.rail-avatar-wrap { position: relative; width: 34px; height: 34px; margin: 4px 0; flex-shrink: 0; }
+.rail-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-700));
+  color: #fff;
+  font-size: 12px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  cursor: default;
+  user-select: none;
+}
+.rail-avatar-dot {
+  position: absolute;
+  bottom: -1px; right: -1px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--txt-3);
+  border: 2px solid var(--app-panel);
+  transition: background 0.3s;
+}
+.rail-avatar-dot.connected { background: var(--ok); }
+.rail-avatar-dot.reconnecting { background: var(--warn); }
+.rail-avatar-dot.failed { background: var(--err); }
+
+/* ============================================================
+   Toasts — cartão elevado com ícone (sem side-stripe)
+   ============================================================ */
+#toast-container {
+  position: fixed;
+  bottom: 18px; right: 18px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--app-card);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--shadow-lg);
+  font-size: 12.5px;
+  color: var(--txt-1);
+  max-width: 340px;
+  pointer-events: auto;
+  animation: toastIn calc(0.34s * var(--spd)) var(--ease-spring) both;
+}
+.toast-item svg { flex-shrink: 0; }
+.toast-leaving { animation: toastOut 0.28s ease-in both; }
+
+/* ============================================================
+   Tags / chips
+   ============================================================ */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: var(--color-accent-800);
+  color: var(--color-accent-100);
+}
+[data-theme="light"] .tag-chip { background: var(--color-accent-800); color: var(--color-accent); }
+
+/* pill de status com dot */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 11px;
+  border-radius: 99px;
+}
+.status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }

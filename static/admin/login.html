@@ -1,477 +1,193 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bolshoi — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar — Bolshoi Atendimento</title>
+  <link rel="stylesheet" href="/static/admin/css/theme.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    // Login respeita o tema salvo (padrão: escuro)
+    (function() {
+      const t = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    /* === Design Tokens === */
-    :root {
-      /* Tipografia */
-      --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
-      --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
-      --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
-
-      --bg-base: #15161A;
-      --bg-surface: #1C1D22;
-      --bg-card: #25272C;
-      --bg-card-hover: #2D2F35;
-      --accent: #3B6BDF;
-      --accent-hover: #2D5BCC;
-      --accent-subtle: rgba(59,107,223,0.10);
-      --accent-border: rgba(59,107,223,0.28);
-      --success: #10B981;
-      --danger-text: #EF4444;
-      --danger-subtle: rgba(239,68,68,0.10);
-      --text-primary: #E5E7EB;
-      --text-secondary: #9CA3AF;
-      --text-muted: #6B7280;
-      --border: #2A2C32;
-      --border-muted: #34363D;
-      --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-xl: 18px; --radius-full: 9999px;
-
-      /* Spacing scale */
-      --space-0: 0;
-      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
-      --space-4: 1rem; --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem;
-      --space-10: 2.5rem; --space-12: 3rem; --space-16: 4rem;
-
-      /* Type scale */
-      --text-2xs: 0.6875rem; --text-xs: 0.75rem; --text-sm: 0.8125rem;
-      --text-base: 0.875rem; --text-md: 0.9375rem; --text-lg: 1rem;
-      --text-xl: 1.125rem; --text-2xl: 1.375rem; --text-3xl: 1.75rem;
-
-      /* Line-height */
-      --leading-tight: 1.25; --leading-snug: 1.4;
-      --leading-normal: 1.5; --leading-relaxed: 1.65;
-
-      /* Tracking */
-      --tracking-tight: -0.015em; --tracking-normal: 0;
-      --tracking-wide: 0.04em; --tracking-wider: 0.08em;
-
-      --font-weight-medium: 500; --font-weight-semibold: 600;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.28), 0 1px 2px rgba(0,0,0,0.18);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.32), 0 2px 4px rgba(0,0,0,0.2);
-      --shadow-lg: 0 8px 28px rgba(0,0,0,0.38), 0 4px 8px rgba(0,0,0,0.22);
-      --duration-instant: 80ms;
-      --duration-fast: 120ms; --duration-normal: 200ms; --duration-slow: 320ms;
-      --duration-slower: 460ms;
-      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-      --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
-      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-      --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    }
-
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: none; }
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body {
-      font-family: var(--font-body);
-      font-optical-sizing: auto;
-      font-kerning: normal;
-      font-variant-numeric: lining-nums;
-      line-height: var(--leading-normal);
-      min-height: 100vh;
-    }
-
-    h1, h2, h3, label {
-      font-family: var(--font-heading);
-      font-weight: 600;
-      letter-spacing: var(--tracking-tight);
-      line-height: var(--leading-tight);
-    }
-    kbd, code { font-family: var(--font-mono); }
-
-    /* A1: Geist Mono feature settings */
-    kbd, code {
-      font-variant-numeric: tabular-nums;
-      font-feature-settings: "ss01" on, "cv11" on;
-    }
-
     body {
-      background: var(--bg-base);
-      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       min-height: 100vh;
-      display: flex;
-      align-items: stretch;
-      background-image: radial-gradient(ellipse at 20% 50%, rgba(78,122,231,0.05) 0%, transparent 60%),
-                        radial-gradient(ellipse at 80% 20%, rgba(78,122,231,0.03) 0%, transparent 50%);
-    }
-
-    /* Autofill override */
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus {
-      -webkit-text-fill-color: var(--text-primary);
-      -webkit-box-shadow: 0 0 0px 1000px #25272C inset;
-      transition: background-color 5000s ease-in-out 0s;
-    }
-
-    /* Split layout */
-    .login-left {
-      width: 42%;
-      background: linear-gradient(135deg, var(--accent-subtle) 0%, rgba(78,122,231,0.04) 100%);
-      border-right: 1px solid var(--border-muted);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 48px;
-      gap: 0;
-    }
-
-    .login-right {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 48px;
-    }
-
-    /* Form card */
-    .login-card {
-      width: 100%;
-      max-width: 360px;
-      animation: fadeSlideIn 0.4s var(--ease-out) both;
-    }
-    .login-card h2 {
-      font-size: var(--text-xl);
-      font-weight: var(--font-weight-semibold);
-      color: var(--text-primary);
-      margin-bottom: 8px;
-    }
-    .login-card p {
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      margin-bottom: 32px;
-    }
-
-    /* Input com ícone */
-    .input-group { position: relative; margin-bottom: 16px; }
-    .input-icon {
-      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-      color: var(--text-muted); pointer-events: none;
-      width: 16px; height: 16px;
-    }
-    .input-field {
-      width: 100%; padding: 10px 12px 10px 38px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-muted);
-      border-radius: var(--radius-md);
-      color: var(--text-primary);
-      font-size: var(--text-base);
-      font-family: inherit;
-      transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
-      outline: none;
-    }
-    .input-field::placeholder { color: var(--text-muted); }
-    .input-field:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-subtle);
-    }
-
-    /* Botão full-width */
-    .login-btn {
-      width: 100%; padding: 11px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: var(--text-base);
-      font-weight: var(--font-weight-medium);
-      font-family: inherit;
-      cursor: pointer;
-      transition: all var(--duration-fast) var(--ease-out);
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      margin-top: 8px;
-    }
-    .login-btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
-    .login-btn:active { transform: scale(0.98); }
-    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-    /* Spinner */
-    .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: none;
-    }
-    .login-btn.loading .spinner { display: block; }
-    .login-btn.loading .btn-text { display: none; }
-
-    /* Error */
-    .login-error {
-      font-size: var(--text-sm); color: var(--danger-text);
-      background: var(--danger-subtle);
-      border: 1px solid rgba(248,81,73,0.2);
-      border-radius: var(--radius-md);
-      padding: 10px 14px; margin-bottom: 16px;
-      display: none;
-    }
-    .login-error.show { display: block; }
-
-    /* Logo / Branding */
-    .brand-icon {
-      width: 72px; height: 72px;
-      border-radius: 20px;
-      background: var(--accent-subtle);
-      border: 1px solid var(--accent-border);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--accent);
-      margin: 0 auto 20px;
-    }
-    .brand-name {
-      font-size: var(--text-3xl);
-      font-weight: 700;
-      letter-spacing: var(--tracking-tight);
-      line-height: var(--leading-tight);
-      color: var(--text-primary);
-      text-align: center; margin: 0 0 8px;
-    }
-    .brand-sub {
-      font-size: var(--text-base);
-      color: var(--text-secondary);
-      text-align: center;
-      max-width: 260px;
-      line-height: 1.5;
-    }
-
-    /* Logo real Bolshoi */
-    .brand-logo {
-      width: 160px;
-      height: auto;
-      margin-bottom: 20px;
-      filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
-    }
-    @media (max-width: 768px) {
-      .brand-logo { width: 120px; margin-bottom: 12px; }
-    }
-
-    /* Login footer */
-    .login-footer {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-top: 24px;
-      font-size: var(--text-2xs);
-      color: var(--text-muted);
-    }
-    .login-footer-text { font-family: var(--font-body); }
-    .login-system-status {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 0.06em;
-      color: var(--success);
-    }
-    .status-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 6px rgba(16,185,129,0.6);
-    }
-
-    /* Hero quote block */
-    .login-hero {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--space-4);
-      max-width: 420px;
-    }
-    .login-hero-quote {
+      padding: 32px;
+      box-sizing: border-box;
       position: relative;
-      margin-top: var(--space-8);
-      padding: var(--space-6);
-      border-left: 2px solid var(--accent);
-      font-family: var(--font-heading);
-      text-align: left;
-      background: var(--bg-card);
-      border-radius: 0 var(--radius-md) var(--radius-md) 0;
-      width: 100%;
     }
-    .quote-mark {
-      font-family: 'Plus Jakarta Sans', serif;
-      font-size: 64px;
-      line-height: 0;
-      color: var(--accent);
-      position: absolute;
-      top: 28px;
-      left: var(--space-4);
-      opacity: 0.4;
-      font-weight: 700;
-      pointer-events: none;
-    }
-    .quote-body {
-      font-size: var(--text-lg);
-      line-height: var(--leading-snug);
-      color: var(--text-primary);
-      font-weight: 500;
-      margin: 0 0 var(--space-3);
-      padding-left: var(--space-6);
-      letter-spacing: var(--tracking-tight);
-    }
-    .quote-author {
-      font-family: var(--font-mono);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: var(--tracking-wide);
-      padding-left: var(--space-6);
-      display: block;
-    }
-    .login-hero-meta {
-      margin-top: var(--space-12);
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-muted);
-      letter-spacing: var(--tracking-wider);
-      text-transform: uppercase;
-    }
-    .meta-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 6px rgba(16,185,129,0.5);
-      animation: metaPulse 3s ease-in-out infinite;
-      flex-shrink: 0;
-    }
-    @keyframes metaPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.45; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .meta-dot { animation: none !important; }
-    }
-
-    /* F2: Screen-reader only labels */
     .sr-only {
       position: absolute; width: 1px; height: 1px;
       padding: 0; margin: -1px; overflow: hidden;
       clip: rect(0,0,0,0); white-space: nowrap; border: 0;
     }
 
-    /* Mobile: empilhado */
-    @media (max-width: 768px) {
-      body { flex-direction: column; }
-      .login-left {
-        width: 100%;
-        padding: 40px 24px 32px;
-        border-right: none;
-        border-bottom: 1px solid var(--border-muted);
-      }
-      .login-right { padding: 32px 24px; }
-      .login-hero-meta { margin-top: var(--space-6); }
+    /* marca acima do card */
+    .login-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 26px;
+      animation: fadeUp calc(0.5s * var(--spd)) var(--ease-out) both;
+    }
+    .login-brand-logo {
+      width: 84px; height: 84px;
+      border-radius: 20px;
+      background: #0e1119;
+      border: 1px solid var(--app-border-soft);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+      box-shadow: 0 0 24px color-mix(in srgb, var(--color-accent) 14%, transparent);
+    }
+    .login-brand-logo img { width: 70px; height: 70px; mix-blend-mode: lighten; }
+    .login-brand-sub {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--txt-3);
     }
 
-    /* F: Focus-visible outline */
-    *:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-      border-radius: 4px;
-      transition: outline-offset var(--duration-fast) var(--ease-out);
+    /* card do formulário */
+    .login-card {
+      width: 100%;
+      max-width: 372px;
+      background: var(--app-panel);
+      border: 1px solid var(--app-border-soft);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      padding: 30px 32px 26px;
+      box-sizing: border-box;
+      animation: fadeUp calc(0.5s * var(--spd)) var(--ease-out) 0.08s both;
     }
-    *:focus-visible:not(:active) {
-      outline-offset: 3px;
+    .login-card h2 {
+      margin: 0 0 4px;
+      font-size: 19px;
+      font-weight: 500;
+      text-align: center;
+      color: var(--txt-1);
     }
-
-    /* -----------------------------------------------------------------
-       E2: Login success transition — fade-out suave antes do redirect
-       DORMANT: JS pode adicionar `.success-redirecting` ao `.login-card`
-       após salvar o token e antes de `location.href = ...` pra suavizar
-       a transição. Ex: card.classList.add('success-redirecting');
-       A animação dura 280ms; redirecionar após esse intervalo.
-    ----------------------------------------------------------------- */
-    @keyframes loginSuccessFade {
-      from { opacity: 1; }
-      to   { opacity: 0.6; filter: blur(2px); }
-    }
-    .login-card.success-redirecting {
-      animation: loginSuccessFade 280ms ease-out forwards;
-      pointer-events: none;
-    }
-
-    /* F5: Brand name — confirma 700 / 3xl (já setado; bloco explícito) */
-    .brand-name {
-      font-size: var(--text-3xl);
-      font-weight: 700;
-      letter-spacing: var(--tracking-tight);
-      line-height: var(--leading-tight);
+    .login-card .login-sub {
+      margin: 0 0 26px;
+      font-size: 12.5px;
+      color: var(--txt-2);
+      text-align: center;
     }
 
-    /* === Reduced motion compliance (WCAG, HIG, MD) === */
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-      /* Mantém transições FUNCIONAIS (focus) com mini duration */
-      *:focus-visible {
-        transition: outline 80ms ease-out !important;
-      }
-      /* Desliga keyframes decorativos */
-      .fade-in, .slide-in, .modal-anim, .stagger-item {
-        animation: none !important;
-        transform: none !important;
-      }
+    .login-error {
+      display: none;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--danger-text);
+      background: color-mix(in srgb, var(--err) 9%, transparent);
+      border: 1px solid color-mix(in srgb, var(--err) 25%, transparent);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 18px;
+      animation: popIn calc(0.24s * var(--spd)) var(--ease-out) both;
+    }
+    .login-error.show { display: flex; }
+
+    .login-fields { display: flex; flex-direction: column; gap: 16px; }
+    .input-group { display: flex; flex-direction: column; gap: 6px; position: relative; }
+
+    .login-btn {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      background: transparent;
+      color: var(--color-accent);
+      border: 1px solid var(--color-accent);
+      border-radius: 8px;
+      font-size: 13.5px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .login-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+    .login-btn:active:not(:disabled) { background: color-mix(in srgb, var(--color-accent) 22%, transparent); transform: scale(0.99); }
+    .login-btn:disabled { opacity: 0.6; }
+    .login-btn .spinner {
+      display: none;
+      width: 14px; height: 14px;
+      border: 2px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+      border-top-color: var(--color-accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .login-btn.loading .spinner { display: inline-block; }
+    .login-btn.loading .btn-text { display: none; }
+
+    .toggle-senha-btn {
+      position: absolute;
+      right: 2px; bottom: 0;
+      width: 40px; height: 40px;
+      background: none; border: none;
+      color: var(--txt-3);
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px;
+      transition: color 0.15s;
+    }
+    .toggle-senha-btn:hover { color: var(--txt-1); }
+
+    .login-divider {
+      height: 1px;
+      margin: 26px 0 14px;
+      background: linear-gradient(90deg, transparent, var(--app-border), transparent);
+    }
+    .login-footer { text-align: center; font-size: 11px; color: var(--txt-3); }
+
+    .login-version {
+      position: absolute;
+      left: 16px; bottom: 14px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--txt-3);
+      opacity: 0.6;
+      letter-spacing: 0.08em;
     }
   </style>
 </head>
 <body>
 
-  <!-- Painel esquerdo — branding -->
-  <div class="login-left">
-    <div class="login-hero">
-      <img src="/static/admin/img/logo-bolshoi.png" alt="Barbearia Bolshoi" class="brand-logo">
-      <p class="brand-sub">Atendimento WhatsApp</p>
-
-      <div class="login-hero-quote">
-        <span class="quote-mark" aria-hidden="true">"</span>
-        <p class="quote-body">O bot lida com 80% das mensagens. Você lida com os 20% que importam.</p>
-        <span class="quote-author">— Painel de operadores Bolshoi</span>
-      </div>
-
-      <div class="login-hero-meta">
-        <span class="meta-dot" aria-hidden="true"></span>
-        <span class="meta-label">v0.4.0 · Unaí, MG · Online</span>
-      </div>
+  <!-- Marca -->
+  <div class="login-brand">
+    <div class="login-brand-logo">
+      <img src="/static/admin/img/logo-bolshoi.png" alt="Barbearia Bolshoi">
     </div>
+    <span class="login-brand-sub">Atendimento WhatsApp</span>
   </div>
 
-  <!-- Painel direito — formulário -->
-  <div class="login-right">
-    <div class="login-card">
-      <h2>Entrar</h2>
-      <p>Acesse o painel de atendimento</p>
+  <!-- Card do formulário -->
+  <div class="login-card">
+    <h2>Entrar no painel</h2>
+    <p class="login-sub">Acesse para atender as conversas</p>
 
-      <div id="login-error" class="login-error"></div>
+    <div id="login-error" class="login-error" role="alert" aria-live="assertive"></div>
 
-      <form id="form-login" autocomplete="on">
+    <form id="form-login" autocomplete="on">
+      <div class="login-fields">
         <div class="input-group">
-          <label for="usuario_login" class="sr-only">Usuário</label>
-          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
+          <label for="usuario_login" class="field-label">Usuário</label>
           <input
             id="usuario_login"
             name="usuario_login"
             type="text"
-            class="input-field"
-            placeholder="Usuário"
+            class="field-input"
             autocomplete="username"
             required
             autofocus
@@ -479,47 +195,39 @@
         </div>
 
         <div class="input-group">
-          <label for="senha" class="sr-only">Senha</label>
-          <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="11" width="18" height="11" rx="2"/>
-            <path d="M7 11V7a5 5 0 0110 0v4"/>
-          </svg>
+          <label for="senha" class="field-label">Senha</label>
           <input
             id="senha"
             name="senha"
             type="password"
-            class="input-field"
-            placeholder="Senha"
+            class="field-input"
             autocomplete="current-password"
             required
-            style="padding-right: 40px;"
+            style="padding-right: 44px;"
           >
-          <button type="button" id="toggle-senha" aria-label="Mostrar senha"
-            style="position:absolute; right:4px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:var(--text-muted); padding:0; min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center;">
-            <svg id="eye-show" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <button type="button" id="toggle-senha" class="toggle-senha-btn" aria-label="Mostrar senha">
+            <svg id="eye-show" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
-            <svg id="eye-hide" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none;">
+            <svg id="eye-hide" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none;" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
             </svg>
           </button>
         </div>
 
         <button type="submit" id="btn-entrar" class="login-btn">
-          <div class="spinner"></div>
+          <span class="spinner" aria-hidden="true"></span>
           <span class="btn-text">Entrar</span>
         </button>
-      </form>
-      <div class="login-footer">
-        <span class="login-footer-text">Não tem conta? Contate o gerente.</span>
-        <span class="login-system-status">
-          <span class="status-dot"></span>
-          <span class="status-label">SISTEMA OK</span>
-        </span>
       </div>
-    </div>
+    </form>
+
+    <div class="login-divider" aria-hidden="true"></div>
+    <div class="login-footer">Não tem conta? Contate o gerente.</div>
   </div>
+
+  <span class="login-version">v0.4.0</span>
 
   <script>
     // Redirect se já está logado — H11: valida o exp do token antes; um token

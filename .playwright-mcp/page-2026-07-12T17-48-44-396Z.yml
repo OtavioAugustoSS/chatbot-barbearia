@@ -1,0 +1,169 @@
+- generic [active] [ref=f4e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=f4e2]
+  - navigation "Navegação principal" [ref=f4e3]:
+    - img "Barbearia Bolshoi" [ref=f4e5]
+    - button "Conversas" [ref=f4e6] [cursor=pointer]
+    - button "Menções" [ref=f4e9] [cursor=pointer]
+    - link "Simulador WhatsApp (dev)" [ref=f4e12] [cursor=pointer]:
+      - /url: /dev/simulador
+    - link "Configurações" [ref=f4e17] [cursor=pointer]:
+      - /url: /static/admin/settings.html
+    - button "Alternar tema claro/escuro" [ref=f4e21] [cursor=pointer]
+    - button "Silenciar notificações" [ref=f4e24] [cursor=pointer]
+    - generic [ref=f4e27]:
+      - generic "Admin Demo" [ref=f4e28]: AD
+      - generic "Conexão em tempo real" [ref=f4e29]
+    - button "Sair do sistema" [ref=f4e30] [cursor=pointer]
+  - complementary [ref=f4e33]:
+    - generic [ref=f4e34]:
+      - heading "Conversas" [level=2] [ref=f4e35]
+      - generic [ref=f4e36]: Admin Demo
+    - generic [ref=f4e38]:
+      - button "Contato" [ref=f4e39] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=f4e42]:
+        - /placeholder: Buscar…
+    - generic [ref=f4e43]:
+      - button "Aguardando atendimento humano" [ref=f4e44] [cursor=pointer]:
+        - generic [ref=f4e45]: "1"
+        - generic [ref=f4e46]: aguardando
+      - generic [ref=f4e47]: ·
+      - button "Em atendimento humano" [ref=f4e48] [cursor=pointer]:
+        - generic [ref=f4e49]: "0"
+        - generic [ref=f4e50]: atendendo
+      - generic [ref=f4e51]: ·
+      - button "Conversas com bot ativo" [ref=f4e52] [cursor=pointer]:
+        - generic [ref=f4e53]: "1"
+        - generic [ref=f4e54]: com bot
+    - generic [ref=f4e55]:
+      - button "Todas as conversas" [ref=f4e56] [cursor=pointer]: Todos
+      - button "Conversas aguardando humano" [ref=f4e57] [cursor=pointer]:
+        - text: Aguardando
+        - generic [ref=f4e177]: "1"
+      - button "Minhas conversas" [ref=f4e58] [cursor=pointer]: Meus
+      - button "Conversas com bot ativo" [ref=f4e59] [cursor=pointer]:
+        - text: Bot
+        - generic [ref=f4e178]: "1"
+    - generic [ref=f4e61]:
+      - generic [ref=f4e62]: "Status:"
+      - button "Abertas" [ref=f4e63] [cursor=pointer]
+      - button "Pendentes" [ref=f4e64] [cursor=pointer]
+      - button "Resolvidas" [ref=f4e65] [cursor=pointer]
+      - button "Adiadas" [ref=f4e66] [cursor=pointer]
+      - button "Todas" [ref=f4e67] [cursor=pointer]
+    - generic [ref=f4e68]:
+      - generic [ref=f4e179] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f4e180]:
+          - generic [ref=f4e181]: CM
+          - img "Aguardando atendimento" [ref=f4e182]
+        - generic [ref=f4e183]:
+          - generic [ref=f4e184]:
+            - generic [ref=f4e185]: Carlos Mendes
+            - generic [ref=f4e186]: agora
+          - generic [ref=f4e187]: MENU_RECEPCAO
+      - generic [ref=f4e190] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f4e191]:
+          - generic [ref=f4e192]: RS
+          - img "Bot ativo" [ref=f4e193]
+        - generic [ref=f4e194]:
+          - generic [ref=f4e195]:
+            - generic [ref=f4e196]: Rafael Souza
+            - generic [ref=f4e197]: agora
+          - generic [ref=f4e198]: que horas abre?
+    - generic [ref=f4e95]:
+      - generic [ref=f4e97]: Conectado
+      - generic [ref=f4e98]: SSE
+  - main [ref=f4e99]:
+    - generic [ref=f4e201]:
+      - generic [ref=f4e202]: CM
+      - generic [ref=f4e204]:
+        - heading "Carlos Mendes" [level=3] [ref=f4e205]
+        - generic [ref=f4e206]: "5538999990002"
+      - generic [ref=f4e207]: Aguardando humano
+      - generic [ref=f4e210]:
+        - button "Assumir" [ref=f4e211] [cursor=pointer]
+        - button "Pausar bot" [ref=f4e212] [cursor=pointer]
+        - button "Devolver ao bot" [ref=f4e217] [cursor=pointer]
+        - button "Transferir" [ref=f4e223] [cursor=pointer]
+        - button "Aberta" [ref=f4e227] [cursor=pointer]
+        - button "Marcar conversa" [ref=f4e232] [cursor=pointer]
+        - button "Informações do cliente" [ref=f4e236] [cursor=pointer]
+    - generic [ref=f4e239]:
+      - generic [ref=f4e240]: Hoje
+      - generic "12/07/2026, 14:47:53" [ref=f4e245]:
+        - generic [ref=f4e246]: Cliente
+        - paragraph [ref=f4e250]: boa tarde
+        - generic [ref=f4e251]: 14:47
+      - generic "12/07/2026, 14:47:53" [ref=f4e254]:
+        - generic [ref=f4e255]: Bolshoi Bot
+        - paragraph [ref=f4e259]: 📋 [MENU INTERATIVO ENVIADO]
+        - generic [ref=f4e260]: 14:47
+      - generic "12/07/2026, 14:47:55" [ref=f4e266]:
+        - generic [ref=f4e267]: Cliente
+        - paragraph [ref=f4e271]: MENU_RECEPCAO
+        - generic [ref=f4e272]: 14:47
+      - generic "12/07/2026, 14:47:55" [ref=f4e275]:
+        - generic [ref=f4e276]: Bolshoi Bot
+        - paragraph [ref=f4e280]: Perfeito! Aguarde um instante — um atendente da nossa recepção vai assumir o atendimento em breve.
+        - generic [ref=f4e281]: 14:47
+    - generic [ref=f4e286]:
+      - generic [ref=f4e287]: Cliente aguardando atendimento — enviar mensagem vai assumir automaticamente.
+      - generic [ref=f4e288]:
+        - button "Anexar arquivo" [ref=f4e289] [cursor=pointer]
+        - button "Respostas rápidas" [ref=f4e293] [cursor=pointer]
+        - button "Emoji" [disabled] [ref=f4e296]
+        - button "Ajuda e atalhos de teclado" [ref=f4e299] [cursor=pointer]: "?"
+      - generic [ref=f4e300]:
+        - textbox "Mensagem para o cliente" [ref=f4e301]:
+          - /placeholder: Digite uma mensagem ou /comando…
+        - button "Enviar mensagem" [ref=f4e302] [cursor=pointer]
+    - complementary [ref=f4e105]:
+      - generic [ref=f4e106]:
+        - heading "Informações" [level=3] [ref=f4e107]
+        - button "Fechar painel de informações" [ref=f4e108] [cursor=pointer]
+      - generic [ref=f4e111]:
+        - generic [ref=f4e112]:
+          - heading "Carlos Mendes" [level=3] [ref=f4e305]
+          - generic [ref=f4e306]: "5538999990002"
+          - generic [ref=f4e115]:
+            - button "Copiar telefone" [ref=f4e116] [cursor=pointer]
+            - button "Abrir no WhatsApp" [ref=f4e119] [cursor=pointer]
+            - button "Fechar painel" [ref=f4e122] [cursor=pointer]
+        - generic [ref=f4e125]:
+          - generic [ref=f4e126] [cursor=pointer]: Estatísticas
+          - generic [ref=f4e131]:
+            - generic [ref=f4e132]:
+              - generic [ref=f4e133]: "2"
+              - generic [ref=f4e134]: Mensagens
+            - generic [ref=f4e135]:
+              - generic [ref=f4e136]: "0"
+              - generic [ref=f4e137]: Atend. humanos
+            - generic [ref=f4e138]:
+              - generic [ref=f4e139]: 12/07/2026
+              - generic [ref=f4e140]: 1º contato
+            - generic [ref=f4e141]:
+              - generic [ref=f4e142]: 1min
+              - generic [ref=f4e143]: Último contato
+        - generic [ref=f4e144]:
+          - generic [ref=f4e145] [cursor=pointer]: Status
+          - generic [ref=f4e308]:
+            - generic [ref=f4e309]: Bot inativo
+            - generic [ref=f4e310]: Aguardando atendente
+        - generic [ref=f4e149]:
+          - generic [ref=f4e150] [cursor=pointer]: Tags
+          - generic [ref=f4e155]:
+            - generic [ref=f4e311]: Nenhuma etiqueta
+            - button "Adicionar etiqueta" [ref=f4e156] [cursor=pointer]: + Adicionar
+        - generic [ref=f4e157]:
+          - generic [ref=f4e158] [cursor=pointer]: Sobre o cliente
+          - generic [ref=f4e162]:
+            - paragraph [ref=f4e163]: Sem informação cadastrada.
+            - button "Editar" [disabled] [ref=f4e164]
+        - generic [ref=f4e167]:
+          - generic [ref=f4e168] [cursor=pointer]: Notas internas
+          - generic [ref=f4e172]:
+            - paragraph [ref=f4e314]: Nenhuma nota ainda
+            - textbox "Nota interna" [ref=f4e173]:
+              - /placeholder: Adicionar nota interna…
+            - button "Nova nota" [ref=f4e174] [cursor=pointer]
+        - button "🗑 Apagar cliente (LGPD)" [ref=f4e317] [cursor=pointer]

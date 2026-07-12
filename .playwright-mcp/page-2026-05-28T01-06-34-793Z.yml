@@ -1,0 +1,114 @@
+- generic [active] [ref=e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=e2]
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic "QA Sweep" [ref=e5] [cursor=pointer]: QS
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: QA Sweep
+          - generic "Conexão em tempo real" [ref=e9]
+        - generic [ref=e10]: Atendente · Bolshoi
+      - generic [ref=e11]:
+        - button "Menções" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - button "Configurações" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+    - generic [ref=e21]:
+      - img
+      - button "Contato" [ref=e22] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=e23]:
+        - /placeholder: Buscar…
+    - generic [ref=e24] [cursor=pointer]:
+      - generic [ref=e25]: 0 Aguardando
+      - generic [ref=e26]: 0 Atendendo
+      - generic [ref=e27]: 4 Com bot
+    - generic [ref=e28]:
+      - button "Todas" [ref=e29] [cursor=pointer]
+      - button "Aguardando" [ref=e30] [cursor=pointer]
+      - button "Meus" [ref=e31] [cursor=pointer]
+      - button "Bot" [ref=e32] [cursor=pointer]
+    - generic [ref=e33]:
+      - generic [ref=e34]: "Status:"
+      - button "Abertas" [ref=e35] [cursor=pointer]
+      - button "Pendentes" [ref=e36] [cursor=pointer]
+      - button "Resolvidas" [ref=e37] [cursor=pointer]
+      - button "Adiadas" [ref=e38] [cursor=pointer]
+      - button "Todas" [ref=e39] [cursor=pointer]
+    - generic [ref=e40]:
+      - generic [ref=e41] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=e42]:
+          - generic [ref=e43]: OA
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e47]: Otavio Augusto
+            - generic [ref=e48]: 38min
+          - generic [ref=e50]: o fred trabalha domingo?
+      - generic [ref=e51] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=e52]:
+          - generic [ref=e53]: T
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic [ref=e57]: Teste
+            - generic [ref=e58]: 10/05
+          - generic [ref=e60]: oi
+      - generic [ref=e61] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=e62]:
+          - generic [ref=e63]: F
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]: Fred
+            - generic [ref=e68]: 12/04
+          - generic [ref=e70]: Quero o número do Fred
+      - generic [ref=e71] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=e72]:
+          - generic [ref=e73]: J
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]: João
+            - generic [ref=e78]: 12/04
+          - generic [ref=e80]: perfeito, muito obrigado
+    - generic [ref=e81]:
+      - generic [ref=e84]: Conectado
+      - button "Silenciar" [ref=e85] [cursor=pointer]:
+        - img [ref=e86]
+  - main [ref=e88]:
+    - generic [ref=e89]:
+      - button "Ver conversas" [ref=e90] [cursor=pointer]:
+        - img [ref=e91]
+        - text: Ver conversas
+      - img [ref=e93]
+      - generic [ref=e95]: Nenhuma conversa selecionada
+      - generic [ref=e96]: Escolha uma conversa ao lado para começar
+    - complementary [ref=e97]:
+      - generic [ref=e98]:
+        - heading "Informações" [level=3] [ref=e99]
+        - button "Fechar painel de informações" [ref=e100] [cursor=pointer]:
+          - img [ref=e101]
+      - generic [ref=e103]:
+        - generic [ref=e105]:
+          - generic:
+            - heading [level=4]
+            - paragraph
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - paragraph [ref=e109]: Cliente desde
+            - paragraph
+          - generic [ref=e110]:
+            - paragraph [ref=e111]: Última atividade
+            - paragraph
+          - generic [ref=e112]:
+            - paragraph [ref=e113]: Mensagens
+            - paragraph
+          - generic [ref=e114]:
+            - paragraph [ref=e115]: Atend. humanos
+            - paragraph
+        - paragraph [ref=e117]: STATUS
+        - generic [ref=e119]:
+          - paragraph [ref=e120]: ETIQUETAS
+          - button "+ Adicionar" [ref=e121] [cursor=pointer]
+        - generic [ref=e122]:
+          - paragraph [ref=e123]: NOTAS INTERNAS
+          - textbox "Nota interna" [ref=e124]:
+            - /placeholder: Adicionar nota interna…
+          - button "Salvar nota" [ref=e125] [cursor=pointer]

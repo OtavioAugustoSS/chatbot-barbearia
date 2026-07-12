@@ -1,0 +1,62 @@
+- generic [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]: 💈
+    - generic [ref=e4]:
+      - heading "Barbearia Bolshoi · SIMULADOR DEV" [level=1] [ref=e5]
+      - paragraph [ref=e6]: online · modo hibrido
+    - generic [ref=e7]:
+      - textbox "Telefone simulado" [ref=e8]: "5538999990000"
+      - textbox "Nome do cliente" [ref=e9]: Cliente Demo
+  - generic [ref=e10]:
+    - text: "⚠️ MODO DEV — IA: demo (sem NVIDIA_API_KEY) · WhatsApp: capturado aqui ·"
+    - link "Dashboard do atendente" [ref=e11] [cursor=pointer]:
+      - /url: /static/admin/login.html
+    - text: (admin/admin123)
+  - generic [ref=e12]:
+    - generic [ref=e13]: Simulador local — as mensagens passam pelo pipeline real do bot.
+    - generic [ref=e24]:
+      - text: oi
+      - generic [ref=e25]: 20:50✓✓
+    - generic [ref=e26]: O bot/atendente leu suas mensagens (read receipt → ticks azuis).
+    - generic [ref=e27]:
+      - generic [ref=e28]: Barbearia Bolshoi 💈
+      - text: Olá, Cliente! Seja bem-vindo(a) à Barbearia Bolshoi 💈 Sou o assistente virtual da casa. Escolha uma das opções abaixo ou me envie sua dúvida por mensagem. 🔒
+      - generic [ref=e29]: Seus dados são usados só para este atendimento (digite apagar meus dados para removê-los).
+      - generic [ref=e30]:
+        - generic [ref=e31]: Serviços
+        - button "✂️ Serviços e Preços Cortes, barba, estética e valores" [ref=e32] [cursor=pointer]:
+          - text: ✂️ Serviços e Preços
+          - generic [ref=e33]: Cortes, barba, estética e valores
+        - button "👨‍🎨 Nossa Equipe Conheça nossos barbeiros e profissionais" [ref=e34] [cursor=pointer]:
+          - text: 👨‍🎨 Nossa Equipe
+          - generic [ref=e35]: Conheça nossos barbeiros e profissionais
+        - generic [ref=e36]: Informações
+        - button "📅 Agendamento Como marcar seu horário pelo app" [ref=e37] [cursor=pointer]:
+          - text: 📅 Agendamento
+          - generic [ref=e38]: Como marcar seu horário pelo app
+        - button "📍 Horários e Endereço Funcionamento e onde encontrar a barbearia" [ref=e39] [cursor=pointer]:
+          - text: 📍 Horários e Endereço
+          - generic [ref=e40]: Funcionamento e onde encontrar a barbearia
+        - button "💳 Formas de Pagamento Dinheiro, Pix, débito e crédito" [ref=e41] [cursor=pointer]:
+          - text: 💳 Formas de Pagamento
+          - generic [ref=e42]: Dinheiro, Pix, débito e crédito
+        - generic [ref=e43]: Atendimento
+        - button "🙋 Falar c/ Atendente Falar diretamente com um atendente" [ref=e44] [cursor=pointer]:
+          - text: 🙋 Falar c/ Atendente
+          - generic [ref=e45]: Falar diretamente com um atendente
+      - generic [ref=e46]: Toque em Ver opções abaixo
+      - generic [ref=e47]:
+        - button "✓✓ entregue" [ref=e48] [cursor=pointer]
+        - button "✓✓ lida (azul)" [ref=e49] [cursor=pointer]
+        - button "✗ falhou" [ref=e50] [cursor=pointer]
+      - generic [ref=e51]: 20:50· aceita
+  - generic [ref=e14]:
+    - button "👋 oi" [active] [ref=e15] [cursor=pointer]
+    - button "📋 menu" [ref=e16] [cursor=pointer]
+    - button "💰 preços" [ref=e17] [cursor=pointer]
+    - button "🕘 horário" [ref=e18] [cursor=pointer]
+    - button "📅 agendar" [ref=e19] [cursor=pointer]
+    - button "🙋 recepção" [ref=e20] [cursor=pointer]
+  - contentinfo [ref=e21]:
+    - textbox "Mensagem" [ref=e22]
+    - button "Enviar" [ref=e23] [cursor=pointer]: ➤

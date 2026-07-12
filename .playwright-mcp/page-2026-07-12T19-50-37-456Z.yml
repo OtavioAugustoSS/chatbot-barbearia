@@ -1,0 +1,129 @@
+- generic [ref=f13e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=f13e2]
+  - navigation "Navegação principal" [ref=f13e3]:
+    - img "Barbearia Bolshoi" [ref=f13e5]
+    - button "Conversas" [active] [ref=f13e6] [cursor=pointer]
+    - button "Menções" [ref=f13e9] [cursor=pointer]
+    - link "Simulador WhatsApp (dev)" [ref=f13e147] [cursor=pointer]:
+      - /url: /dev/simulador
+    - link "Configurações" [ref=f13e12] [cursor=pointer]:
+      - /url: /static/admin/settings.html
+    - button "Alternar tema claro/escuro" [ref=f13e16] [cursor=pointer]
+    - button "Silenciar notificações" [ref=f13e19] [cursor=pointer]
+    - generic [ref=f13e22]:
+      - generic "Admin Demo" [ref=f13e152]: AD
+      - generic "Conexão em tempo real" [ref=f13e24]
+    - button "Sair do sistema" [ref=f13e25] [cursor=pointer]
+  - complementary [ref=f13e28]:
+    - generic [ref=f13e29]:
+      - heading "Conversas" [level=2] [ref=f13e30]
+      - generic [ref=f13e153]: Admin Demo
+    - generic [ref=f13e32]:
+      - button "Contato" [ref=f13e33] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=f13e36]:
+        - /placeholder: Buscar…
+    - generic [ref=f13e37]:
+      - button "Aguardando atendimento humano" [ref=f13e38] [cursor=pointer]:
+        - generic [ref=f13e39]: "0"
+        - generic [ref=f13e40]: aguardando
+      - generic [ref=f13e41]: ·
+      - button "Em atendimento humano" [ref=f13e42] [cursor=pointer]:
+        - generic [ref=f13e43]: "1"
+        - generic [ref=f13e44]: atendendo
+      - generic [ref=f13e45]: ·
+      - button "Conversas com bot ativo" [ref=f13e46] [cursor=pointer]:
+        - generic [ref=f13e47]: "2"
+        - generic [ref=f13e48]: com bot
+    - generic [ref=f13e49]:
+      - button "Todas as conversas" [ref=f13e50] [cursor=pointer]: Todos
+      - button "Conversas aguardando humano" [ref=f13e51] [cursor=pointer]: Aguardando
+      - button "Minhas conversas" [ref=f13e52] [cursor=pointer]:
+        - text: Meus
+        - generic [ref=f13e154]: "1"
+      - button "Conversas com bot ativo" [ref=f13e53] [cursor=pointer]:
+        - text: Bot
+        - generic [ref=f13e155]: "2"
+    - generic [ref=f13e54]:
+      - generic [ref=f13e55]: "Status:"
+      - button "Abertas" [ref=f13e56] [cursor=pointer]
+      - button "Pendentes" [ref=f13e57] [cursor=pointer]
+      - button "Resolvidas" [ref=f13e58] [cursor=pointer]
+      - button "Adiadas" [ref=f13e59] [cursor=pointer]
+      - button "Todas" [ref=f13e60] [cursor=pointer]
+    - generic [ref=f13e61]:
+      - generic [ref=f13e157] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f13e158]:
+          - generic [ref=f13e159]: CD
+          - img "Bot ativo" [ref=f13e160]
+        - generic [ref=f13e161]:
+          - generic [ref=f13e162]:
+            - generic [ref=f13e163]: Cliente Demo
+            - generic [ref=f13e164]: 2min
+          - generic [ref=f13e165]: oi
+      - generic [ref=f13e168] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f13e169]:
+          - generic [ref=f13e170]: CM
+          - img "Em atendimento com você" [ref=f13e171]
+        - generic [ref=f13e172]:
+          - generic [ref=f13e173]:
+            - generic [ref=f13e174]: Carlos Mendes
+            - generic [ref=f13e175]: 6min
+          - generic [ref=f13e176]: Olá Carlos! Aqui é o Otávio da Bolshoi. Como posso ajudar?
+      - generic [ref=f13e179] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f13e180]:
+          - generic [ref=f13e181]: RS
+          - img "Bot ativo" [ref=f13e182]
+        - generic [ref=f13e183]:
+          - generic [ref=f13e184]:
+            - generic [ref=f13e185]: Rafael Souza
+            - generic [ref=f13e186]: 2h
+          - generic [ref=f13e187]: que horas abre?
+    - generic [ref=f13e62]:
+      - generic [ref=f13e64]: Conectado
+      - generic [ref=f13e65]: SSE
+  - main [ref=f13e66]:
+    - generic [ref=f13e190]:
+      - paragraph [ref=f13e193]: Selecione uma conversa
+      - generic [ref=f13e194]: Escolha uma conversa na lista para iniciar o atendimento
+    - complementary [ref=f13e75]:
+      - generic [ref=f13e76]:
+        - heading "Informações" [level=3] [ref=f13e77]
+        - button "Fechar painel de informações" [ref=f13e78] [cursor=pointer]
+      - generic [ref=f13e81]:
+        - generic [ref=f13e82]:
+          - heading [level=3]
+          - generic [ref=f13e85]:
+            - button "Copiar telefone" [ref=f13e86] [cursor=pointer]
+            - button "Abrir no WhatsApp" [ref=f13e89] [cursor=pointer]
+            - button "Fechar painel" [ref=f13e92] [cursor=pointer]
+        - generic [ref=f13e95]:
+          - generic [ref=f13e96] [cursor=pointer]: Estatísticas
+          - generic [ref=f13e101]:
+            - generic [ref=f13e102]:
+              - generic [ref=f13e103]: —
+              - generic [ref=f13e104]: Mensagens
+            - generic [ref=f13e105]:
+              - generic [ref=f13e106]: —
+              - generic [ref=f13e107]: Atend. humanos
+            - generic [ref=f13e108]:
+              - generic [ref=f13e109]: —
+              - generic [ref=f13e110]: 1º contato
+            - generic [ref=f13e111]:
+              - generic [ref=f13e112]: —
+              - generic [ref=f13e113]: Último contato
+        - generic [ref=f13e114]: Status
+        - generic [ref=f13e119]:
+          - generic [ref=f13e120] [cursor=pointer]: Tags
+          - button "Adicionar etiqueta" [ref=f13e126] [cursor=pointer]: + Adicionar
+        - generic [ref=f13e127]:
+          - generic [ref=f13e128] [cursor=pointer]: Sobre o cliente
+          - generic [ref=f13e132]:
+            - paragraph [ref=f13e133]: Sem informação cadastrada.
+            - button "Editar" [disabled] [ref=f13e134]
+        - generic [ref=f13e137]:
+          - generic [ref=f13e138] [cursor=pointer]: Notas internas
+          - generic [ref=f13e142]:
+            - textbox "Nota interna" [ref=f13e143]:
+              - /placeholder: Adicionar nota interna…
+            - button "Nova nota" [ref=f13e144] [cursor=pointer]

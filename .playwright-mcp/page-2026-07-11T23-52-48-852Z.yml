@@ -1,0 +1,146 @@
+- generic [active] [ref=f2e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=f2e2]
+  - complementary [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - img "Bolshoi" [ref=f2e6]
+      - heading "Conversas" [level=2] [ref=f2e7]
+      - generic [ref=f2e8]:
+        - generic [ref=f2e9]:
+          - generic "Admin Demo" [ref=f2e148] [cursor=pointer]: AD
+          - generic "Conexão em tempo real" [ref=f2e11]
+        - button "Menções" [ref=f2e13] [cursor=pointer]
+        - button "Configurações" [ref=f2e16] [cursor=pointer]
+        - button "Sair do sistema" [ref=f2e20] [cursor=pointer]
+    - generic [ref=f2e23]: Admin Demo
+    - generic [ref=f2e25]:
+      - button "Contato" [ref=f2e26] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=f2e29]:
+        - /placeholder: Buscar…
+    - generic [ref=f2e30]:
+      - button "Todas as conversas" [ref=f2e31] [cursor=pointer]: Todos
+      - button "Conversas aguardando humano" [ref=f2e32] [cursor=pointer]: Aguardando
+      - button "Minhas conversas" [ref=f2e33] [cursor=pointer]: Meus
+      - button "Conversas com bot ativo" [ref=f2e34] [cursor=pointer]:
+        - text: Bot
+        - generic [ref=f2e151]: "2"
+    - generic [ref=f2e35]:
+      - generic [ref=f2e36]: "Status:"
+      - button "Abertas" [ref=f2e37] [cursor=pointer]
+      - button "Pendentes" [ref=f2e38] [cursor=pointer]
+      - button "Resolvidas" [ref=f2e39] [cursor=pointer]
+      - button "Adiadas" [ref=f2e40] [cursor=pointer]
+      - button "Todas" [ref=f2e41] [cursor=pointer]
+    - generic [ref=f2e42]:
+      - generic [ref=f2e152] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f2e153]:
+          - generic [ref=f2e154]: CD
+          - img "Bot ativo" [ref=f2e155]
+        - generic [ref=f2e156]:
+          - generic [ref=f2e157]:
+            - generic [ref=f2e158]: Cliente Demo
+            - generic [ref=f2e159]: 1min
+          - generic [ref=f2e160]: que horas abre?
+      - generic [ref=f2e162] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f2e163]:
+          - generic [ref=f2e164]: TL
+          - img "Bot ativo" [ref=f2e165]
+        - generic [ref=f2e166]:
+          - generic [ref=f2e167]:
+            - generic [ref=f2e168]: Teste Local
+            - generic [ref=f2e169]: 2min
+          - generic [ref=f2e170]: qual o horario de funcionamento?
+    - generic [ref=f2e43]:
+      - generic [ref=f2e44]: Conectado
+      - button "Silenciar" [ref=f2e47] [cursor=pointer]
+  - main [ref=f2e50]:
+    - generic [ref=f2e56]:
+      - generic [ref=f2e57]: CD
+      - generic [ref=f2e178]:
+        - heading "Cliente Demo" [level=3] [ref=f2e179]
+        - generic [ref=f2e180]: "5538999990000"
+      - generic [ref=f2e58]:
+        - generic [ref=f2e181]: Bot ativo
+        - generic [ref=f2e60]: ·
+      - generic [ref=f2e61]:
+        - button "Pausar bot" [ref=f2e182] [cursor=pointer]
+        - button "Aberta" [ref=f2e183] [cursor=pointer]
+        - button "Marcar conversa" [ref=f2e68] [cursor=pointer]
+        - button "Informações do cliente" [ref=f2e72] [cursor=pointer]
+    - generic [ref=f2e184]:
+      - generic [ref=f2e185]: Hoje
+      - generic "11/07/2026, 20:50:56" [ref=f2e190]:
+        - generic [ref=f2e191]: Cliente
+        - paragraph [ref=f2e195]: oi
+        - generic [ref=f2e196]: 20:50
+      - generic "11/07/2026, 20:50:56" [ref=f2e199]:
+        - generic [ref=f2e200]: Bolshoi Bot
+        - paragraph [ref=f2e204]: 📋 [MENU INTERATIVO ENVIADO]
+        - generic [ref=f2e205]: 20:50
+      - generic "11/07/2026, 20:51:10" [ref=f2e211]:
+        - generic [ref=f2e212]: Cliente
+        - paragraph [ref=f2e216]: que horas abre?
+        - generic [ref=f2e217]: 20:51
+      - generic "11/07/2026, 20:51:10" [ref=f2e220]:
+        - generic [ref=f2e221]: Bolshoi Bot
+        - paragraph [ref=f2e225]: "*Nosso horário de funcionamento:*Segunda: 14:00 às 21:00Terça: 09:00 às 21:00Quarta: 09:00 às 21:00Quinta: 09:00 às 21:00Sexta: 09:00 às 21:00Sábado: 09:00 às 18:00Domingo: fechadoPosso ajudar em algo mais?"
+        - generic [ref=f2e226]: 20:51
+    - generic [ref=f2e231]:
+      - generic [ref=f2e232]: Bot ativo — enviar vai interrompê-lo e assumir automaticamente.
+      - generic [ref=f2e233]:
+        - button "Anexar arquivo" [ref=f2e234] [cursor=pointer]
+        - button "Respostas rápidas" [ref=f2e238] [cursor=pointer]
+        - button "Emoji" [disabled] [ref=f2e241]
+        - button "Ajuda e atalhos de teclado" [ref=f2e244] [cursor=pointer]: "?"
+      - generic [ref=f2e245]:
+        - textbox "Mensagem para o cliente" [ref=f2e246]:
+          - /placeholder: Digite uma mensagem ou /comando…
+        - button "Enviar mensagem" [ref=f2e247] [cursor=pointer]
+    - complementary [ref=f2e75]:
+      - generic [ref=f2e76]:
+        - heading "Informações" [level=3] [ref=f2e77]
+        - button "Fechar painel de informações" [ref=f2e78] [cursor=pointer]
+      - generic [ref=f2e81]:
+        - generic [ref=f2e82]:
+          - heading "Cliente Demo" [level=3] [ref=f2e250]
+          - generic [ref=f2e251]: "5538999990000"
+          - generic [ref=f2e85]:
+            - button "Copiar telefone" [ref=f2e86] [cursor=pointer]
+            - button "Abrir no WhatsApp" [ref=f2e89] [cursor=pointer]
+            - button "Fechar painel" [ref=f2e92] [cursor=pointer]
+        - generic [ref=f2e95]:
+          - generic [ref=f2e96] [cursor=pointer]: Estatísticas
+          - generic [ref=f2e101]:
+            - generic [ref=f2e102]:
+              - generic [ref=f2e103]: "2"
+              - generic [ref=f2e104]: Mensagens
+            - generic [ref=f2e105]:
+              - generic [ref=f2e106]: "0"
+              - generic [ref=f2e107]: Atend. humanos
+            - generic [ref=f2e108]:
+              - generic [ref=f2e109]: 11/07/2026
+              - generic [ref=f2e110]: 1º contato
+            - generic [ref=f2e111]:
+              - generic [ref=f2e112]: agora
+              - generic [ref=f2e113]: Último contato
+        - generic [ref=f2e114]:
+          - generic [ref=f2e115] [cursor=pointer]: Status
+          - generic [ref=f2e119]: Bot ativo
+        - generic [ref=f2e120]:
+          - generic [ref=f2e121] [cursor=pointer]: Tags
+          - generic [ref=f2e126]:
+            - generic [ref=f2e254]: Nenhuma etiqueta
+            - button "Adicionar etiqueta" [ref=f2e127] [cursor=pointer]: + Adicionar
+        - generic [ref=f2e128]:
+          - generic [ref=f2e129] [cursor=pointer]: Sobre o cliente
+          - generic [ref=f2e133]:
+            - paragraph [ref=f2e134]: Sem informação cadastrada.
+            - button "Editar" [disabled] [ref=f2e135]
+        - generic [ref=f2e138]:
+          - generic [ref=f2e139] [cursor=pointer]: Notas internas
+          - generic [ref=f2e143]:
+            - paragraph [ref=f2e257]: Nenhuma nota ainda
+            - textbox "Nota interna" [ref=f2e144]:
+              - /placeholder: Adicionar nota interna…
+            - button "Nova nota" [ref=f2e145] [cursor=pointer]
+        - button "🗑 Apagar cliente (LGPD)" [ref=f2e260] [cursor=pointer]

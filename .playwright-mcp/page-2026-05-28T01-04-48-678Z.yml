@@ -1,0 +1,97 @@
+- generic [active] [ref=e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=e2]
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - generic "QA Sweep" [ref=e5] [cursor=pointer]: QS
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - generic [ref=e8]: QA Sweep
+          - generic "Conexão em tempo real" [ref=e9]
+        - generic [ref=e10]: Atendente · Bolshoi
+      - generic [ref=e11]:
+        - button "Menções" [ref=e13] [cursor=pointer]:
+          - img [ref=e14]
+        - button "Configurações" [ref=e16] [cursor=pointer]:
+          - img [ref=e17]
+    - generic [ref=e21]:
+      - img
+      - button "@" [ref=e22] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=e23]:
+        - /placeholder: Buscar…
+    - generic [ref=e24] [cursor=pointer]:
+      - generic [ref=e25]: 0 Aguardando
+      - generic [ref=e26]: 0 Atendendo
+      - generic [ref=e27]: 4 Com bot
+    - generic [ref=e28]:
+      - button "Todas" [ref=e29] [cursor=pointer]
+      - button "Aguardando" [ref=e30] [cursor=pointer]
+      - button "Meus" [ref=e31] [cursor=pointer]
+      - button "Bot" [ref=e32] [cursor=pointer]
+    - generic [ref=e33]:
+      - generic [ref=e34]: "Status:"
+      - button "Abertas" [ref=e35] [cursor=pointer]
+      - button "Pendentes" [ref=e36] [cursor=pointer]
+      - button "Resolvidas" [ref=e37] [cursor=pointer]
+      - button "Adiadas" [ref=e38] [cursor=pointer]
+      - button "Todas" [ref=e39] [cursor=pointer]
+    - generic [ref=e40]:
+      - generic [ref=e127] [cursor=pointer]:
+        - generic [ref=e128]: OA
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Otavio Augusto
+            - generic [ref=e132]: 39min
+          - generic [ref=e133]: queria marcar um corte e tudo mais
+      - generic [ref=e134] [cursor=pointer]:
+        - generic [ref=e135]: J
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - generic [ref=e138]: João
+            - generic [ref=e139]: 12/04
+          - generic [ref=e140]: quais os serviços e preços?
+    - generic [ref=e81]:
+      - generic [ref=e84]: Conectado
+      - button "Silenciar" [ref=e85] [cursor=pointer]:
+        - img [ref=e86]
+  - main [ref=e88]:
+    - generic [ref=e89]:
+      - button "Ver conversas" [ref=e90] [cursor=pointer]:
+        - img [ref=e91]
+        - text: Ver conversas
+      - img [ref=e93]
+      - generic [ref=e95]: Nenhuma conversa selecionada
+      - generic [ref=e96]: Escolha uma conversa ao lado para começar
+    - generic [ref=e97]: Sessao expirando em 0:38 — salve seu trabalho e faca login novamente.
+    - complementary [ref=e98]:
+      - generic [ref=e99]:
+        - heading "Informações" [level=3] [ref=e100]
+        - button "Fechar painel de informações" [ref=e101] [cursor=pointer]:
+          - img [ref=e102]
+      - generic [ref=e104]:
+        - generic [ref=e106]:
+          - generic:
+            - heading [level=4]
+            - paragraph
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - paragraph [ref=e110]: Cliente desde
+            - paragraph
+          - generic [ref=e111]:
+            - paragraph [ref=e112]: Última atividade
+            - paragraph
+          - generic [ref=e113]:
+            - paragraph [ref=e114]: Mensagens
+            - paragraph
+          - generic [ref=e115]:
+            - paragraph [ref=e116]: Atend. humanos
+            - paragraph
+        - paragraph [ref=e118]: STATUS
+        - generic [ref=e120]:
+          - paragraph [ref=e121]: ETIQUETAS
+          - button "+ Adicionar" [ref=e122] [cursor=pointer]
+        - generic [ref=e123]:
+          - paragraph [ref=e124]: NOTAS INTERNAS
+          - textbox "Nota interna" [ref=e125]:
+            - /placeholder: Adicionar nota interna…
+          - button "Salvar nota" [ref=e126] [cursor=pointer]

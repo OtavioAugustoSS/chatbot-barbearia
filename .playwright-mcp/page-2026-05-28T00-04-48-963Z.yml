@@ -1,0 +1,31 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - img [ref=e4]
+    - heading "Barbearia Bolshoi" [level=1] [ref=e9]
+    - paragraph [ref=e10]: Painel de Atendimento WhatsApp
+    - list [ref=e11]:
+      - listitem [ref=e12]:
+        - img [ref=e14]
+        - text: Atendimento em tempo real via WhatsApp
+      - listitem [ref=e16]:
+        - img [ref=e18]
+        - text: Handoff seguro entre bot e atendentes
+      - listitem [ref=e20]:
+        - img [ref=e22]
+        - text: Histórico completo de conversas
+  - generic [ref=e26]:
+    - heading "Entrar" [level=2] [ref=e27]
+    - paragraph [ref=e28]: Acesse o painel de atendimento
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]: Usuário
+        - img
+        - textbox "Usuário" [active] [ref=e32]
+      - generic [ref=e33]:
+        - generic [ref=e34]: Senha
+        - img
+        - textbox "Senha" [ref=e35]
+        - button "Mostrar senha" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+      - button "Entrar" [ref=e40] [cursor=pointer]:
+        - generic [ref=e41]: Entrar

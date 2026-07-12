@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bolshoi · Atendimento — Concept (Minimal)</title>
+
+<!--
+  ════════════════════════════════════════════════════════════════════════
+  CONCEPT MOCKUP — "Bolshoi · Minimal"
+  Standalone, self-contained, sample data only. NO backend wiring.
+  Direction: refined minimalism, modern, faithful to the CURRENT system.
+    · Plus Jakarta Sans + Geist Mono (the stack already in production)
+    · monochrome charcoal + a single electric-blue accent
+    · flat surfaces, hairline borders, generous negative space
+    · quiet motion — meaningful signals only (live SSE pulse)
+  The expressive "Night Console" variant lives in _concept-console.html.
+  ════════════════════════════════════════════════════════════════════════
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ══════════════════════════════════════════════════════════════════════
+   TOKENS — calm charcoal ramp (neighbours the production palette) + 1 accent
+   ══════════════════════════════════════════════════════════════════════ */
+:root {
+  --body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+
+  --bg:        #15161A;   /* app base    — matches production */
+  --surface:   #1C1D22;   /* side panels — matches production */
+  --surface-2: #212329;   /* cards / inputs */
+  --raise:     #272930;   /* hover */
+  --chat:      #131419;   /* chat canvas — a touch deeper for calm contrast */
+
+  --line:      #26282F;   /* hairline */
+  --line-soft: #1F2127;   /* near-invisible divider */
+  --line-mut:  #2F323A;   /* stronger hairline */
+
+  /* Gray ramp tuned so every step used for TEXT clears WCAG AA (≥4.5:1)
+     on the darkest surface it lands on. --t4 is non-text only (separators). */
+  --t1: #E8EAEE;  /* primary   — ~13:1 */
+  --t2: #A6AAB3;  /* secondary — ~6.8:1 */
+  --t3: #8A8E98;  /* muted     — ~4.8:1 (floor for readable text) */
+  --t4: #54575F;  /* faint     — separators / dividers ONLY, never text */
+
+  /* Single accent — electric blue (exact production hue) */
+  --acc:      #3B6BDF;
+  --acc-deep: #2F58CC;   /* one step darker — for white-text fills (você bubble) so body + timestamp clear AA */
+  --acc-text: #6E96EE;   /* brighter for small text/icons on dark */
+  --acc-tint: rgba(59,107,223,0.10);
+  --acc-line: rgba(59,107,223,0.26);
+
+  /* Quiet semantics */
+  --green:      #2BA77B;
+  --green-text: #46C699;
+  --green-tint: rgba(43,167,123,0.10);
+  --green-line: rgba(43,167,123,0.24);
+  --amber:      #D6A346;
+  --amber-text: #E6B860;
+  --amber-tint: rgba(214,163,70,0.11);
+  --amber-line: rgba(214,163,70,0.26);
+  --red:        #DB6868;
+
+  --r:    10px;   /* one consistent radius */
+  --r-sm: 7px;
+  --r-full: 999px;
+
+  /* Motion — durations by purpose + a single ease-out curve (no bounce/elastic) */
+  --dur-1: 90ms;    /* press / instant feedback (<100ms feels instant) */
+  --dur-2: 150ms;   /* hover, color, fades */
+  --dur-3: 240ms;   /* selection slide, larger state changes */
+  --ease-out: cubic-bezier(.22, 1, .36, 1);  /* ease-out-quint */
+  --ease: var(--ease-out);  /* alias — used by the bubIn keyframe */
+}
+
+/* ── reset / base ───────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+::selection { background: var(--acc-tint); color: var(--t1); }
+
+/* Keyboard focus — visible on every interactive element (WCAG 2.4.7) */
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 8px; }
+input:focus-visible, textarea:focus-visible { outline: none; }  /* these signal focus via ring below */
+
+html, body { height: 100%; }
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--t1);
+  line-height: 1.5;
+  font-variant-numeric: lining-nums tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+h1,h2,h3,h4 { font-weight: 600; letter-spacing: -.01em; line-height: 1.2; }
+.mono { font-family: var(--mono); }
+.eyebrow {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500;
+  letter-spacing: .18em; text-transform: uppercase; color: var(--t3);
+}
+
+#shell { display: grid; grid-template-columns: 368px 1fr; height: 100vh; }
+
+.scroll::-webkit-scrollbar { width: 8px; }
+.scroll::-webkit-scrollbar-thumb { background: var(--line-mut); border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+.scroll::-webkit-scrollbar-thumb:hover { background: #3a3d46; background-clip: padding-box; }
+.scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   SIDEBAR
+   ══════════════════════════════════════════════════════════════════════ */
+#side {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  position: relative; z-index: 1;
+  box-shadow: 2px 0 18px -10px rgba(0,0,0,.5);
+}
+
+/* brand */
+.brandbar { display: flex; align-items: center; gap: 12px; padding: 18px 18px 16px; }
+.glyph {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid var(--acc-line);
+  background: linear-gradient(150deg, #243559 0%, #191d27 72%);
+  display: grid; place-items: center;
+  font-weight: 700; font-size: 15px; color: #cdd9f7;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 2px 10px -2px rgba(36,53,89,.55);
+}
+.brand-words { flex: 1; min-width: 0; }
+.brand-name {
+  font-size: 18px; font-weight: 700; letter-spacing: -.025em; color: var(--t1); line-height: 1;
+  display: flex; align-items: center; gap: 5px;
+}
+.brand-name i { width: 4px; height: 4px; border-radius: 50%; background: var(--acc); display: inline-block; }
+.brand-sub { margin-top: 6px; }
+
+.ico-row { display: flex; align-items: center; gap: 1px; }
+.ico {
+  position: relative; width: 32px; height: 32px; border-radius: 8px;
+  display: grid; place-items: center; cursor: pointer;
+  color: var(--t3); background: transparent; border: none;
+  transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.ico:hover { background: var(--raise); color: var(--t1); }
+.ico:active { transform: scale(.9); background: var(--line-mut); }
+.ico svg { width: 16px; height: 16px; }
+.ico .badge-dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--red); border: 1.5px solid var(--surface); }
+.op-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-left: 4px;
+  display: grid; place-items: center; font-weight: 600; font-size: 11px; color: #fff;
+  background: var(--acc); position: relative; cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.3), inset 0 -5px 8px -5px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.3);
+}
+.op-avatar .presence { position: absolute; bottom: -1px; right: -1px; width: 9px; height: 9px; border-radius: 50%; background: var(--green); border: 2px solid var(--surface); }
+
+/* operator line */
+.op-line { display: flex; align-items: baseline; gap: 8px; padding: 0 18px 16px; border-bottom: 1px solid var(--line-soft); }
+.op-line .who { font-size: 12.5px; font-weight: 600; color: var(--t2); }
+.op-line .role { font-family: var(--mono); font-size: 10px; color: var(--t3); }
+
+/* search */
+.search-row { padding: 16px 16px 6px; }
+.search {
+  display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 12px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.22);
+  transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+.search:focus-within { border-color: var(--acc-line); box-shadow: inset 0 1px 2px rgba(0,0,0,.22), 0 0 0 3px var(--acc-tint); }
+.search svg { width: 14px; height: 14px; color: var(--t3); flex-shrink: 0; }
+.search .mode { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--t3); background: transparent; border: 1px solid var(--line-mut); border-radius: 5px; padding: 2px 7px; cursor: pointer; flex-shrink: 0; white-space: nowrap; transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.search .mode:hover { background: var(--raise); color: var(--t2); }
+.search .mode:active { transform: scale(.94); background: var(--line-mut); }
+.search input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: var(--t1); font-size: 13px; font-family: var(--body); }
+.search input::placeholder { color: var(--t3); }
+
+/* filter tabs — plain text + 2px underline (the per-state counts live in the tab badges,
+   replacing the old hero-metric number grid) */
+.tabs { position: relative; display: flex; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.tab {
+  position: relative; flex: 1; padding: 11px 4px 13px; border: none; background: none;
+  font-size: 12px; font-weight: 500; color: var(--t3); cursor: pointer;
+  transition: color var(--dur-2) var(--ease-out), background var(--dur-1) var(--ease-out);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.tab:hover { color: var(--t2); }
+.tab:active { background: var(--surface-2); }
+.tab.on { color: var(--t1); font-weight: 600; }
+.tab .cnt { font-family: var(--mono); font-size: 9.5px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px; background: var(--raise); color: var(--t2); display: inline-grid; place-items: center; transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
+.tab.on .cnt { background: var(--acc-tint); color: var(--acc-text); }
+.tab[data-f="aguardando"]:not(.on) .cnt { background: var(--amber-tint); color: var(--amber-text); }
+.tab-ink { position: absolute; bottom: -1px; height: 2px; background: var(--acc); border-radius: 2px 2px 0 0; transition: left var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out); }
+
+/* status chips */
+.statusrow { display: flex; align-items: center; gap: 4px; padding: 10px 16px; border-bottom: 1px solid var(--line-soft); }
+.statusrow .lbl { font-size: 11px; color: var(--t3); margin-right: 4px; }
+.chip { font-size: 11.5px; font-weight: 500; padding: 3px 10px; border-radius: var(--r-full); background: transparent; color: var(--t3); border: 1px solid transparent; cursor: pointer; transition: color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.chip:hover { color: var(--t1); background: var(--surface-2); }
+.chip:active { transform: scale(.95); }
+/* selected reads as the accent — consistent with active tab/conversation */
+.chip.on { color: var(--acc-text); background: var(--acc-tint); border-color: var(--acc-line); }
+.chip.on:hover { color: var(--acc-text); background: var(--acc-tint); }
+
+/* conversation list */
+.conv-list { flex: 1; min-height: 0; overflow-y: auto; }
+.conv { position: relative; display: flex; gap: 13px; padding: 14px 16px; cursor: pointer; border-bottom: 1px solid var(--line-soft); transition: background var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.conv:hover { background: var(--surface-2); }
+.conv:active { background: var(--raise); }
+/* Selected row: distinct accent-tinted fill + full hairline ring (no side-stripe) */
+.conv.active { background: var(--acc-tint); box-shadow: inset 0 0 0 1px var(--acc-line), 0 4px 16px -5px rgba(59,107,223,.26); }
+
+.av { position: relative; width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; font-weight: 600; font-size: 14px; color: #fff; box-shadow: inset 0 6px 9px -7px rgba(255,255,255,.45), inset 0 -7px 9px -6px rgba(0,0,0,.34), inset 0 0 0 1px rgba(255,255,255,.06), 0 2px 6px rgba(0,0,0,.34); }
+/* dot-only status indicator — no glyph; color + title/aria-label carry meaning,
+   reinforced by the row's wait-pill (actionable) and the thread header on open */
+.av-badge { position: absolute; bottom: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2.5px solid var(--surface); }
+.av-badge.bot { background: var(--green); }
+.av-badge.wait { background: var(--amber); }
+.av-badge.human { background: var(--acc); }
+.av-badge.other { background: var(--t3); }
+.av-badge.done { background: var(--t4); }
+.conv.active .av-badge { border-color: #1F2535; }  /* matches acc-tint over surface */
+
+.conv-body { flex: 1; min-width: 0; }
+.conv-top { display: flex; align-items: baseline; gap: 8px; }
+.conv-name { font-size: 13.5px; font-weight: 600; color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.conv-time { font-family: var(--mono); font-size: 10px; color: var(--t3); flex-shrink: 0; }
+.conv:not(.unread) .conv-name { font-weight: 500; color: var(--t2); }
+.conv-preview { font-size: 12px; color: var(--t2); margin-top: 3px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.conv.unread .conv-preview { color: var(--t1); }
+.conv-meta { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.tag { font-family: var(--mono); font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: var(--r-full); display: inline-flex; align-items: center; gap: 4px; background: var(--surface); color: var(--t2); border: 1px solid var(--line-mut); }
+.tag.vip   { color: var(--amber-text); border-color: var(--amber-line); }
+.tag.green { color: var(--green-text); border-color: var(--green-line); }
+.tag.pink  { color: #D98AB6; border-color: rgba(217,138,182,.26); }
+.tag svg { width: 11px; height: 11px; flex-shrink: 0; }
+.wait-pill { font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; padding: 2px 8px; border-radius: var(--r-full); background: transparent; color: var(--amber-text); border: 1px solid var(--amber-line); display: inline-flex; align-items: center; gap: 5px; }
+.wait-pill .blink { width: 5px; height: 5px; border-radius: 50%; background: var(--amber); animation: pulseDot 1.8s ease-in-out infinite; }
+.unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); flex-shrink: 0; margin-left: auto; }
+
+/* footer */
+.side-foot { display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-top: 1px solid var(--line); flex-shrink: 0; }
+.side-foot .conn { flex: 1; display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--t2); }
+.conn .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: livePulse 2.6s ease-out infinite; }
+.conn .mono { font-family: var(--mono); font-size: 10px; color: var(--t3); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   CHAT
+   ══════════════════════════════════════════════════════════════════════ */
+#chat { display: flex; flex-direction: column; min-height: 0;
+  background: radial-gradient(130% 90% at 50% -10%, #191c24 0%, var(--chat) 60%); }
+
+/* thread header — floats above the canvas */
+.thead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--line); position: relative; z-index: 2; box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px -10px rgba(0,0,0,.5); }
+.thead-id { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.thead-id .row1 { display: flex; align-items: baseline; gap: 11px; }
+.thead-name { font-size: 16px; font-weight: 700; letter-spacing: -.02em; color: var(--t1); }
+.thead-phone { font-family: var(--mono); font-size: 11px; color: var(--t3); position: relative; padding-left: 13px; }
+.thead-phone::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 3px; border-radius: 50%; background: var(--t4); }
+.thead-status { display: flex; align-items: center; gap: 8px; }
+.st-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--acc); }
+.st-dot.live { animation: livePulse 2.8s ease-out infinite; }
+.thead-status .txt { font-size: 12px; color: var(--t2); }
+.thead-status .time { font-family: var(--mono); font-size: 11px; color: var(--t3); }
+.thead-status .time::before { content: '·'; margin: 0 7px; color: var(--t4); }
+
+.thead-actions { display: flex; align-items: center; gap: 7px; }
+.btn { font-family: var(--body); font-size: 12.5px; font-weight: 500; cursor: pointer; border-radius: var(--r); padding: 8px 13px; border: 1px solid var(--line-mut); background: var(--surface-2); color: var(--t2); display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.btn:hover { background: var(--raise); color: var(--t1); border-color: var(--t4); }
+.btn:active { transform: scale(.975); background: var(--line-mut); }
+.btn svg { width: 14px; height: 14px; }
+.btn-warn { color: var(--amber-text); border-color: var(--amber-line); background: transparent; }
+.btn-warn:hover { background: var(--amber-tint); color: var(--amber-text); }
+.btn-icon { width: 36px; height: 36px; padding: 0; justify-content: center; }
+
+/* messages */
+.msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 0 10px; }
+.msgs-inner { max-width: 720px; width: 100%; margin: 0 auto; padding: 0 28px; display: flex; flex-direction: column; gap: 8px; }
+.daydiv { display: flex; align-items: center; justify-content: center; margin: 6px 0 16px; }
+.daydiv span { font-size: 11px; font-weight: 500; color: var(--t3); }
+.sys { align-self: center; text-align: center; font-size: 11.5px; color: var(--t3); margin: 12px 0; display: inline-flex; align-items: center; gap: 7px; }
+.sys svg { width: 13px; height: 13px; color: var(--t3); }
+.sys b { color: var(--acc-text); font-weight: 600; }
+
+.bub { position: relative; max-width: 72%; padding: 9px 13px 8px; border-radius: 13px; font-size: 14px; line-height: 1.46; text-wrap: pretty; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.bub.is-new { animation: bubIn .26s var(--ease) both; }  /* entrance for newly-arrived messages only */
+.bub .lab { font-size: 11px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 5px; }
+.bub .lab svg { width: 11px; height: 11px; }
+.bub .meta { font-family: var(--mono); font-size: 10px; float: right; margin: 5px 0 0 10px; line-height: 1; display: inline-flex; align-items: center; gap: 3px; }
+
+/* incoming — neutral surface, left */
+.bub.in { align-self: flex-start; background: var(--surface-2); color: var(--t1); border: 1px solid var(--line); }
+.bub.in .lab { color: var(--t3); }
+.bub.in .meta { color: var(--t3); }
+
+/* bot — quiet green-tinted surface, right */
+.bub.bot { align-self: flex-end; background: var(--green-tint); color: #DCEFE7; border: 1px solid var(--green-line); }
+.bub.bot .lab { color: var(--green-text); }
+.bub.bot .meta { color: var(--t3); }
+
+/* você — the single accent moment: flat solid blue, right */
+.bub.you { align-self: flex-end; background: var(--acc-deep); color: #fff; }
+.bub.you .lab { color: rgba(255,255,255,.9); }
+.bub.you .meta { color: rgba(255,255,255,.9); }
+.tick { width: 13px; height: 13px; }
+
+/* composer */
+.composer { flex-shrink: 0; padding: 14px 24px 18px; background: var(--surface); border-top: 1px solid var(--line); position: relative; z-index: 2; box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 -8px 24px -12px rgba(0,0,0,.45); }
+.composer-inner { max-width: 720px; margin: 0 auto; }
+.ctools { display: flex; align-items: center; gap: 1px; margin-bottom: 9px; }
+.ctool { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--t3); cursor: pointer; display: grid; place-items: center; transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.ctool:hover { background: var(--surface-2); color: var(--t1); }
+.ctool:active { transform: scale(.9); background: var(--raise); }
+.ctool svg { width: 16px; height: 16px; }
+.ctools .sp { flex: 1; }
+.ctool.help { font-family: var(--mono); font-weight: 600; font-size: 13px; }
+
+.cinput { display: flex; align-items: flex-end; gap: 11px; }
+.field { flex: 1; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 11px 15px; color: var(--t1); font-family: var(--body); font-size: 14px; line-height: 1.5; resize: none; outline: none; max-height: 120px; overflow-y: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,.22); transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.field:focus { border-color: var(--acc-line); box-shadow: inset 0 1px 2px rgba(0,0,0,.22), 0 0 0 3px var(--acc-tint); }
+.field::placeholder { color: var(--t3); }
+.charc { font-family: var(--mono); font-size: 10px; color: var(--t3); align-self: center; min-width: 30px; text-align: right; }
+.send { width: 44px; height: 44px; border-radius: 50%; border: none; flex-shrink: 0; cursor: pointer; display: grid; place-items: center; color: var(--t3); background: var(--surface-2); transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.send svg { width: 17px; height: 17px; transition: transform var(--dur-2) var(--ease-out); }
+/* charged (has text): the one moment the primary accent + a soft glow appear */
+.send.on { background: var(--acc); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 2px 10px rgba(59,107,223,.32); }
+.send.on:hover { background: #4a78e8; transform: translateY(-1px); box-shadow: 0 5px 16px rgba(59,107,223,.42); }
+.send.on:hover svg { transform: translateX(1px); }
+.send:active { transform: scale(.9); }
+.send.on:active { transform: scale(.9) translateY(0); box-shadow: 0 2px 8px rgba(59,107,223,.3); }
+
+/* ── keyframes (sparse, meaningful) ─────────────────────────────────── */
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(43,167,123,.40); } 65% { box-shadow: 0 0 0 4px rgba(43,167,123,0); } 100% { box-shadow: 0 0 0 0 rgba(43,167,123,0); } }
+/* smooth breathing dot — replaces the old hard steps() blink */
+@keyframes pulseDot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.66); } }
+@keyframes bubIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+/* Product UI loads straight into the task — no orchestrated page-load.
+   The only motion is state feedback: hover, focus, send-charge, the live
+   SSE pulse, and bubble entrance for genuinely new messages (.is-new). */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+
+<body>
+<div id="shell">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside id="side">
+
+    <div class="brandbar">
+      <div class="glyph">B</div>
+      <div class="brand-words">
+        <div class="brand-name">Bolshoi <i></i></div>
+        <div class="brand-sub eyebrow">Atendimento</div>
+      </div>
+      <div class="ico-row">
+        <button class="ico" title="Menções"><span class="badge-dot"></span>
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"/></svg>
+        </button>
+        <button class="ico" title="Configurações">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+        </button>
+        <button class="ico" title="Sair">
+          <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75"/></svg>
+        </button>
+        <div class="op-avatar" title="Camila Ferraz">C<span class="presence"></span></div>
+      </div>
+    </div>
+
+    <div class="op-line">
+      <span class="who">Camila Ferraz</span>
+      <span class="role mono">operadora</span>
+    </div>
+
+    <div class="search-row">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <button class="mode" style="display:inline-flex;align-items:center;gap:2px;">Contato<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="9" height="9" style="flex-shrink:0;" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        <input type="text" placeholder="Buscar conversas…">
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-f="todas">Todos</button>
+      <button class="tab" data-f="aguardando">Aguardando <span class="cnt">3</span></button>
+      <button class="tab" data-f="meus">Meus <span class="cnt">2</span></button>
+      <button class="tab" data-f="bot">Bot <span class="cnt">14</span></button>
+      <span class="tab-ink"></span>
+    </div>
+
+    <div class="statusrow">
+      <button class="chip on">Abertas</button>
+      <button class="chip">Pendentes</button>
+      <button class="chip">Resolvidas</button>
+      <button class="chip">Adiadas</button>
+    </div>
+
+    <div class="conv-list scroll" id="conv-list">
+
+      <div class="conv unread">
+        <div class="av" style="background:#C77A45">R<span class="av-badge wait" role="img" title="Aguardando atendimento" aria-label="Aguardando atendimento"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Rafael Mendes</span><span class="conv-time">14:36</span></div>
+          <div class="conv-preview">Bom dia! Queria marcar um corte pra amanhã de tarde, tem horário com o Léo?</div>
+          <div class="conv-meta"><span class="wait-pill"><span class="blink"></span>aguardando · 2 min</span><span class="tag green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.768 3.75 3.75 0 0 1-3.75 3.75 1.875 1.875 0 0 1 0-3.75h3.266a1.875 1.875 0 0 0 1.875-1.875l-.625-3.375m4.982 4.232 1.536-.887m-1.536.887a3 3 0 1 0 5.196-3 3 3 0 0 0-5.196 3Zm-1.536-.887a2.165 2.165 0 0 0-1.083-1.768 3.75 3.75 0 0 0-3.75-3.75 1.875 1.875 0 0 0 0 3.75h3.266a1.875 1.875 0 0 1 1.875 1.875l-.625 3.375"/></svg>corte</span><span class="unread-dot"></span></div>
+        </div>
+      </div>
+
+      <div class="conv unread active">
+        <div class="av" style="background:#A85AA8">J<span class="av-badge human" role="img" title="Em atendimento com você" aria-label="Em atendimento com você"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Júlia Andrade</span><span class="conv-time">14:35</span></div>
+          <div class="conv-preview">Perfeito, obrigada! Até sábado 😊</div>
+          <div class="conv-meta"><span class="tag vip">vip</span><span class="tag pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>noiva</span></div>
+        </div>
+      </div>
+
+      <div class="conv">
+        <div class="av" style="background:#3B6BDF">C<span class="av-badge bot" role="img" title="Bot ativo" aria-label="Bot ativo"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Carlos Eduardo</span><span class="conv-time">14:20</span></div>
+          <div class="conv-preview">Show, o bot já respondeu certinho sobre o horário. Valeu!</div>
+          <div class="conv-meta"><span class="tag green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.768 3.75 3.75 0 0 1-3.75 3.75 1.875 1.875 0 0 1 0-3.75h3.266a1.875 1.875 0 0 0 1.875-1.875l-.625-3.375m4.982 4.232 1.536-.887m-1.536.887a3 3 0 1 0 5.196-3 3 3 0 0 0-5.196 3Zm-1.536-.887a2.165 2.165 0 0 0-1.083-1.768 3.75 3.75 0 0 0-3.75-3.75 1.875 1.875 0 0 0 0 3.75h3.266a1.875 1.875 0 0 1 1.875 1.875l-.625 3.375"/></svg>barba</span></div>
+        </div>
+      </div>
+
+      <div class="conv unread">
+        <div class="av" style="background:#2E9E80">M<span class="av-badge bot" role="img" title="Bot ativo" aria-label="Bot ativo"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Marina Costa</span><span class="conv-time">13:58</span></div>
+          <div class="conv-preview">Vocês fazem progressiva? Qual o valor e quanto tempo demora?</div>
+          <div class="conv-meta"><span class="tag pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/></svg>estética</span><span class="unread-dot"></span></div>
+        </div>
+      </div>
+
+      <div class="conv">
+        <div class="av" style="background:#6B7280">T<span class="av-badge other" role="img" title="Atendida por outro operador" aria-label="Atendida por outro operador"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Thiago Barros</span><span class="conv-time">13:40</span></div>
+          <div class="conv-preview">Tô chegando aí em 10 min!</div>
+          <div class="conv-meta"><span class="tag">Fred</span></div>
+        </div>
+      </div>
+
+      <div class="conv">
+        <div class="av" style="background:#4459C0">P<span class="av-badge bot" role="img" title="Bot ativo" aria-label="Bot ativo"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Pedro Henrique</span><span class="conv-time">12:15</span></div>
+          <div class="conv-preview">Quanto tá o combo corte + barba esse mês?</div>
+          <div class="conv-meta"><span class="tag green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.768 3.75 3.75 0 0 1-3.75 3.75 1.875 1.875 0 0 1 0-3.75h3.266a1.875 1.875 0 0 0 1.875-1.875l-.625-3.375m4.982 4.232 1.536-.887m-1.536.887a3 3 0 1 0 5.196-3 3 3 0 0 0-5.196 3Zm-1.536-.887a2.165 2.165 0 0 0-1.083-1.768 3.75 3.75 0 0 0-3.75-3.75 1.875 1.875 0 0 0 0 3.75h3.266a1.875 1.875 0 0 1 1.875 1.875l-.625 3.375"/></svg>combo</span></div>
+        </div>
+      </div>
+
+      <div class="conv">
+        <div class="av" style="background:#565B66">L<span class="av-badge done" role="img" title="Conversa encerrada" aria-label="Conversa encerrada"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">Lucas Oliveira</span><span class="conv-time">11:50</span></div>
+          <div class="conv-preview">Obrigado, resolvido! 👍</div>
+          <div class="conv-meta"><span class="tag">resolvida</span></div>
+        </div>
+      </div>
+
+      <div class="conv">
+        <div class="av" style="background:#B98438">A<span class="av-badge bot" role="img" title="Bot ativo" aria-label="Bot ativo"></span></div>
+        <div class="conv-body">
+          <div class="conv-top"><span class="conv-name">André Souza</span><span class="conv-time">11:30</span></div>
+          <div class="conv-preview">Bom dia, qual o horário de funcionamento no sábado?</div>
+          <div class="conv-meta"><span class="tag green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 1 1-5.196-3 3 3 0 0 1 5.196 3Zm1.536.887a2.165 2.165 0 0 1 1.083 1.768 3.75 3.75 0 0 1-3.75 3.75 1.875 1.875 0 0 1 0-3.75h3.266a1.875 1.875 0 0 0 1.875-1.875l-.625-3.375m4.982 4.232 1.536-.887m-1.536.887a3 3 0 1 0 5.196-3 3 3 0 0 0-5.196 3Zm-1.536-.887a2.165 2.165 0 0 0-1.083-1.768 3.75 3.75 0 0 0-3.75-3.75 1.875 1.875 0 0 0 0 3.75h3.266a1.875 1.875 0 0 1 1.875 1.875l-.625 3.375"/></svg>corte</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="side-foot">
+      <div class="conn"><span class="dot"></span> Tempo real ativo <span class="mono">· SSE</span></div>
+      <button class="ico" title="Silenciar">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ════════════ CHAT ════════════ -->
+  <main id="chat">
+
+    <header class="thead">
+      <div class="av" style="width:42px;height:42px;font-size:15px;background:#A85AA8">J</div>
+      <div class="thead-id">
+        <div class="row1">
+          <span class="thead-name">Júlia Andrade</span>
+          <span class="thead-phone mono">+55 38 99641-2278</span>
+        </div>
+        <div class="thead-status">
+          <span class="st-dot live"></span>
+          <span class="txt">Com você</span>
+          <span class="time mono">há 1 min · assumida 14:24</span>
+        </div>
+      </div>
+      <div class="thead-actions">
+        <button class="btn btn-warn" title="Silencia o bot nesta conversa. Você assume o atendimento. Use 'Devolver ao bot' quando terminar.">
+          <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          Pausar bot
+        </button>
+        <button class="btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+          Devolver ao bot
+        </button>
+        <button class="btn">Status <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg></button>
+        <button class="btn btn-icon" title="Etiquetar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
+        </button>
+        <button class="btn btn-icon" title="Informações do cliente">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="msgs scroll">
+      <div class="msgs-inner">
+
+        <div class="daydiv"><span>Hoje · 14 jun</span></div>
+
+        <div class="bub in">
+          <div class="lab">Júlia</div>
+          Oi! Vi no Instagram que vocês têm pacote de noiva. Como funciona? 💍
+          <span class="meta">14:21</span>
+        </div>
+
+        <div class="bub bot">
+          <div class="lab"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 5V3"/></svg>Bot</div>
+          Olá, Júlia! 💆‍♀️ O pacote noiva inclui penteado, maquiagem e uma prova prévia com a Isabella. O agendamento é feito pelo app AppBarber. Quer que eu te passe o link?
+          <span class="meta">14:21</span>
+        </div>
+
+        <div class="bub in">
+          <div class="lab">Júlia</div>
+          Quero sim! E consigo falar com a Isabella sobre os detalhes?
+          <span class="meta">14:23</span>
+        </div>
+
+        <div class="bub bot">
+          <div class="lab"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="10" height="8" rx="2"/><path d="M8 5V3"/></svg>Bot</div>
+          Claro! Vou te transferir para uma atendente que pode falar sobre a agenda da Isabella. Um instante 🙋
+          <span class="meta">14:23</span>
+        </div>
+
+        <div class="sys">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Júlia pediu atendimento humano · <b>você assumiu às 14:24</b>
+        </div>
+
+        <div class="bub you">
+          <div class="lab">Você</div>
+          Oi Júlia, aqui é a Camila 💙 A Isabella tem disponibilidade na próxima semana pra prova. Qual a data do casamento?
+          <span class="meta">14:25 <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12l4.5 4.5L19 7"/></svg></span>
+        </div>
+
+        <div class="bub in">
+          <div class="lab">Júlia</div>
+          Dia 12 de julho! 🥹
+          <span class="meta">14:33</span>
+        </div>
+
+        <div class="bub you">
+          <div class="lab">Você</div>
+          Que lindo! Vou reservar a prova pra você. Te mando os horários da Isabella ainda hoje, tá bom?
+          <span class="meta">14:34 <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12l4.5 4.5L19 7"/></svg></span>
+        </div>
+
+        <div class="bub in">
+          <div class="lab">Júlia</div>
+          Perfeito, obrigada! Até sábado 😊
+          <span class="meta">14:35</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="ctools">
+          <button class="ctool" title="Anexar"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+          <button class="ctool" title="Respostas rápidas ( / )"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/></svg></button>
+          <button class="ctool" title="Emoji"><svg fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm4.875 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Z"/></svg></button>
+          <span class="sp"></span>
+          <button class="ctool help" title="Atalhos &amp; ajuda">?</button>
+        </div>
+        <div class="cinput">
+          <textarea class="field" id="field" rows="1" placeholder="Digite uma mensagem ou /comando…">Combinado, Júlia! Já te encaminho as opções de horário da Isabella ainda hoje 💙</textarea>
+          <span class="charc" id="charc">71</span>
+          <button class="send on" id="send"><svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+/* filter tab underline */
+const tabs = document.getElementById('tabs'), ink = tabs.querySelector('.tab-ink');
+function moveInk(btn){ ink.style.left = btn.offsetLeft + 'px'; ink.style.width = btn.offsetWidth + 'px'; }
+tabs.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  tabs.querySelectorAll('.tab').forEach(x => x.classList.remove('on')); t.classList.add('on'); moveInk(t);
+}));
+window.addEventListener('load', () => moveInk(tabs.querySelector('.tab.on')));
+window.addEventListener('resize', () => moveInk(tabs.querySelector('.tab.on')));
+
+/* conversation selection — pointer + keyboard (rows act as buttons) */
+function selectConv(c){
+  document.querySelectorAll('.conv').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); });
+  c.classList.add('active'); c.setAttribute('aria-selected', 'true');
+}
+document.querySelectorAll('.conv').forEach(c => {
+  c.tabIndex = 0;
+  c.setAttribute('role', 'option');
+  c.setAttribute('aria-selected', c.classList.contains('active') ? 'true' : 'false');
+  c.addEventListener('click', () => selectConv(c));
+  c.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectConv(c); }
+  });
+});
+document.getElementById('conv-list').setAttribute('role', 'listbox');
+document.getElementById('conv-list').setAttribute('aria-label', 'Conversas');
+
+/* status chips */
+document.querySelectorAll('.statusrow .chip').forEach(c => c.addEventListener('click', () => {
+  document.querySelectorAll('.statusrow .chip').forEach(x => x.classList.remove('on')); c.classList.add('on');
+}));
+
+/* composer: autosize + counter + send state */
+const field = document.getElementById('field'), charc = document.getElementById('charc'), send = document.getElementById('send');
+function syncField(){
+  field.style.height = 'auto'; field.style.height = Math.min(field.scrollHeight, 120) + 'px';
+  const n = field.value.length; charc.textContent = n; send.classList.toggle('on', n > 0);
+}
+field.addEventListener('input', syncField);
+window.addEventListener('load', syncField);
+</script>
+</body>
+</html>

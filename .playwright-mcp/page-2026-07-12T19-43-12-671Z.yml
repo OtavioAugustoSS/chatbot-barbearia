@@ -1,0 +1,121 @@
+- generic [active] [ref=f8e1]:
+  - region
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=f8e2]
+  - navigation "Navegação principal" [ref=f8e3]:
+    - img "Barbearia Bolshoi" [ref=f8e5]
+    - button "Conversas" [ref=f8e6] [cursor=pointer]
+    - button "Menções" [ref=f8e9] [cursor=pointer]
+    - link "Simulador WhatsApp (dev)" [ref=f8e12] [cursor=pointer]:
+      - /url: /dev/simulador
+    - link "Configurações" [ref=f8e17] [cursor=pointer]:
+      - /url: /static/admin/settings.html
+    - button "Alternar tema claro/escuro" [ref=f8e21] [cursor=pointer]
+    - button "Silenciar notificações" [ref=f8e24] [cursor=pointer]
+    - generic [ref=f8e27]:
+      - generic "Admin Demo" [ref=f8e28]: AD
+      - generic "Conexão em tempo real" [ref=f8e29]
+    - button "Sair do sistema" [ref=f8e30] [cursor=pointer]
+  - complementary [ref=f8e33]:
+    - generic [ref=f8e34]:
+      - heading "Conversas" [level=2] [ref=f8e35]
+      - generic [ref=f8e36]: Admin Demo
+    - generic [ref=f8e38]:
+      - button "Contato" [ref=f8e39] [cursor=pointer]
+      - textbox "Buscar conversas" [ref=f8e42]:
+        - /placeholder: Buscar…
+    - generic [ref=f8e43]:
+      - button "Aguardando atendimento humano" [ref=f8e44] [cursor=pointer]:
+        - generic [ref=f8e45]: "1"
+        - generic [ref=f8e46]: aguardando
+      - generic [ref=f8e47]: ·
+      - button "Em atendimento humano" [ref=f8e48] [cursor=pointer]:
+        - generic [ref=f8e49]: "0"
+        - generic [ref=f8e50]: atendendo
+      - generic [ref=f8e51]: ·
+      - button "Conversas com bot ativo" [ref=f8e52] [cursor=pointer]:
+        - generic [ref=f8e53]: "1"
+        - generic [ref=f8e54]: com bot
+    - generic [ref=f8e55]:
+      - button "Todas as conversas" [ref=f8e56] [cursor=pointer]: Todos
+      - button "Conversas aguardando humano" [ref=f8e57] [cursor=pointer]:
+        - text: Aguardando
+        - generic [ref=f8e58]: "1"
+      - button "Minhas conversas" [ref=f8e59] [cursor=pointer]: Meus
+      - button "Conversas com bot ativo" [ref=f8e60] [cursor=pointer]:
+        - text: Bot
+        - generic [ref=f8e61]: "1"
+    - generic [ref=f8e63]:
+      - generic [ref=f8e64]: "Status:"
+      - button "Abertas" [ref=f8e65] [cursor=pointer]
+      - button "Pendentes" [ref=f8e66] [cursor=pointer]
+      - button "Resolvidas" [ref=f8e67] [cursor=pointer]
+      - button "Adiadas" [ref=f8e68] [cursor=pointer]
+      - button "Todas" [ref=f8e69] [cursor=pointer]
+    - generic [ref=f8e70]:
+      - generic [ref=f8e71] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f8e72]:
+          - generic [ref=f8e73]: CM
+          - img "Aguardando atendimento" [ref=f8e74]
+        - generic [ref=f8e75]:
+          - generic [ref=f8e76]:
+            - generic [ref=f8e77]: Carlos Mendes
+            - generic [ref=f8e78]: 1h
+          - generic [ref=f8e79]: MENU_RECEPCAO
+          - generic [ref=f8e82]: Aguardando 115min
+      - generic [ref=f8e84] [cursor=pointer]:
+        - generic "Clique para selecionar" [ref=f8e85]:
+          - generic [ref=f8e86]: RS
+          - img "Bot ativo" [ref=f8e87]
+        - generic [ref=f8e88]:
+          - generic [ref=f8e89]:
+            - generic [ref=f8e90]: Rafael Souza
+            - generic [ref=f8e91]: 1h
+          - generic [ref=f8e92]: que horas abre?
+    - generic [ref=f8e95]:
+      - generic [ref=f8e97]: Conectado
+      - generic [ref=f8e98]: SSE
+  - main [ref=f8e99]:
+    - generic [ref=f8e100]:
+      - paragraph [ref=f8e103]: Selecione uma conversa
+      - generic [ref=f8e104]: Escolha uma conversa na lista para iniciar o atendimento
+    - complementary [ref=f8e105]:
+      - generic [ref=f8e106]:
+        - heading "Informações" [level=3] [ref=f8e107]
+        - button "Fechar painel de informações" [ref=f8e108] [cursor=pointer]
+      - generic [ref=f8e111]:
+        - generic [ref=f8e112]:
+          - heading [level=3]
+          - generic [ref=f8e115]:
+            - button "Copiar telefone" [ref=f8e116] [cursor=pointer]
+            - button "Abrir no WhatsApp" [ref=f8e119] [cursor=pointer]
+            - button "Fechar painel" [ref=f8e122] [cursor=pointer]
+        - generic [ref=f8e125]:
+          - generic [ref=f8e126] [cursor=pointer]: Estatísticas
+          - generic [ref=f8e131]:
+            - generic [ref=f8e132]:
+              - generic [ref=f8e133]: —
+              - generic [ref=f8e134]: Mensagens
+            - generic [ref=f8e135]:
+              - generic [ref=f8e136]: —
+              - generic [ref=f8e137]: Atend. humanos
+            - generic [ref=f8e138]:
+              - generic [ref=f8e139]: —
+              - generic [ref=f8e140]: 1º contato
+            - generic [ref=f8e141]:
+              - generic [ref=f8e142]: —
+              - generic [ref=f8e143]: Último contato
+        - generic [ref=f8e144]: Status
+        - generic [ref=f8e149]:
+          - generic [ref=f8e150] [cursor=pointer]: Tags
+          - button "Adicionar etiqueta" [ref=f8e156] [cursor=pointer]: + Adicionar
+        - generic [ref=f8e157]:
+          - generic [ref=f8e158] [cursor=pointer]: Sobre o cliente
+          - generic [ref=f8e162]:
+            - paragraph [ref=f8e163]: Sem informação cadastrada.
+            - button "Editar" [disabled] [ref=f8e164]
+        - generic [ref=f8e167]:
+          - generic [ref=f8e168] [cursor=pointer]: Notas internas
+          - generic [ref=f8e172]:
+            - textbox "Nota interna" [ref=f8e173]:
+              - /placeholder: Adicionar nota interna…
+            - button "Nova nota" [ref=f8e174] [cursor=pointer]

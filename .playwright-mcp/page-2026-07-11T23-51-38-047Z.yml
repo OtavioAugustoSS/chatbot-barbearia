@@ -1,0 +1,23 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - img "Barbearia Bolshoi" [ref=f1e4]
+    - paragraph [ref=f1e5]: Atendimento WhatsApp
+    - generic [ref=f1e6]:
+      - paragraph [ref=f1e7]: O bot lida com 80% das mensagens. Você lida com os 20% que importam.
+      - generic [ref=f1e8]: — Painel de operadores Bolshoi
+    - generic [ref=f1e9]: v0.4.0 · Unaí, MG · Online
+  - generic [ref=f1e13]:
+    - heading "Entrar" [level=2] [ref=f1e14]
+    - paragraph [ref=f1e15]: Acesse o painel de atendimento
+    - generic [ref=f1e16]:
+      - generic [ref=f1e17]:
+        - generic [ref=f1e18]: Usuário
+        - textbox "Usuário" [active] [ref=f1e19]
+      - generic [ref=f1e20]:
+        - generic [ref=f1e21]: Senha
+        - textbox "Senha" [ref=f1e22]
+        - button "Mostrar senha" [ref=f1e23] [cursor=pointer]
+      - button "Entrar" [ref=f1e27] [cursor=pointer]
+    - generic [ref=f1e29]:
+      - generic [ref=f1e30]: Não tem conta? Contate o gerente.
+      - generic [ref=f1e31]: SISTEMA OK

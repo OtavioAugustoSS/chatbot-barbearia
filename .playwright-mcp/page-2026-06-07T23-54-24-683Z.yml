@@ -1,0 +1,120 @@
+- generic [active] [ref=e1]:
+  - region:
+    - generic [ref=e2]: Erro ao carregar conversas (404)
+  - heading "Painel de Atendimento — Barbearia Bolshoi" [level=1] [ref=e4]
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - img "Bolshoi" [ref=e8]
+      - heading "Conversas" [level=2] [ref=e9]
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - generic "Camila Ferraz" [ref=e12] [cursor=pointer]: CF
+          - generic "Conexão em tempo real" [ref=e13]
+        - button "Menções" [ref=e15] [cursor=pointer]:
+          - img [ref=e16]
+        - button "Configurações" [ref=e18] [cursor=pointer]:
+          - img [ref=e19]
+        - button "Sair do sistema" [ref=e22] [cursor=pointer]:
+          - img [ref=e23]
+    - generic [ref=e27]: Camila Ferraz
+    - generic [ref=e29]:
+      - img
+      - button "Contato" [ref=e30] [cursor=pointer]:
+        - text: Contato
+        - img [ref=e31]
+      - textbox "Buscar conversas" [ref=e33]:
+        - /placeholder: Buscar…
+    - generic [ref=e34]:
+      - button "Todas as conversas" [ref=e35] [cursor=pointer]: Todos
+      - button "Conversas aguardando humano" [ref=e36] [cursor=pointer]: Aguardando
+      - button "Minhas conversas" [ref=e37] [cursor=pointer]: Meus
+      - button "Conversas com bot ativo" [ref=e38] [cursor=pointer]: Bot
+      - generic:
+        - generic: Reconectando...
+    - generic [ref=e39]:
+      - generic [ref=e40]: "Status:"
+      - button "Abertas" [ref=e41] [cursor=pointer]
+      - button "Pendentes" [ref=e42] [cursor=pointer]
+      - button "Resolvidas" [ref=e43] [cursor=pointer]
+      - button "Adiadas" [ref=e44] [cursor=pointer]
+      - button "Todas" [ref=e45] [cursor=pointer]
+    - generic [ref=e73]:
+      - generic [ref=e76]: Reconectando…
+      - button "Silenciar" [ref=e77] [cursor=pointer]:
+        - img [ref=e78]
+  - main [ref=e80]:
+    - generic [ref=e81]:
+      - img [ref=e82]
+      - paragraph [ref=e84]: Selecione uma conversa
+      - generic [ref=e85]: Escolha uma conversa na lista para iniciar o atendimento
+    - generic [ref=e86]:
+      - generic:
+        - heading [level=3]
+      - generic [ref=e90]: ·
+      - generic [ref=e91]:
+        - button "Status" [ref=e93] [cursor=pointer]:
+          - generic [ref=e94]: Status
+          - img [ref=e95]
+        - button "Marcar conversa" [ref=e98] [cursor=pointer]:
+          - img [ref=e99]
+        - button "Informações do cliente" [ref=e102] [cursor=pointer]:
+          - img [ref=e103]
+    - complementary [ref=e105]:
+      - generic [ref=e106]:
+        - heading "Informações" [level=3] [ref=e107]
+        - button "Fechar painel de informações" [ref=e108] [cursor=pointer]:
+          - img [ref=e109]
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - heading [level=3]
+          - generic [ref=e115]:
+            - button "Copiar telefone" [ref=e116] [cursor=pointer]:
+              - img [ref=e117]
+            - button "Abrir no WhatsApp" [ref=e119] [cursor=pointer]:
+              - img [ref=e120]
+            - button "Fechar painel" [ref=e122] [cursor=pointer]:
+              - img [ref=e123]
+        - generic [ref=e125]:
+          - generic [ref=e126] [cursor=pointer]:
+            - generic [ref=e127]: Estatísticas
+            - img [ref=e128]
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - generic [ref=e133]: —
+              - generic [ref=e134]: Mensagens
+            - generic [ref=e135]:
+              - generic [ref=e136]: —
+              - generic [ref=e137]: Atend. humanos
+            - generic [ref=e138]:
+              - generic [ref=e139]: —
+              - generic [ref=e140]: 1º contato
+            - generic [ref=e141]:
+              - generic [ref=e142]: —
+              - generic [ref=e143]: Último contato
+        - generic [ref=e145] [cursor=pointer]:
+          - generic [ref=e146]: Status
+          - img [ref=e147]
+        - generic [ref=e150]:
+          - generic [ref=e151] [cursor=pointer]:
+            - generic [ref=e152]: Tags
+            - img [ref=e153]
+          - button "Adicionar etiqueta" [ref=e157] [cursor=pointer]: + Adicionar
+        - generic [ref=e158]:
+          - generic [ref=e159] [cursor=pointer]:
+            - generic [ref=e160]: Sobre o cliente
+            - img [ref=e161]
+          - generic [ref=e163]:
+            - paragraph [ref=e164]: Sem informação cadastrada.
+            - button "Editar" [disabled] [ref=e165]:
+              - img [ref=e166]
+              - text: Editar
+        - generic [ref=e168]:
+          - generic [ref=e169] [cursor=pointer]:
+            - generic [ref=e170]: Notas internas
+            - img [ref=e171]
+          - generic [ref=e173]:
+            - textbox "Nota interna" [ref=e174]:
+              - /placeholder: Adicionar nota interna…
+            - button "Nova nota" [ref=e175] [cursor=pointer]:
+              - img [ref=e176]
+              - text: Nova nota
